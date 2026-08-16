@@ -1,0 +1,231 @@
+<Template>
+  <WidgetGroup>
+    <ObjectName>Levels</ObjectName>
+    <Layout>vertical</Layout>
+    <SizePolicy>me,me</SizePolicy>
+    <Children>
+
+      <Label>
+        <ObjectName>SettingsHeader</ObjectName>
+        <Text>Output (dB)</Text>
+        <Size>0me,20f</Size>
+      </Label>
+
+      <WidgetGroup>
+        <ObjectName>LevelRow</ObjectName>
+        <Layout>horizontal</Layout>
+        <SizePolicy>me,min</SizePolicy>
+        <Children>
+          <Template src="skin:templates/level_knob.xml">
+            <SetVariable name="Label">Master</SetVariable>
+            <SetVariable name="ConfigKey">[Master],gain</SetVariable>
+          </Template>
+          <Template src="skin:templates/level_knob.xml">
+            <SetVariable name="Label">Booth</SetVariable>
+            <SetVariable name="ConfigKey">[Master],booth_gain</SetVariable>
+          </Template>
+          <Template src="skin:templates/level_knob.xml">
+            <SetVariable name="Label">Phones</SetVariable>
+            <SetVariable name="ConfigKey">[Master],headGain</SetVariable>
+          </Template>
+
+          <!-- Reset rides as a fourth column rather than its own row: the
+               420px-floor budget (60 topbar + 80 decks + two knob rows +
+               two headers) has no room for a third full-height row.
+               Spacers above/below hold the button on the knobs' baseline. -->
+          <WidgetGroup>
+            <ObjectName>LevelReset</ObjectName>
+            <Layout>vertical</Layout>
+            <SizePolicy>me,min</SizePolicy>
+            <Children>
+              <WidgetGroup>
+                <Size>0me,16f</Size>
+              </WidgetGroup>
+              <PushButton>
+                <ObjectName>SettingsActionButton</ObjectName>
+                <Size>0me,44f</Size>
+                <NumberStates>1</NumberStates>
+                <State>
+                  <Number>0</Number>
+                  <Text>0 dB</Text>
+                </State>
+                <!-- All three pots default to unity (ControlAudioTaperPot
+                     forces defaultValue 1.0), so one tap returns every bus
+                     to 0 dB.
+
+                     ConnectValueToWidget=false on every connection because
+                     `_set_default` is a state, not a trigger:
+                     PotmeterControls::setIsDefault holds it at 1.0 for as
+                     long as the pot sits at its default, and a 1-state
+                     WPushButton mirrors its control's value into the
+                     `pressed` property. Left connected, the button paints
+                     permanently held at unity and releases once you move a
+                     gain — backwards. Cutting the control→widget direction
+                     leaves `pressed` driven by actual taps; the outbound
+                     write is unaffected. -->
+
+                <Connection>
+                  <ConfigKey>[Master],gain_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[Master],booth_gain_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[Master],headGain_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+              </PushButton>
+              <WidgetGroup>
+                <Size>0me,16f</Size>
+              </WidgetGroup>
+            </Children>
+          </WidgetGroup>
+
+        </Children>
+      </WidgetGroup>
+
+      <!-- Master output EQ. EffectsManager::setup() hardwires the 8-band
+           Graphic EQ into [OutputEffectRack_[Master]_Effect1], so each
+           knob is one band's gain in dB. -->
+      <Label>
+        <ObjectName>SettingsHeader</ObjectName>
+        <Text>Master EQ (dB)</Text>
+        <Size>0me,20f</Size>
+      </Label>
+
+      <WidgetGroup>
+        <ObjectName>EQBandRow</ObjectName>
+        <Layout>horizontal</Layout>
+        <SizePolicy>me,min</SizePolicy>
+        <Children>
+          <Template src="skin:templates/eq_band.xml">
+            <SetVariable name="Label">45</SetVariable>
+            <SetVariable name="param">1</SetVariable>
+          </Template>
+          <Template src="skin:templates/eq_band.xml">
+            <SetVariable name="Label">100</SetVariable>
+            <SetVariable name="param">2</SetVariable>
+          </Template>
+          <Template src="skin:templates/eq_band.xml">
+            <SetVariable name="Label">220</SetVariable>
+            <SetVariable name="param">3</SetVariable>
+          </Template>
+          <Template src="skin:templates/eq_band.xml">
+            <SetVariable name="Label">500</SetVariable>
+            <SetVariable name="param">4</SetVariable>
+          </Template>
+          <Template src="skin:templates/eq_band.xml">
+            <SetVariable name="Label">1.1k</SetVariable>
+            <SetVariable name="param">5</SetVariable>
+          </Template>
+          <Template src="skin:templates/eq_band.xml">
+            <SetVariable name="Label">2.5k</SetVariable>
+            <SetVariable name="param">6</SetVariable>
+          </Template>
+          <Template src="skin:templates/eq_band.xml">
+            <SetVariable name="Label">5.5k</SetVariable>
+            <SetVariable name="param">7</SetVariable>
+          </Template>
+          <Template src="skin:templates/eq_band.xml">
+            <SetVariable name="Label">12k</SetVariable>
+            <SetVariable name="param">8</SetVariable>
+          </Template>
+
+          <!-- Ninth column, same spacer sandwich as the output row's reset. -->
+          <WidgetGroup>
+            <ObjectName>EQBandReset</ObjectName>
+            <Layout>vertical</Layout>
+            <SizePolicy>me,min</SizePolicy>
+            <Children>
+              <WidgetGroup>
+                <Size>0me,16f</Size>
+              </WidgetGroup>
+              <!-- One tap returns every band to 0 dB via the potmeters'
+                   _set_default companions; all plain connections on a
+                   push button fire together on press. ConnectValueToWidget
+                   is false for the same reason as the 0 dB button above. -->
+              <PushButton>
+                <ObjectName>SettingsActionButton</ObjectName>
+                <Size>0me,44f</Size>
+                <NumberStates>1</NumberStates>
+                <State>
+                  <Number>0</Number>
+                  <Text>Flat</Text>
+                </State>
+                <Connection>
+                  <ConfigKey>[OutputEffectRack_[Master]_Effect1],parameter1_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[OutputEffectRack_[Master]_Effect1],parameter2_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[OutputEffectRack_[Master]_Effect1],parameter3_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[OutputEffectRack_[Master]_Effect1],parameter4_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[OutputEffectRack_[Master]_Effect1],parameter5_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[OutputEffectRack_[Master]_Effect1],parameter6_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[OutputEffectRack_[Master]_Effect1],parameter7_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[OutputEffectRack_[Master]_Effect1],parameter8_set_default</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                </Connection>
+              </PushButton>
+              <WidgetGroup>
+                <Size>0me,16f</Size>
+              </WidgetGroup>
+            </Children>
+          </WidgetGroup>
+
+        </Children>
+      </WidgetGroup>
+
+      <WidgetGroup>
+        <ObjectName>SettingsSpacer</ObjectName>
+        <Size>0me,0me</Size>
+      </WidgetGroup>
+
+      <WidgetGroup>
+        <ObjectName>Decks</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,80max</Size>
+        <Children>
+          <Template src="skin:deck.xml">
+            <SetVariable name="channel">1</SetVariable>
+          </Template>
+          <Template src="skin:deck.xml">
+            <SetVariable name="channel">2</SetVariable>
+          </Template>
+        </Children>
+      </WidgetGroup>
+
+    </Children>
+  </WidgetGroup>
+</Template>

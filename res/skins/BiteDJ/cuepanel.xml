@@ -1,0 +1,67 @@
+<!--
+  The bottom row of the Overview: normally the two deck strips, and when the
+  cue drawer is opened, the pads for one deck in their place.
+
+  This is one WidgetStack whose page 0 *is* the deck strips, so "closed" is a
+  page rather than a hidden widget. Tapping a deck's CUE chip writes that
+  deck's trigger ([Skin],cue_deck1 / cue_deck2), which both selects the deck
+  and opens the drawer in a single press; the drawer's X writes
+  [Skin],cue_close to go back to page 0. That is the same select-only trigger
+  pattern as the FX / KEY tabs, and it avoids needing a button that writes two
+  controls at once.
+
+  Closed costs nothing but the chips in the deck headers. The drawer only ever
+  covers the deck strips, which are readouts — the waveforms, which are not,
+  stay put. Every page is sized 150max like the Decks group it replaces, so
+  the waveform row above does not resize when the drawer opens
+  (WWidgetStack forwards its minimumSizeHint to the current page).
+
+  [Skin],cue_bank selects which bank the pads address (0 hot, 1 memory) and is
+  shared by both deck pages, so the bank survives switching decks. None of
+  these controls are persisted: the drawer opens closed, on hot cues.
+-->
+<Template>
+  <WidgetStack currentpage="[Skin],cue_panel">
+    <ObjectName>CuePanel_Stack</ObjectName>
+    <Size>0me,150max</Size>
+    <Children>
+
+      <WidgetGroup trigger="[Skin],cue_close">
+        <ObjectName>Decks</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,150max</Size>
+        <Children>
+          <Template src="skin:deck.xml">
+            <SetVariable name="channel">1</SetVariable>
+          </Template>
+          <Template src="skin:deck.xml">
+            <SetVariable name="channel">2</SetVariable>
+          </Template>
+        </Children>
+      </WidgetGroup>
+
+      <WidgetGroup trigger="[Skin],cue_deck1">
+        <ObjectName>CuePanel</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,150max</Size>
+        <Children>
+          <Template src="skin:templates/cue_deck_page.xml">
+            <SetVariable name="channel">1</SetVariable>
+          </Template>
+        </Children>
+      </WidgetGroup>
+
+      <WidgetGroup trigger="[Skin],cue_deck2">
+        <ObjectName>CuePanel</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,150max</Size>
+        <Children>
+          <Template src="skin:templates/cue_deck_page.xml">
+            <SetVariable name="channel">2</SetVariable>
+          </Template>
+        </Children>
+      </WidgetGroup>
+
+    </Children>
+  </WidgetStack>
+</Template>

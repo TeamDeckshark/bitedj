@@ -1,0 +1,346 @@
+<!--
+  The Overview panel to the right of the waveforms. Two pages behind an
+  FX / KEY tab bar, so both control sets get the full panel instead of
+  sharing it:
+
+  FX  — single-column BeatFX for [EffectRack1_EffectUnit1_Effect1]. The
+        header pins the effect picker, deck routing, mix meter, and
+        Active toggle; the rows below expose the loaded Beats-typed
+        (bucket) parameters via templates/effect_param_row.xml. Rows
+        whose parameter{N}_loaded == 0 — or whose parameter is non-Beats
+        and not opted in via [Skin],beatfx_show_param{N} in mixxx.cfg —
+        collapse so the list packs from the top.
+
+  KEY — one stacked block per deck (deck 1 top, deck 2 bottom) with the
+        current key, +/-2 semitone nudges, and a reset (see
+        templates/keyfx_deck_row.xml).
+
+  [FxPanel],current selects the page; [FxPanel],fx / [FxPanel],key are
+  the per-page triggers the tab buttons write. All three are created by
+  the skin parser. Not persisted — the panel opens on FX every launch.
+-->
+<Template>
+  <WidgetGroup>
+    <ObjectName>BeatFX_Container</ObjectName>
+    <Layout>vertical</Layout>
+    <Size>180max,0me</Size>
+    <Children>
+
+      <WidgetGroup>
+        <ObjectName>FxPanel_TabBar</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,36f</Size>
+        <Children>
+          <!-- Select-only, not toggles: always emit 1 on press (never 0),
+               so tapping the already-active tab is a no-op. -->
+          <PushButton>
+            <ObjectName>FxPanel_TabFx</ObjectName>
+            <Size>0me,36f</Size>
+            <NumberStates>2</NumberStates>
+            <State>
+              <Number>0</Number>
+              <Text>FX</Text>
+            </State>
+            <State>
+              <Number>1</Number>
+              <Text>FX</Text>
+            </State>
+            <LeftClickIsPushButton>true</LeftClickIsPushButton>
+            <Connection>
+              <ConfigKey>[FxPanel],fx</ConfigKey>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+          </PushButton>
+          <PushButton>
+            <ObjectName>FxPanel_TabKey</ObjectName>
+            <Size>0me,36f</Size>
+            <NumberStates>2</NumberStates>
+            <State>
+              <Number>0</Number>
+              <Text>Key</Text>
+            </State>
+            <State>
+              <Number>1</Number>
+              <Text>Key</Text>
+            </State>
+            <LeftClickIsPushButton>true</LeftClickIsPushButton>
+            <Connection>
+              <ConfigKey>[FxPanel],key</ConfigKey>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+          </PushButton>
+        </Children>
+      </WidgetGroup>
+
+      <!--
+        Ignored vertical policy on purpose. WWidgetStack forwards its
+        minimumSizeHint to the *current* page, so pages of unequal height
+        re-drive the Overview's vertical layout on every switch: the FX page
+        (140px header + a parameter row) asks for more than KEY, which stole
+        ~5px off the deck strip and made the bottom of the screen jump
+        between FX and KEY — and again whenever an effect with a bucket row
+        was loaded. Ignored drops the stack out of the minimum-height
+        calculation, so this 180px side panel is sized purely by the
+        waveform column beside it. Pages are AlignTop, so content that
+        outgrows the panel packs from the top instead of shoving the rest of
+        the layout around.
+      -->
+      <WidgetStack currentpage="[FxPanel],current">
+        <ObjectName>FxPanel_Stack</ObjectName>
+        <SizePolicy>me,i</SizePolicy>
+        <Children>
+
+          <WidgetGroup trigger="[FxPanel],fx">
+            <ObjectName>FxPanel_Page</ObjectName>
+            <Layout>vertical</Layout>
+            <SizePolicy>me,me</SizePolicy>
+            <Children>
+
+              <WidgetGroup>
+                <ObjectName>BeatFX_Header</ObjectName>
+                <Layout>vertical</Layout>
+                <Size>0me,140f</Size>
+                <Children>
+
+                  <EffectSelector>
+                    <ObjectName>EffectSelector</ObjectName>
+                    <EffectRack>1</EffectRack>
+                    <EffectUnit>1</EffectUnit>
+                    <Effect>1</Effect>
+                    <Elide>right</Elide>
+                    <Size>0me,32f</Size>
+                  </EffectSelector>
+
+                  <WidgetGroup>
+                    <ObjectName>BeatFX_DeckRouting</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,44f</Size>
+                    <Children>
+                      <PushButton>
+                        <ObjectName>BeatFX_DeckAssign1</ObjectName>
+                        <Size>0me,44f</Size>
+                        <NumberStates>2</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>1</Text>
+                        </State>
+                        <State>
+                          <Number>1</Number>
+                          <Text>1</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[EffectRack1_EffectUnit1],group_[Channel1]_enable</ConfigKey>
+                          <ConnectValueToWidget>true</ConnectValueToWidget>
+                        </Connection>
+                      </PushButton>
+                      <PushButton>
+                        <ObjectName>BeatFX_DeckAssign2</ObjectName>
+                        <Size>0me,44f</Size>
+                        <NumberStates>2</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>2</Text>
+                        </State>
+                        <State>
+                          <Number>1</Number>
+                          <Text>2</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[EffectRack1_EffectUnit1],group_[Channel2]_enable</ConfigKey>
+                          <ConnectValueToWidget>true</ConnectValueToWidget>
+                        </Connection>
+                      </PushButton>
+                    </Children>
+                  </WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>BeatFX_WetRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,16f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>BeatFX_MixLabel</ObjectName>
+                        <Text>Mix</Text>
+                        <Size>28f,me</Size>
+                      </Label>
+                      <VuMeter>
+                        <ObjectName>BeatFX_MixMeter</ObjectName>
+                        <Size>0me,10f</Size>
+                        <PathBack scalemode="STRETCH">icons/effect_meter_bg.png</PathBack>
+                        <PathVu scalemode="STRETCH">icons/effect_meter_fg.png</PathVu>
+                        <Horizontal>true</Horizontal>
+                        <PeakHoldSize>0</PeakHoldSize>
+                        <PeakHoldTime>0</PeakHoldTime>
+                        <PeakFallTime>0</PeakFallTime>
+                        <PeakFallStep>0</PeakFallStep>
+                        <Connection>
+                          <ConfigKey>[EffectRack1_EffectUnit1],mix</ConfigKey>
+                        </Connection>
+                      </VuMeter>
+                    </Children>
+                  </WidgetGroup>
+
+                  <PushButton>
+                    <ObjectName>BeatFX_ActiveToggle</ObjectName>
+                    <Size>0me,28f</Size>
+                    <NumberStates>2</NumberStates>
+                    <State>
+                      <Number>0</Number>
+                      <Text>Off</Text>
+                    </State>
+                    <State>
+                      <Number>1</Number>
+                      <Text>Active</Text>
+                    </State>
+                    <Connection>
+                      <ConfigKey>[EffectRack1_EffectUnit1_Effect1],enabled</ConfigKey>
+                      <ConnectValueToWidget>true</ConnectValueToWidget>
+                    </Connection>
+                  </PushButton>
+
+                </Children>
+              </WidgetGroup>
+
+              <!--
+                Parameter rows. Mixxx allocates kDefaultMaxParameters (16) knob
+                parameter slots per effect; only Beats-typed (bucket) slots are
+                visible by default. Each row auto-hides when its
+                parameter{N}_loaded is 0 so simple effects don't leave gaps.
+              -->
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">1</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">2</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">3</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">4</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">5</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">6</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">7</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">8</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">9</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">10</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">11</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">12</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">13</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">14</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">15</SetVariable>
+              </Template>
+              <Template src="skin:templates/effect_param_row.xml">
+                <SetVariable name="rack">1</SetVariable>
+                <SetVariable name="unit">1</SetVariable>
+                <SetVariable name="effect">1</SetVariable>
+                <SetVariable name="param">16</SetVariable>
+              </Template>
+
+              <WidgetGroup>
+                <ObjectName>BeatFX_Spacer</ObjectName>
+                <Size>0me,0me</Size>
+              </WidgetGroup>
+
+            </Children>
+          </WidgetGroup>
+
+          <!--
+            KEY page: one block per deck, stacked. No shared "selected deck"
+            state exists in this skin, so each block targets its own
+            [ChannelN] controls.
+          -->
+          <WidgetGroup trigger="[FxPanel],key">
+            <ObjectName>FxPanel_Page</ObjectName>
+            <Layout>vertical</Layout>
+            <SizePolicy>me,me</SizePolicy>
+            <Children>
+
+              <Template src="skin:templates/keyfx_deck_row.xml">
+                <SetVariable name="channel">1</SetVariable>
+              </Template>
+              <Template src="skin:templates/keyfx_deck_row.xml">
+                <SetVariable name="channel">2</SetVariable>
+              </Template>
+
+              <WidgetGroup>
+                <ObjectName>BeatFX_Spacer</ObjectName>
+                <Size>0me,0me</Size>
+              </WidgetGroup>
+
+            </Children>
+          </WidgetGroup>
+
+        </Children>
+      </WidgetStack>
+
+    </Children>
+  </WidgetGroup>
+</Template>

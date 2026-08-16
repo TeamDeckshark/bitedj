@@ -1,0 +1,266 @@
+#pragma once
+
+#include <QObject>
+#include <QScopedPointer>
+#include <QSurfaceFormat>
+#include <QVector>
+#include <vector>
+
+#include "preferences/usersettings.h"
+#include "skin/legacy/skincontext.h"
+#include "util/performancetimer.h"
+#include "util/singleton.h"
+// VSyncThread must be a complete type here: it appears as a signal argument
+// (renderSpinnies/renderVuMeters), so moc instantiates its QMetaType. A mere
+// forward declaration trips GCC's -Wsfinae-incomplete when a later translation
+// unit completes the type after the metatype's completeness probe ran on it.
+#include "waveform/vsyncthread.h"
+#include "waveform/widgets/waveformwidgettype.h"
+
+class ControlObject;
+class WVuMeterLegacy;
+class WVuMeterBase;
+class WWaveformViewer;
+class WaveformWidgetAbstract;
+class GuiTick;
+class VisualsManager;
+
+class WaveformWidgetAbstractHandle {
+  public:
+    WaveformWidgetAbstractHandle();
+
+    WaveformWidgetType::Type getType() const { return m_type;}
+    QString getDisplayName() const { return m_displayString;}
+
+  private:
+    WaveformWidgetType::Type m_type;
+    QString m_displayString;
+
+    friend class WaveformWidgetFactory;
+};
+
+class WaveformWidgetHolder {
+  public:
+    WaveformWidgetHolder();
+    WaveformWidgetHolder(WaveformWidgetHolder&&) = default;
+    WaveformWidgetHolder& operator=(WaveformWidgetHolder&&) = default;
+  private:
+    WaveformWidgetHolder(
+            WaveformWidgetAbstract* waveformWidget,
+            WWaveformViewer* waveformViewer,
+            const QDomNode& skinNode,
+            const SkinContext& parentContext);
+
+    WaveformWidgetAbstract* m_waveformWidget;
+    WWaveformViewer* m_waveformViewer;
+    QDomNode m_skinNodeCache;
+    SkinContext m_skinContextCache;
+
+    friend class WaveformWidgetFactory;
+};
+
+//########################################
+
+class WaveformWidgetFactory : public QObject, public Singleton<WaveformWidgetFactory> {
+    Q_OBJECT
+  public:
+    //TODO merge this enum with the waveform analyzer one
+    enum FilterIndex { All = 0, Low = 1, Mid = 2, High = 3, FilterCount = 4};
+
+    bool setConfig(UserSettingsPointer config);
+
+    /// Creates the waveform widget using the type set with setWidgetType
+    /// and binds it to the viewer.
+    /// Deletes older widget and resets positions to config defaults.
+    bool setWaveformWidget(
+            WWaveformViewer* viewer,
+            const QDomElement &node,
+            const SkinContext& parentContext);
+
+    void setFrameRate(int frameRate);
+    int getFrameRate() const { return m_frameRate;}
+//    bool getVSync() const { return m_vSyncType;}
+    void setEndOfTrackWarningTime(int endTime);
+    int getEndOfTrackWarningTime() const { return m_endOfTrackWarningTime;}
+
+    bool isOpenGlAvailable() const { return m_openGlAvailable;}
+    bool isOpenGlesAvailable() const { return m_openGlesAvailable;}
+    QString getOpenGLVersion() const { return m_openGLVersion;}
+
+    bool isOpenGlShaderAvailable() const { return m_openGLShaderAvailable;}
+
+    /// Sets the widget type and saves it to configuration.
+    /// Returns false and sets EmtpyWaveform if type is invalid
+    bool setWidgetType(WaveformWidgetType::Type type);
+    /// Changes the widget type to that loaded from config and recreates them.
+    /// Used as a workaround on Windows due to a problem with GL and QT 5.14.2
+    bool setWidgetTypeFromConfig();
+    /// Changes the widget type and recreates them. Used from the preferences
+    /// dialog.
+    bool setWidgetTypeFromHandle(int handleIndex, bool force = false);
+    WaveformWidgetType::Type getType() const { return m_type;}
+    int getHandleIndex() {
+        return findHandleIndexFromType(m_type);
+    }
+    int findHandleIndexFromType(WaveformWidgetType::Type type);
+    bool widgetTypeSupportsUntilMark() const;
+    void setUntilMarkShowBeats(bool value);
+    void setUntilMarkShowTime(bool value);
+    void setUntilMarkAlign(Qt::Alignment align);
+    void setUntilMarkTextPointSize(int value);
+    void setUntilMarkTextHeightLimit(float value);
+
+    bool getUntilMarkShowBeats() const {
+        return m_untilMarkShowBeats;
+    }
+    bool getUntilMarkShowTime() const {
+        return m_untilMarkShowTime;
+    }
+    Qt::Alignment getUntilMarkAlign() const {
+        return m_untilMarkAlign;
+    }
+    int getUntilMarkTextPointSize() const {
+        return m_untilMarkTextPointSize;
+    }
+    float getUntilMarkTextHeightLimit() const {
+        return m_untilMarkTextHeightLimit;
+    }
+    static Qt::Alignment toUntilMarkAlign(int index);
+    static int toUntilMarkAlignIndex(Qt::Alignment align);
+    static float toUntilMarkTextHeightLimit(int index);
+    static int toUntilMarkTextHeightLimitIndex(float value);
+
+    /// Returns the desired surface format for the OpenGLWindow
+    static QSurfaceFormat getSurfaceFormat(UserSettingsPointer config = nullptr);
+
+  protected:
+    bool setWidgetType(
+            WaveformWidgetType::Type type,
+            WaveformWidgetType::Type* pCurrentType);
+
+  public:
+    void setDefaultZoom(double zoom);
+    double getDefaultZoom() const { return m_defaultZoom;}
+
+    void setZoomSync(bool sync);
+    int isZoomSync() const { return m_zoomSync;}
+
+    void setDisplayBeatGridAlpha(int alpha);
+    int getBeatGridAlpha() const { return m_beatGridAlpha; }
+
+    void setVisualGain(FilterIndex index, double gain);
+    double getVisualGain(FilterIndex index) const;
+
+    void setOverviewNormalized(bool normalize);
+    int isOverviewNormalized() const { return m_overviewNormalized;}
+
+    void setApplyEqToWaveform(bool apply);
+    bool isEqAppliedToWaveform() const {
+        return m_applyEqToWaveform;
+    }
+
+    const QVector<WaveformWidgetAbstractHandle>& getAvailableTypes() const {
+        return m_waveformWidgetHandles;
+    }
+    void getAvailableVSyncTypes(QList<QPair<int, QString>>* list);
+    void destroyWidgets();
+
+    void addVuMeter(WVuMeterLegacy* pWidget);
+    void addVuMeter(WVuMeterBase* pWidget);
+
+    void startVSync(GuiTick* pGuiTick, VisualsManager* pVisualsManager);
+
+    void setPlayMarkerPosition(double position);
+    double getPlayMarkerPosition() const { return m_playMarkerPosition; }
+
+    void notifyZoomChange(WWaveformViewer *viewer);
+
+    WaveformWidgetType::Type autoChooseWidgetType() const;
+
+  signals:
+    void waveformUpdateTick();
+    void waveformMeasured(float frameRate, int droppedFrames);
+    void renderSpinnies(VSyncThread*);
+    void swapSpinnies();
+    void renderVuMeters(VSyncThread*);
+    void swapVuMeters();
+
+    void overviewNormalizeChanged();
+    void overallVisualGainChanged();
+
+  public slots:
+    void slotSkinLoaded();
+
+  protected:
+    WaveformWidgetFactory();
+    virtual ~WaveformWidgetFactory();
+
+    friend class Singleton<WaveformWidgetFactory>;
+
+  private slots:
+    void render();
+    void swap();
+    void swapAndRender();
+    void slotFrameSwapped();
+    void slotSetWidgetTypeFromControl(double value);
+
+  private:
+    void renderSelf();
+    void swapSelf();
+
+    void evaluateWidgets();
+    template<typename WaveformT>
+    QString buildWidgetDisplayName() const;
+    WaveformWidgetAbstract* createWaveformWidget(WaveformWidgetType::Type type, WWaveformViewer* viewer);
+    int findIndexOf(WWaveformViewer* viewer) const;
+
+    WaveformWidgetType::Type findTypeFromHandleIndex(int index);
+    QString getDisplayNameFromType(WaveformWidgetType::Type type);
+
+    //All type of available widgets
+
+    QVector<WaveformWidgetAbstractHandle> m_waveformWidgetHandles;
+
+    //Currently in use widgets/visual/node
+    std::vector<WaveformWidgetHolder> m_waveformWidgetHolders;
+
+    WaveformWidgetType::Type m_type;
+    WaveformWidgetType::Type m_configType;
+
+    UserSettingsPointer m_config;
+
+    QScopedPointer<ControlObject> m_pCOWaveformType;
+    QScopedPointer<ControlObject> m_pCOApplyEqToWaveform;
+
+    bool m_skipRender;
+    int m_frameRate;
+    int m_endOfTrackWarningTime;
+    double m_defaultZoom;
+    bool m_zoomSync;
+    double m_visualGain[FilterCount];
+    bool m_overviewNormalized;
+    bool m_applyEqToWaveform;
+
+    bool m_untilMarkShowBeats;
+    bool m_untilMarkShowTime;
+    Qt::Alignment m_untilMarkAlign;
+    int m_untilMarkTextPointSize;
+    float m_untilMarkTextHeightLimit;
+
+    bool m_openGlAvailable;
+    bool m_openGlesAvailable;
+    QString m_openGLVersion;
+    bool m_openGLShaderAvailable;
+    int m_beatGridAlpha;
+
+    VSyncThread* m_vsyncThread;
+    GuiTick* m_pGuiTick;  // not owned
+    VisualsManager* m_pVisualsManager;  // not owned
+
+    //Debug
+    PerformanceTimer m_time;
+    float m_frameCnt;
+    double m_actualFrameRate;
+    int m_vSyncType;
+    double m_playMarkerPosition;
+};

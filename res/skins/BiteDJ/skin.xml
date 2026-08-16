@@ -1,0 +1,170 @@
+<skin>
+	<manifest>
+		<title>Bite DJ</title>
+		<author>Alyxxx Interactive LLC</author>
+		<version>1.0.0</version>
+		<description></description>
+		<language>*</language>
+		<license>GPL</license>
+		<attributes>
+			<attribute config_key="[App],num_decks">4</attribute>
+			<attribute config_key="[App],num_samplers">16</attribute>
+			<attribute persist="true" config_key="[Skin],show_maximized_library">0</attribute>
+			<attribute persist="true" config_key="[Master],skin_settings">0</attribute>
+			<attribute persist="true" config_key="[Skin],show_microphones">0</attribute>
+			<attribute persist="true" config_key="[VinylControl],show_vinylcontrol">0</attribute>
+			<attribute persist="true" config_key="[Skin],show_preview_decks">0</attribute>
+			<attribute persist="true" config_key="[Skin],show_library_coverart">0</attribute>
+			<attribute config_key="[Sidebar],sidebar_visible">1</attribute>
+		</attributes>
+	</manifest>
+
+	<ObjectName>Mixxx</ObjectName>
+	<Style src="skin:style.qss"/>
+	<MinimumSize>480,420</MinimumSize>
+	<SizePolicy>me,me</SizePolicy>
+	<Layout>vertical</Layout>
+
+	<LaunchImageStyle>
+      LaunchImage { background-color: #000 }
+	  QLabel {
+	    image: url(skin:/images/bitedj_logo.png);
+	    margin-bottom: 12px;
+        min-width: 522px;
+        min-height: 292px;
+        max-width: 522px;
+        max-height: 292px;
+	  }
+      QProgressBar {
+	    background-color: #a7a9ac;
+        max-height: 8px;
+	  }
+	  QProgressBar::chunk {
+	    background-color: #c9372c;
+	  }
+	</LaunchImageStyle>
+
+	<Children>
+		<SingletonDefinition>
+			<ObjectName>Topbar_Singleton</ObjectName>
+			<Children>
+				<Template src="skin:topbar.xml"/>
+			</Children>
+		</SingletonDefinition>
+		<SingletonDefinition>
+			<ObjectName>Overview_Singleton</ObjectName>
+			<Children>
+				<Template src="skin:overview.xml"/>
+			</Children>
+		</SingletonDefinition>
+		<SingletonDefinition>
+			<ObjectName>Library_Singleton</ObjectName>
+			<Children>
+				<Template src="skin:library.xml"/>
+			</Children>
+		</SingletonDefinition>
+		<SingletonDefinition>
+			<ObjectName>Samplers_Singleton</ObjectName>
+			<Children>
+				<Template src="skin:samplers.xml"/>
+			</Children>
+		</SingletonDefinition>
+		<SingletonDefinition>
+			<ObjectName>Levels_Singleton</ObjectName>
+			<Children>
+				<Template src="skin:levels.xml"/>
+			</Children>
+		</SingletonDefinition>
+		<SingletonDefinition>
+			<ObjectName>Settings_Singleton</ObjectName>
+			<Children>
+				<Template src="skin:settings.xml"/>
+			</Children>
+		</SingletonDefinition>
+
+		<WidgetGroup>
+			<ObjectName>SkinContainer</ObjectName>
+			<Layout>vertical</Layout>
+			<SizePolicy>me,me</SizePolicy>
+			<Children>
+				<WidgetGroup>
+					<Layout>vertical</Layout>
+					<SizePolicy>me,me</SizePolicy>
+					<Children>
+						<!-- Stacked so the strips overlay the topbar (first child
+						     is topmost) instead of reflowing the page below. -->
+						<WidgetGroup>
+							<ObjectName>TopbarStack</ObjectName>
+							<Layout>stacked</Layout>
+							<Size>0me,60f</Size>
+							<Children>
+								<NotificationStrip>
+									<ObjectName>NotificationStrip</ObjectName>
+									<SizePolicy>me,me</SizePolicy>
+									<Connection>
+										<ConfigKey>[Notifications],visible</ConfigKey>
+										<BindProperty>visible</BindProperty>
+									</Connection>
+								</NotificationStrip>
+								<WidgetGroup>
+									<ObjectName>SoftTakeoverStrip</ObjectName>
+									<Layout>horizontal</Layout>
+									<SizePolicy>me,me</SizePolicy>
+									<Children>
+										<WidgetGroup>
+											<Size>0me,0me</Size>
+										</WidgetGroup>
+										<Label>
+											<ObjectName>SoftTakeoverLabel</ObjectName>
+											<Text>MOVE CONTROL TO SYNC</Text>
+											<Size>60max,me</Size>
+										</Label>
+										<SoftTakeoverIndicator>
+											<ObjectName>SoftTakeoverArrow</ObjectName>
+											<Size>120max,me</Size>
+											<Color>#f15921</Color>
+										</SoftTakeoverIndicator>
+										<WidgetGroup>
+											<Size>0me,0me</Size>
+										</WidgetGroup>
+									</Children>
+									<Connection>
+										<ConfigKey>[SoftTakeover],active</ConfigKey>
+										<BindProperty>visible</BindProperty>
+									</Connection>
+								</WidgetGroup>
+								<SingletonContainer>
+									<ObjectName>Topbar_Singleton</ObjectName>
+								</SingletonContainer>
+							</Children>
+						</WidgetGroup>
+						<WidgetStack currentpage="[Tab],current">
+							<ObjectName>TabStack</ObjectName>
+							<Children>
+								<SingletonContainer trigger="[Tab],overview">
+									<ObjectName>Overview_Singleton</ObjectName>
+								</SingletonContainer>
+								<SingletonContainer trigger="[Tab],library" on_hide_select="0">
+									<ObjectName>Library_Singleton</ObjectName>
+								</SingletonContainer>
+								<SingletonContainer trigger="[Tab],samplers" on_hide_select="0">
+									<ObjectName>Samplers_Singleton</ObjectName>
+								</SingletonContainer>
+								<!-- Child order is load-bearing: ControllerSettings
+								     navigates to Settings by index (overview=0,
+								     library=1, samplers=2, levels=3, settings=4).
+								     Reorder here and that constant must move too. -->
+								<SingletonContainer trigger="[Tab],levels" on_hide_select="0">
+									<ObjectName>Levels_Singleton</ObjectName>
+								</SingletonContainer>
+								<SingletonContainer trigger="[Tab],settings" on_hide_select="0">
+									<ObjectName>Settings_Singleton</ObjectName>
+								</SingletonContainer>
+							</Children>
+						</WidgetStack>
+					</Children>
+				</WidgetGroup>
+			</Children>
+		</WidgetGroup>
+	</Children>
+</skin>

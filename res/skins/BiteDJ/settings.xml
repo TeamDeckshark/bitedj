@@ -1,0 +1,1023 @@
+<Template>
+  <WidgetGroup>
+    <ObjectName>Settings</ObjectName>
+    <Layout>vertical</Layout>
+    <SizePolicy>me,me</SizePolicy>
+    <Children>
+
+      <WidgetGroup>
+        <ObjectName>SettingsSubtabBar</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,40f</Size>
+        <Children>
+          <Template src="skin:templates/setting_subtab_button.xml">
+            <SetVariable name="Text">General</SetVariable>
+            <SetVariable name="ConfigKey">general</SetVariable>
+          </Template>
+          <Template src="skin:templates/setting_subtab_button.xml">
+            <SetVariable name="Text">Library</SetVariable>
+            <SetVariable name="ConfigKey">columns</SetVariable>
+          </Template>
+          <Template src="skin:templates/setting_subtab_button.xml">
+            <SetVariable name="Text">Device</SetVariable>
+            <SetVariable name="ConfigKey">midi</SetVariable>
+          </Template>
+          <Template src="skin:templates/setting_subtab_button.xml">
+            <SetVariable name="Text">Audio</SetVariable>
+            <SetVariable name="ConfigKey">audio</SetVariable>
+          </Template>
+          <Template src="skin:templates/setting_subtab_button.xml">
+            <SetVariable name="Text">System</SetVariable>
+            <SetVariable name="ConfigKey">system</SetVariable>
+          </Template>
+        </Children>
+      </WidgetGroup>
+
+      <WidgetStack currentpage="[SettingsTab],current" persist="true">
+        <ObjectName>SettingsStack</ObjectName>
+        <Children>
+
+          <WidgetGroup trigger="[SettingsTab],general">
+            <ObjectName>SettingsPanel</ObjectName>
+            <Layout>horizontal</Layout>
+            <SizePolicy>me,me</SizePolicy>
+            <Children>
+
+              <WidgetGroup>
+                <ObjectName>GeneralCol</ObjectName>
+                <Layout>vertical</Layout>
+                <SizePolicy>me,me</SizePolicy>
+                <Children>
+
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Key</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>160f,40f</Size>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">Camelot</SetVariable>
+                            <SetVariable name="ConfigKey">[Library],key_notation</SetVariable>
+                            <SetVariable name="Value">3</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">Trad</SetVariable>
+                            <SetVariable name="ConfigKey">[Library],key_notation</SetVariable>
+                            <SetVariable name="Value">4</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Deck 1</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>138f,40f</Size>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">A</SetVariable>
+                            <SetVariable name="ConfigKey">[Channel1],orientation</SetVariable>
+                            <SetVariable name="Value">0</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
+                            <SetVariable name="Text">None</SetVariable>
+                            <SetVariable name="ConfigKey">[Channel1],orientation</SetVariable>
+                            <SetVariable name="Value">1</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">B</SetVariable>
+                            <SetVariable name="ConfigKey">[Channel1],orientation</SetVariable>
+                            <SetVariable name="Value">2</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Deck 2</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>138f,40f</Size>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">A</SetVariable>
+                            <SetVariable name="ConfigKey">[Channel2],orientation</SetVariable>
+                            <SetVariable name="Value">0</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
+                            <SetVariable name="Text">None</SetVariable>
+                            <SetVariable name="ConfigKey">[Channel2],orientation</SetVariable>
+                            <SetVariable name="Value">1</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">B</SetVariable>
+                            <SetVariable name="ConfigKey">[Channel2],orientation</SetVariable>
+                            <SetVariable name="Value">2</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Jog</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>150f,40f</Size>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">Vinyl</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],vinyl_mode</SetVariable>
+                            <SetVariable name="Value">1</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">CDJ</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],vinyl_mode</SetVariable>
+                            <SetVariable name="Value">0</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
+                  <!-- Ungated: a hotcue press jumps to the cue and plays on
+                       from there, even on a paused deck. Gated: the deck only
+                       plays for as long as the pad is held, then seeks back
+                       and stops. Owned by SystemSettings, which writes the CO
+                       back to the same config key CueControl reads. -->
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Hot Cue</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>160f,40f</Size>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">Ungated</SetVariable>
+                            <SetVariable name="ConfigKey">[Controls],HotcueActivatePlays</SetVariable>
+                            <SetVariable name="Value">1</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">Gated</SetVariable>
+                            <SetVariable name="ConfigKey">[Controls],HotcueActivatePlays</SetVariable>
+                            <SetVariable name="Value">0</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>SettingsSpacer</ObjectName>
+                    <Size>0me,0me</Size>
+                  </WidgetGroup>
+
+                </Children>
+              </WidgetGroup>
+
+              <WidgetGroup>
+                <ObjectName>GeneralCol</ObjectName>
+                <Layout>vertical</Layout>
+                <SizePolicy>me,me</SizePolicy>
+                <Children>
+
+                  <!-- How long a thrown jog wheel keeps spinning after the DJ
+                       lets go: Off snaps the platter straight back (stock
+                       Mixxx), Short is a quick dab of brake, Long is a
+                       Technics-like brake. The value is the seconds a wheel
+                       released at normal speed takes to reach a standstill.
+                       Belongs beside Jog in the left column, but that column
+                       is already at its five-row height budget at the 420px
+                       floor, so it opens the right one.
+
+                       Only a released *scratch* can coast, so the brake does
+                       nothing in CDJ jog mode, where the platter pitch-bends
+                       and never scratches. Bind the whole row's enabled to
+                       [BiteDJ],vinyl_mode: Qt propagates enabled down the
+                       widget tree, so one connection greys the label and all
+                       three segments, and a disabled WWidget never synthesizes
+                       touch -> mouse, so the row also stops taking taps that
+                       could not have any effect. -->
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Vinyl Brake</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>150f,40f</Size>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">Off</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],vinyl_brake</SetVariable>
+                            <SetVariable name="Value">0</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
+                            <SetVariable name="Text">Short</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],vinyl_brake</SetVariable>
+                            <SetVariable name="Value">1.8</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">Long</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],vinyl_brake</SetVariable>
+                            <SetVariable name="Value">3.6</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                    <Connection>
+                      <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                      <ConfigKey>[BiteDJ],vinyl_mode</ConfigKey>
+                      <BindProperty>enabled</BindProperty>
+                    </Connection>
+                  </WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Wave</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>150f,40f</Size>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">RGB</SetVariable>
+                            <SetVariable name="ConfigKey">[Waveform],waveform_type</SetVariable>
+                            <SetVariable name="Value">17</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
+                            <SetVariable name="Text">Filt</SetVariable>
+                            <SetVariable name="ConfigKey">[Waveform],waveform_type</SetVariable>
+                            <SetVariable name="Value">19</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">Stack</SetVariable>
+                            <SetVariable name="ConfigKey">[Waveform],waveform_type</SetVariable>
+                            <SetVariable name="Value">25</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Apply Waveform EQ</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>110f,40f</Size>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">On</SetVariable>
+                            <SetVariable name="ConfigKey">[Waveform],apply_eq_to_waveform</SetVariable>
+                            <SetVariable name="Value">1</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">Off</SetVariable>
+                            <SetVariable name="ConfigKey">[Waveform],apply_eq_to_waveform</SetVariable>
+                            <SetVariable name="Value">0</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
+                  <!-- All three destructive actions share one row: the column
+                       is at its five-row height budget at the 420px floor, and
+                       they read as one group anyway — each throws away
+                       something this unit wrote to every connected drive.
+                       Cache drops the analysis (waveform, beatgrid, key);
+                       Cues drops the hot cues and memory cues saved back to
+                       the drive, handing those tracks to their rekordbox cues
+                       again; Meta drops the star ratings saved back to the
+                       drive, handing them to their rekordbox DJ Rating again.
+                       Widening the group is not an option — the half-column is
+                       ~200px and the label needs its share — so the third
+                       button comes out of the other two: 3 x 48f is the same
+                       144f the pair took, and 12px caps ("CACHE" is the
+                       longest at five) still clear the borders. -->
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Clear</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>144f,40f</Size>
+                        <Children>
+                          <PushButton>
+                            <ObjectName>SettingsActionButton</ObjectName>
+                            <Size>48f,40f</Size>
+                            <NumberStates>1</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Cache</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[Library],clear_cached_waveforms</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                            </Connection>
+                          </PushButton>
+                          <PushButton>
+                            <ObjectName>SettingsActionButton</ObjectName>
+                            <Size>48f,40f</Size>
+                            <NumberStates>1</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Cues</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[Library],clear_cue_overrides</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                            </Connection>
+                          </PushButton>
+                          <PushButton>
+                            <ObjectName>SettingsActionButton</ObjectName>
+                            <Size>48f,40f</Size>
+                            <NumberStates>1</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Meta</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[Library],clear_meta_overrides</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                            </Connection>
+                          </PushButton>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Played</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <PushButton>
+                        <ObjectName>SettingsActionButton</ObjectName>
+                        <Size>140f,40f</Size>
+                        <NumberStates>1</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>Reset</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[Library],reset_played_tracks</ConfigKey>
+                          <EmitOnDownPress>true</EmitOnDownPress>
+                        </Connection>
+                      </PushButton>
+                    </Children>
+                  </WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>SettingsSpacer</ObjectName>
+                    <Size>0me,0me</Size>
+                  </WidgetGroup>
+
+                </Children>
+              </WidgetGroup>
+
+            </Children>
+          </WidgetGroup>
+
+          <WidgetGroup trigger="[SettingsTab],midi">
+            <ObjectName>SettingsPanel</ObjectName>
+            <Layout>vertical</Layout>
+            <SizePolicy>me,me</SizePolicy>
+            <Children>
+
+              <Label>
+                <ObjectName>SettingsHeader</ObjectName>
+                <Text>Devices</Text>
+                <Size>0me,32f</Size>
+              </Label>
+
+              <ControllerList>
+                <ObjectName>ControllerList</ObjectName>
+                <SizePolicy>me,me</SizePolicy>
+              </ControllerList>
+
+              <WidgetGroup>
+                <ObjectName>SettingsRow</ObjectName>
+                <Layout>horizontal</Layout>
+                <Size>0me,72f</Size>
+                <Children>
+                  <Label>
+                    <ObjectName>SettingsRowLabel</ObjectName>
+                    <Text>Devices</Text>
+                    <Size>0me,0me</Size>
+                  </Label>
+                  <!-- Same arm pattern as System's Power button: while staged
+                       row toggles await commit ([Controllers],dirty), Rescan
+                       swaps for Apply/Cancel. -->
+                  <WidgetStack currentpage="[Controllers],dirty">
+                    <Size>260f,56f</Size>
+                    <Children>
+
+                      <PushButton>
+                        <ObjectName>SettingsActionButton</ObjectName>
+                        <Size>0me,56f</Size>
+                        <NumberStates>1</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>Rescan</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[Controllers],rescan</ConfigKey>
+                          <EmitOnDownPress>true</EmitOnDownPress>
+                        </Connection>
+                      </PushButton>
+
+                      <WidgetGroup>
+                        <Layout>horizontal</Layout>
+                        <SizePolicy>me,me</SizePolicy>
+                        <Children>
+                          <PushButton>
+                            <ObjectName>SettingsPrimaryButton</ObjectName>
+                            <Size>0me,56f</Size>
+                            <NumberStates>1</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Apply</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[Controllers],apply</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                            </Connection>
+                          </PushButton>
+                          <PushButton>
+                            <ObjectName>SettingsActionButton</ObjectName>
+                            <Size>0me,56f</Size>
+                            <NumberStates>1</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Cancel</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[Controllers],revert</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                            </Connection>
+                          </PushButton>
+                        </Children>
+                      </WidgetGroup>
+
+                    </Children>
+                  </WidgetStack>
+                </Children>
+              </WidgetGroup>
+
+              <WidgetGroup>
+                <ObjectName>SettingsSpacer</ObjectName>
+                <Size>0me,0me</Size>
+              </WidgetGroup>
+
+            </Children>
+          </WidgetGroup>
+
+          <WidgetGroup trigger="[SettingsTab],columns">
+            <ObjectName>SettingsPanel</ObjectName>
+            <Layout>horizontal</Layout>
+            <SizePolicy>me,me</SizePolicy>
+            <Children>
+
+              <WidgetGroup>
+                <ObjectName>LibraryColumnsCol</ObjectName>
+                <Layout>vertical</Layout>
+                <SizePolicy>me,me</SizePolicy>
+                <Children>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">#</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_position</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_position</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Title</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_title</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_title</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Artist</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_artist</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_artist</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Album</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_album</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_album</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">BPM</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_bpm</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_bpm</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Key</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_key</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_key</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Time</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_duration</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_duration</SetVariable>
+                  </Template>
+                  <WidgetGroup>
+                    <ObjectName>SettingsSpacer</ObjectName>
+                    <Size>0me,0me</Size>
+                  </WidgetGroup>
+                </Children>
+              </WidgetGroup>
+
+              <WidgetGroup>
+                <ObjectName>LibraryColumnsCol</ObjectName>
+                <Layout>vertical</Layout>
+                <SizePolicy>me,me</SizePolicy>
+                <Children>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Genre</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_genre</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_genre</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Year</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_year</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_year</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Color</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_color</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_color</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Rating</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_rating</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_rating</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Played</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_timesplayed</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_timesplayed</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Comment</SetVariable>
+                    <SetVariable name="VisibleConfigKey">[Library],column_visible_comment</SetVariable>
+                    <SetVariable name="WeightConfigKey">[Library],column_weight_comment</SetVariable>
+                  </Template>
+                  <WidgetGroup>
+                    <ObjectName>SettingsSpacer</ObjectName>
+                    <Size>0me,0me</Size>
+                  </WidgetGroup>
+                </Children>
+              </WidgetGroup>
+
+            </Children>
+          </WidgetGroup>
+
+          <WidgetGroup trigger="[SettingsTab],system">
+            <ObjectName>SettingsPanel</ObjectName>
+            <Layout>vertical</Layout>
+            <SizePolicy>me,me</SizePolicy>
+            <Children>
+
+              <Label>
+                <ObjectName>SettingsHeader</ObjectName>
+                <Text>USB Drives</Text>
+                <Size>0me,32f</Size>
+              </Label>
+
+              <UsbList>
+                <ObjectName>UsbList</ObjectName>
+                <SizePolicy>me,me</SizePolicy>
+              </UsbList>
+
+              <!-- One row carries everything on this page that isn't a drive:
+                   rotation, day/night and Power. The USB list is the reason —
+                   it is the page's only content that grows with the hardware
+                   (three slots), and at the 420px floor a second and third
+                   drive were pushing it into the rows below. Folding the old
+                   72f Power row into this one buys the list ~72px, which is
+                   one and a bit more drive rows.
+                   The three read as one group in the sense that matters here:
+                   none is touched mid-set, they are all about the box rather
+                   than the mix. Rotation and day/night are both about making
+                   the panel readable from where the DJ is standing — Day
+                   inverts every colour in the skin's stylesheet (dark-on-light
+                   instead of light-on-dark), which is what survives an LCD in
+                   direct sun; HighContrast re-applies the inverted sheets live,
+                   so there is no skin reboot.
+                   Width at the 480px floor is the binding constraint and there
+                   is no slack left: 400px inside the row's padding, spent as
+                   120 + 12 + 120 + 16 + 64 = 332, leaving 68 for a label that
+                   measures 58 (six 16px Monospace caps). Both segment groups
+                   are therefore on the 60px min-width (#ScreenRotSegmented /
+                   #ScreenModeSegmented) rather than the stock 80, and Power
+                   is a 64f button reading POWER rather than the old 96f SHUT
+                   DOWN. Anything else that wants a place here needs a fourth
+                   row, not a fourth column.
+                   Rows are 68f/44f rather than the 52f/40f used elsewhere:
+                   Power is a destructive control and has to clear the 44px
+                   touch floor, and mixed heights in one row would have read as
+                   emphasis on the one control that deserves it least.
+                   68 is 44 plus everything #SettingsRow spends before its
+                   layout sees the height — 8px of margin-bottom and 8px of
+                   padding top and bottom. Qt's stylesheet box model takes all
+                   three off the widget's own geometry, so the 60f this used to
+                   be left a 36px content strip and the 44f controls lost their
+                   bottom border off the end of it. Any change to that padding
+                   or margin has to move this number with it. -->
+              <WidgetGroup>
+                <ObjectName>SettingsRow</ObjectName>
+                <Layout>horizontal</Layout>
+                <Size>0me,68f</Size>
+                <Children>
+                  <!-- Arming takes over the whole row instead of swapping a
+                       button in place (the pattern the Devices/Audio Apply rows
+                       use): at 64f the in-place page would have had to fit
+                       Confirm and Cancel in the width of one small button, well
+                       under the touch floor for a pair where the wrong tap
+                       powers the unit off mid-set. Taking the row also puts the
+                       question where the DJ is already looking. -->
+                  <WidgetStack currentpage="[System],shutdown_arm">
+                    <SizePolicy>me,me</SizePolicy>
+                    <Children>
+
+                      <WidgetGroup>
+                        <Layout>horizontal</Layout>
+                        <SizePolicy>me,me</SizePolicy>
+                        <Children>
+                          <Label>
+                            <ObjectName>SettingsRowLabel</ObjectName>
+                            <Text>Screen</Text>
+                            <Size>0me,0me</Size>
+                          </Label>
+                          <WidgetGroup>
+                            <ObjectName>ScreenRotSegmented</ObjectName>
+                            <Layout>horizontal</Layout>
+                            <Size>120f,44f</Size>
+                            <Children>
+                              <Template src="skin:templates/setting_segment_button.xml">
+                                <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                                <SetVariable name="Text">0°</SetVariable>
+                                <SetVariable name="ConfigKey">[BiteDJ],screen_rotation</SetVariable>
+                                <SetVariable name="Value">0</SetVariable>
+                              </Template>
+                              <Template src="skin:templates/setting_segment_button.xml">
+                                <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                                <SetVariable name="Text">180°</SetVariable>
+                                <SetVariable name="ConfigKey">[BiteDJ],screen_rotation</SetVariable>
+                                <SetVariable name="Value">180</SetVariable>
+                              </Template>
+                            </Children>
+                          </WidgetGroup>
+                          <!-- Keeps the two groups from reading as one
+                               four-segment strip; both are lit at once and
+                               would otherwise look like a single control with
+                               two selections. -->
+                          <WidgetGroup>
+                            <Size>12f,0me</Size>
+                          </WidgetGroup>
+                          <WidgetGroup>
+                            <ObjectName>ScreenModeSegmented</ObjectName>
+                            <Layout>horizontal</Layout>
+                            <Size>120f,44f</Size>
+                            <Children>
+                              <Template src="skin:templates/setting_segment_button.xml">
+                                <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                                <SetVariable name="Text">Night</SetVariable>
+                                <SetVariable name="ConfigKey">[BiteDJ],high_contrast</SetVariable>
+                                <SetVariable name="Value">0</SetVariable>
+                              </Template>
+                              <Template src="skin:templates/setting_segment_button.xml">
+                                <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                                <SetVariable name="Text">Day</SetVariable>
+                                <SetVariable name="ConfigKey">[BiteDJ],high_contrast</SetVariable>
+                                <SetVariable name="Value">1</SetVariable>
+                              </Template>
+                            </Children>
+                          </WidgetGroup>
+                          <!-- Wider than the gap above: Power is not part of
+                               the screen group and must not read as a third
+                               segment of it. -->
+                          <WidgetGroup>
+                            <Size>16f,0me</Size>
+                          </WidgetGroup>
+                          <PushButton>
+                            <ObjectName>SettingsActionButton</ObjectName>
+                            <Size>64f,44f</Size>
+                            <NumberStates>1</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Power</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[System],shutdown_arm</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                              <Transform><IsEqual>1</IsEqual></Transform>
+                            </Connection>
+                          </PushButton>
+                        </Children>
+                      </WidgetGroup>
+
+                      <WidgetGroup>
+                        <Layout>horizontal</Layout>
+                        <SizePolicy>me,me</SizePolicy>
+                        <Children>
+                          <Label>
+                            <ObjectName>SettingsRowLabel</ObjectName>
+                            <Text>Shut Down?</Text>
+                            <Size>0me,0me</Size>
+                          </Label>
+                          <PushButton>
+                            <ObjectName>SettingsDangerButton</ObjectName>
+                            <Size>120f,44f</Size>
+                            <NumberStates>1</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Confirm</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[System],shutdown</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                              <Transform><IsEqual>1</IsEqual></Transform>
+                            </Connection>
+                          </PushButton>
+                          <WidgetGroup>
+                            <Size>12f,0me</Size>
+                          </WidgetGroup>
+                          <PushButton>
+                            <ObjectName>SettingsActionButton</ObjectName>
+                            <Size>120f,44f</Size>
+                            <NumberStates>1</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Cancel</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[System],shutdown_arm</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                              <Transform><IsEqual>0</IsEqual></Transform>
+                            </Connection>
+                          </PushButton>
+                        </Children>
+                      </WidgetGroup>
+
+                    </Children>
+                  </WidgetStack>
+                </Children>
+              </WidgetGroup>
+
+              <VersionLabel>
+                <ObjectName>SettingsVersionLabel</ObjectName>
+                <Alignment>center</Alignment>
+                <Size>0me,34f</Size>
+              </VersionLabel>
+
+            </Children>
+          </WidgetGroup>
+
+          <!-- Appended in arrival order so the existing stack child indices are
+               stable (general=0, midi=1, columns=2, system=3, audio=4).
+               ControllerSettings hardcodes the Devices/midi panel as child 1;
+               keep it that way. The EQ panel used to be child 5 and now lives
+               on the top-level Levels tab, so a mixxx.cfg carried over from
+               before that move holds [SettingsTab],current=5 — out of range,
+               which QStackedWidget ignores, so Settings opens on General with
+               no sub-tab lit until the first tap. -->
+          <WidgetGroup trigger="[SettingsTab],audio">
+            <ObjectName>SettingsPanel</ObjectName>
+            <Layout>vertical</Layout>
+            <SizePolicy>me,me</SizePolicy>
+            <Children>
+
+              <Label>
+                <ObjectName>SettingsHeader</ObjectName>
+                <Text>Outputs</Text>
+                <Size>0me,32f</Size>
+              </Label>
+
+              <!-- Size to content (me,min), NOT me,me: the panel is AlignTop and
+                   the trailing spacer already expands. If this list also expanded,
+                   a tight vertical budget (480x420 floor) would squeeze it below
+                   its 3x56px content and the non-shrinkable rows would spill out
+                   the bottom, letting the Rescan row overlap the Headphones row. -->
+              <AudioDeviceList>
+                <ObjectName>AudioDeviceList</ObjectName>
+                <SizePolicy>me,min</SizePolicy>
+              </AudioDeviceList>
+
+              <WidgetGroup>
+                <ObjectName>SettingsRow</ObjectName>
+                <Layout>horizontal</Layout>
+                <Size>0me,56f</Size>
+                <Children>
+                  <Label>
+                    <ObjectName>SettingsRowLabel</ObjectName>
+                    <Text>Devices</Text>
+                    <Size>0me,0me</Size>
+                  </Label>
+                  <!-- Same arm pattern as System's Power button: while staged bus
+                       cycling awaits commit ([AudioDevices],dirty), Rescan
+                       swaps for Apply/Cancel. -->
+                  <WidgetStack currentpage="[AudioDevices],dirty">
+                    <Size>260f,44f</Size>
+                    <Children>
+
+                      <PushButton>
+                        <ObjectName>SettingsActionButton</ObjectName>
+                        <Size>0me,44f</Size>
+                        <NumberStates>1</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>Rescan</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[AudioDevices],rescan</ConfigKey>
+                          <EmitOnDownPress>true</EmitOnDownPress>
+                        </Connection>
+                        <!-- Rescan tears every device down and re-opens it, so
+                             it cuts a running deck just like Apply does. Same
+                             playback gate. -->
+                        <Connection>
+                          <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                          <ConfigKey>[AudioDevices],reconfigure_enabled</ConfigKey>
+                          <BindProperty>enabled</BindProperty>
+                        </Connection>
+                      </PushButton>
+
+                      <WidgetGroup>
+                        <Layout>horizontal</Layout>
+                        <SizePolicy>me,me</SizePolicy>
+                        <Children>
+                          <PushButton>
+                            <ObjectName>SettingsPrimaryButton</ObjectName>
+                            <Size>0me,44f</Size>
+                            <NumberStates>1</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Apply</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[AudioDevices],apply</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                            </Connection>
+                            <!-- Applying closes and re-opens every device, so
+                                 it silences a running deck for seconds. Bind
+                                 enabled to reconfigure_enabled (0 while any
+                                 deck plays): a disabled WWidget never
+                                 synthesizes touch -> mouse, so the tap is
+                                 swallowed and the button paints greyed. Cancel
+                                 stays live so the staged change can still be
+                                 discarded. -->
+                            <Connection>
+                              <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                              <ConfigKey>[AudioDevices],reconfigure_enabled</ConfigKey>
+                              <BindProperty>enabled</BindProperty>
+                            </Connection>
+                          </PushButton>
+                          <PushButton>
+                            <ObjectName>SettingsActionButton</ObjectName>
+                            <Size>0me,44f</Size>
+                            <NumberStates>1</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Cancel</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[AudioDevices],revert</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                            </Connection>
+                          </PushButton>
+                        </Children>
+                      </WidgetGroup>
+
+                    </Children>
+                  </WidgetStack>
+                </Children>
+              </WidgetGroup>
+
+              <WidgetGroup>
+                <ObjectName>SettingsSpacer</ObjectName>
+                <Size>0me,0me</Size>
+              </WidgetGroup>
+
+            </Children>
+          </WidgetGroup>
+
+        </Children>
+      </WidgetStack>
+
+      <WidgetGroup>
+        <ObjectName>Decks</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,80max</Size>
+        <Children>
+          <Template src="skin:deck.xml">
+            <SetVariable name="channel">1</SetVariable>
+          </Template>
+          <Template src="skin:deck.xml">
+            <SetVariable name="channel">2</SetVariable>
+          </Template>
+        </Children>
+      </WidgetGroup>
+    </Children>
+  </WidgetGroup>
+</Template>

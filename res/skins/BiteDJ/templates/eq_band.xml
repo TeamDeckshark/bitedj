@@ -1,0 +1,48 @@
+<!--
+  One band of the Levels page's master EQ: frequency label, gain knob, live dB
+  readout. Binds straight to the output chain's first effect slot, which
+  EffectsManager::setup() guarantees holds the 8-band Graphic EQ, so
+  parameter{N} is the band gain in dB (-12..12, linear).
+  Variables:
+    Label: band center frequency text
+    param: 1-based parameter index into the Graphic EQ (1=45 Hz .. 8=12 kHz)
+-->
+<Template>
+  <WidgetGroup>
+    <ObjectName>EQBand</ObjectName>
+    <Layout>vertical</Layout>
+    <SizePolicy>me,min</SizePolicy>
+    <Children>
+      <Label>
+        <ObjectName>EQBandLabel</ObjectName>
+        <Text><Variable name="Label"/></Text>
+        <Size>0me,16f</Size>
+        <Alignment>center</Alignment>
+      </Label>
+      <KnobComposed>
+        <ObjectName>EQBandKnob</ObjectName>
+        <Size>0me,44f</Size>
+        <Knob scalemode="STRETCH_ASPECT">icons/knob.svg</Knob>
+        <!-- Symmetric sweep, not WKnobComposed's -230/50 default: 0 dB is the
+             band's centre parameter, so it has to read as 12 o'clock with cut
+             left and boost right. knob.svg's mark points up at 0. -->
+        <MinAngle>-140</MinAngle>
+        <MaxAngle>140</MaxAngle>
+        <Connection>
+          <ConfigKey>[OutputEffectRack_[Master]_Effect1],parameter<Variable name="param"/></ConfigKey>
+        </Connection>
+      </KnobComposed>
+      <Number>
+        <ObjectName>EQBandValue</ObjectName>
+        <Text>%1</Text>
+        <NumberOfDigits>1</NumberOfDigits>
+        <Size>0me,16f</Size>
+        <Alignment>center</Alignment>
+        <Connection>
+          <ConfigKey>[OutputEffectRack_[Master]_Effect1],parameter<Variable name="param"/></ConfigKey>
+          <ConnectValueFromWidget>false</ConnectValueFromWidget>
+        </Connection>
+      </Number>
+    </Children>
+  </WidgetGroup>
+</Template>

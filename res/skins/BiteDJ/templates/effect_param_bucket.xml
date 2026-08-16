@@ -1,0 +1,46 @@
+<!--
+  One bucket button in the BeatFX beat-division picker.
+  Variables:
+    EffectGroup: parent slot group (e.g. [EffectRack1_EffectUnit1_Effect1])
+    param: 1-indexed knob parameter slot
+    Label: bucket text (e.g. "1/4")
+    Value: raw value (not normalized parameter) written to the underlying
+           knob on press, and the value the row's highlight binding
+           compares against.
+
+  Bound to parameter{param}_value (the fork-patched raw-value alias of
+  parameter{param}). The alias is a plain ControlObject with no
+  behaviour, so a Connection's setParameter() lands as the literal
+  raw value, then the alias->knob slot forwards via the knob's set()
+  which clamps to the manifest range.
+
+  Caveat: in the row template, labels are paired with their inverse
+  value (label "⅛" → 8, label "4" → 0.25). Correct for rate-semantic
+  parameters (Tremolo `rate` = cycles/beat, where small period = fast
+  cycles); inverted for period-semantic parameters (Echo `delay_time`,
+  Phaser `lfo_period` measured in beats). Address per-effect later
+  either by patching the manifest semantics or by exposing an
+  inversion flag in the fork.
+-->
+<Template>
+  <PushButton>
+    <ObjectName>BeatFX_BucketButton</ObjectName>
+    <Size>0me,32f</Size>
+    <NumberStates>2</NumberStates>
+    <State>
+      <Number>0</Number>
+      <Text><Variable name="Label"/></Text>
+    </State>
+    <State>
+      <Number>1</Number>
+      <Text><Variable name="Label"/></Text>
+    </State>
+    <Connection>
+      <ConfigKey><Variable name="EffectGroup"/>,parameter<Variable name="param"/>_value</ConfigKey>
+      <EmitOnDownPress>true</EmitOnDownPress>
+      <Transform>
+        <IsEqual><Variable name="Value"/></IsEqual>
+      </Transform>
+    </Connection>
+  </PushButton>
+</Template>

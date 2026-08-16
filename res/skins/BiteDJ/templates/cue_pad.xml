@@ -1,0 +1,45 @@
+<!DOCTYPE template>
+<!--
+  Description:
+    One pad in the cue drawer. WHotcueButton wires itself to
+    hotcue_{hotcue}_activate on press/release and displays
+    hotcue_{hotcue}_status (0 empty, 1 set, 2 active), so the only styling
+    hooks needed here are the ObjectName and the three states. It also
+    publishes a `type` property ("hotcue" / "loop"), which style.qss uses to
+    mark a pad holding a saved loop.
+
+    The cue's own colour is applied by the widget as an inline stylesheet on
+    the set/active states, so a pad shows the same colour the DJ assigned in
+    rekordbox.
+
+    ClearBadge draws the red x in the pad's top-right corner and hit-tests it
+    ahead of the pad, so a full slot can be freed. Deleting a cue is otherwise
+    right-click only, which this device never produces. It shows only on a slot
+    that holds a cue, and the pad fires nothing when the badge is what was hit.
+  Variables:
+    channel: deck number.
+    hotcue:  hotcue slot, 1-based.
+    label:   what the pad is called (A-H, M1-M8).
+-->
+<Template>
+  <HotcueButton>
+    <ObjectName>CuePad</ObjectName>
+    <Channel><Variable name="channel"/></Channel>
+    <Hotcue><Variable name="hotcue"/></Hotcue>
+    <ClearBadge>true</ClearBadge>
+    <Size>0me,0me</Size>
+    <NumberStates>3</NumberStates>
+    <State>
+      <Number>0</Number>
+      <Text><Variable name="label"/></Text>
+    </State>
+    <State>
+      <Number>1</Number>
+      <Text><Variable name="label"/></Text>
+    </State>
+    <State>
+      <Number>2</Number>
+      <Text><Variable name="label"/></Text>
+    </State>
+  </HotcueButton>
+</Template>

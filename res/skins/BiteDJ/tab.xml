@@ -1,0 +1,33 @@
+<Template>
+  <PushButton>
+    <ObjectName>TabButton<Variable name="tab_name"/></ObjectName>
+    <Size>12me,12me</Size>
+    <NumberStates>2</NumberStates>
+    <State>
+      <Number>0</Number>
+      <Text><Variable name="tab_name"/></Text>
+    </State>
+    <State>
+      <Number>1</Number>
+      <Text><Variable name="tab_name"/></Text>
+    </State>
+    <!-- Select-only, not a toggle: always emit 1 on press (never 0),
+         so tapping the already-active tab is a no-op instead of hiding it. -->
+    <LeftClickIsPushButton>true</LeftClickIsPushButton>
+    <Connection>
+      <ConfigKey>[Tab],<Variable name="config_key"/></ConfigKey>
+      <EmitOnDownPress>true</EmitOnDownPress>
+    </Connection>
+    <!-- Recording badge. [Recording],status is 0 off / 1 armed / 2 recording /
+         3 splitting, so the double Not is "anything but off" — the same span
+         the USB Record button is lit for, and it also catches a recording a
+         controller mapping started. Every tab button carries the property so
+         this template stays single-sourced; only #TabButtonSettings is styled
+         with the dot, since Settings is the page the Record buttons are on. -->
+    <Connection>
+      <ConfigKey>[Recording],status</ConfigKey>
+      <Transform><Not/><Not/></Transform>
+      <BindProperty>recording</BindProperty>
+    </Connection>
+  </PushButton>
+</Template>

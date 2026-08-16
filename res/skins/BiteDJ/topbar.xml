@@ -1,0 +1,36 @@
+<Template>
+  <WidgetGroup>
+    <ObjectName>Topbar</ObjectName>
+    <Layout>vertical</Layout>
+    <Size>0me,60f</Size>
+    <Children>
+      <WidgetGroup>
+        <ObjectName>TabControls</ObjectName>
+        <Layout>horizontal</Layout>
+        <SizePolicy>me,me</SizePolicy>
+        <Children>
+          <Template src="skin:tab.xml">
+            <SetVariable name="tab_name">Play</SetVariable>
+            <SetVariable name="config_key">overview</SetVariable>
+          </Template>
+          <Template src="skin:tab.xml">
+            <SetVariable name="tab_name">Browse</SetVariable>
+            <SetVariable name="config_key">library</SetVariable>
+          </Template>
+          <Template src="skin:tab.xml">
+            <SetVariable name="tab_name">Sampler</SetVariable>
+            <SetVariable name="config_key">samplers</SetVariable>
+          </Template>
+          <Template src="skin:tab.xml">
+            <SetVariable name="tab_name">Levels</SetVariable>
+            <SetVariable name="config_key">levels</SetVariable>
+          </Template>
+          <Template src="skin:tab.xml">
+            <SetVariable name="tab_name">Settings</SetVariable>
+            <SetVariable name="config_key">settings</SetVariable>
+          </Template>
+        </Children>
+      </WidgetGroup>
+    </Children>
+  </WidgetGroup>
+</Template>

@@ -1,0 +1,189 @@
+<Template>
+  <WidgetGroup>
+    <ObjectName>SamplerWrapper</ObjectName>
+    <Layout>vertical</Layout>
+    <Size>0me,80f</Size>
+    <Children>
+
+      <!-- Title above the button. Property=info is read-only on Track, and
+           DisableActions is a fork-side flag (see wtrackproperty.cpp) that
+           gates mouse-press, mouse-move, double-click, and context-menu
+           handlers — purely informational, no rename / drag / track menu. -->
+      <TrackProperty>
+        <ObjectName>Sampler_Info</ObjectName>
+        <Group>[Sampler<Variable name="sampler"/>]</Group>
+        <Property>info</Property>
+        <Elide>right</Elide>
+        <Alignment>center</Alignment>
+        <DisableActions>true</DisableActions>
+        <Size>0me,16f</Size>
+      </TrackProperty>
+
+      <WidgetStack currentpage="[Samplers],load_mode">
+        <Children>
+
+          <!-- Page 0: PLAY mode — tap to fire the loaded sample -->
+          <PushButton>
+            <ObjectName>Sampler</ObjectName>
+            <NumberStates>2</NumberStates>
+            <State>
+              <Number>0</Number>
+            </State>
+            <State>
+              <Number>1</Number>
+            </State>
+            <Connection>
+              <ButtonState>LeftButton</ButtonState>
+              <ConfigKey>[Sampler<Variable name="sampler"/>],cue_gotoandplay</ConfigKey>
+            </Connection>
+            <Connection>
+              <ButtonState>RightButton</ButtonState>
+              <ConfigKey>[Sampler<Variable name="sampler"/>],cue_default</ConfigKey>
+            </Connection>
+            <Connection>
+              <ConnectValueFromWidget>false</ConnectValueFromWidget>
+              <ConfigKey>[Sampler<Variable name="sampler"/>],play_latched</ConfigKey>
+            </Connection>
+            <Connection>
+              <ConnectValueFromWidget>false</ConnectValueFromWidget>
+              <ConfigKey>[Sampler<Variable name="sampler"/>],track_loaded</ConfigKey>
+              <BindProperty>loaded</BindProperty>
+            </Connection>
+          </PushButton>
+
+          <!-- Page 1: LOAD mode — tap to clone the selected source deck into this slot -->
+          <WidgetStack currentpage="[Samplers],source_deck_index">
+            <Children>
+
+              <!-- Source = Deck 1 -->
+              <PushButton>
+                <ObjectName>SamplerLoad</ObjectName>
+                <NumberStates>1</NumberStates>
+                <State>
+                  <Number>0</Number>
+                  <Text>LOAD</Text>
+                </State>
+                <Connection>
+                  <ConfigKey>[Sampler<Variable name="sampler"/>],CloneFromDeck</ConfigKey>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <Transform>
+                    <IsEqual>1</IsEqual>
+                  </Transform>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[Samplers],load_mode</ConfigKey>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <Transform>
+                    <IsEqual>0</IsEqual>
+                  </Transform>
+                </Connection>
+                <Connection>
+                  <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                  <ConfigKey>[Sampler<Variable name="sampler"/>],track_loaded</ConfigKey>
+                  <BindProperty>loaded</BindProperty>
+                </Connection>
+                <!-- A slot can only hold a file from the drive selected above,
+                     so LOAD is offered only while the source deck is playing
+                     off that drive (SamplerDrive keeps can_load). Greyed out it
+                     takes no taps at all — a disabled WWidget never synthesizes
+                     touch -> mouse — which is why the explanation is published
+                     when the SOURCE deck is tapped rather than from here. -->
+                <Connection>
+                  <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                  <ConfigKey>[Samplers],can_load</ConfigKey>
+                  <BindProperty>enabled</BindProperty>
+                </Connection>
+              </PushButton>
+
+              <!-- Source = Deck 2 -->
+              <PushButton>
+                <ObjectName>SamplerLoad</ObjectName>
+                <NumberStates>1</NumberStates>
+                <State>
+                  <Number>0</Number>
+                  <Text>LOAD</Text>
+                </State>
+                <Connection>
+                  <ConfigKey>[Sampler<Variable name="sampler"/>],CloneFromDeck</ConfigKey>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <Transform>
+                    <IsEqual>2</IsEqual>
+                  </Transform>
+                </Connection>
+                <Connection>
+                  <ConfigKey>[Samplers],load_mode</ConfigKey>
+                  <ConnectValueToWidget>false</ConnectValueToWidget>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                  <Transform>
+                    <IsEqual>0</IsEqual>
+                  </Transform>
+                </Connection>
+                <Connection>
+                  <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                  <ConfigKey>[Sampler<Variable name="sampler"/>],track_loaded</ConfigKey>
+                  <BindProperty>loaded</BindProperty>
+                </Connection>
+                <!-- A slot can only hold a file from the drive selected above,
+                     so LOAD is offered only while the source deck is playing
+                     off that drive (SamplerDrive keeps can_load). Greyed out it
+                     takes no taps at all — a disabled WWidget never synthesizes
+                     touch -> mouse — which is why the explanation is published
+                     when the SOURCE deck is tapped rather than from here. -->
+                <Connection>
+                  <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                  <ConfigKey>[Samplers],can_load</ConfigKey>
+                  <BindProperty>enabled</BindProperty>
+                </Connection>
+              </PushButton>
+
+            </Children>
+          </WidgetStack>
+
+          <!-- Page 2: UNLOAD mode — stop then eject. Auto-returns to PLAY
+               (load_mode=0) so the destructive action is per-tap, not a
+               persistent mode the user might forget they're in. Stop fires
+               first so the engine's "no eject while playing" check passes.
+               Binding enabled to track_loaded disables empty slots so a stray
+               tap doesn't trigger Mixxx's eject-on-empty "reload last ejected"
+               undo gesture. -->
+          <PushButton>
+            <ObjectName>SamplerUnload</ObjectName>
+            <NumberStates>1</NumberStates>
+            <State>
+              <Number>0</Number>
+              <Text>UNLOAD</Text>
+            </State>
+            <Connection>
+              <ConfigKey>[Sampler<Variable name="sampler"/>],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler<Variable name="sampler"/>],eject</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Samplers],load_mode</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+              <Transform>
+                <IsEqual>0</IsEqual>
+              </Transform>
+            </Connection>
+            <Connection>
+              <ConnectValueFromWidget>false</ConnectValueFromWidget>
+              <ConfigKey>[Sampler<Variable name="sampler"/>],track_loaded</ConfigKey>
+              <BindProperty>enabled</BindProperty>
+            </Connection>
+          </PushButton>
+
+        </Children>
+      </WidgetStack>
+
+    </Children>
+  </WidgetGroup>
+</Template>

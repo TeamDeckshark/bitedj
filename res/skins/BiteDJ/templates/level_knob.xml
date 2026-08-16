@@ -1,0 +1,48 @@
+<!--
+  One output bus on the Levels page: bus label, gain knob, live dB readout.
+  The three bus gains ([Master],gain / booth_gain / headGain) are
+  ControlAudioTaperPots spanning -14..+14 dB, so the CO value is a linear
+  ratio, not dB — the readout is a NumberDb, which converts on display.
+  Variables:
+    Label: bus name text
+    ConfigKey: fully qualified [Group],key of the gain pot
+-->
+<Template>
+  <WidgetGroup>
+    <ObjectName>LevelKnob</ObjectName>
+    <Layout>vertical</Layout>
+    <SizePolicy>me,min</SizePolicy>
+    <Children>
+      <Label>
+        <ObjectName>LevelKnobLabel</ObjectName>
+        <Text><Variable name="Label"/></Text>
+        <Size>0me,16f</Size>
+        <Alignment>center</Alignment>
+      </Label>
+      <KnobComposed>
+        <ObjectName>LevelKnobDial</ObjectName>
+        <Size>0me,56f</Size>
+        <Knob scalemode="STRETCH_ASPECT">icons/knob.svg</Knob>
+        <!-- Symmetric sweep, not WKnobComposed's -230/50 default: unity gain
+             is the pot's centre parameter, so it has to read as 12 o'clock
+             with cut left and boost right. knob.svg's mark points up at 0. -->
+        <MinAngle>-140</MinAngle>
+        <MaxAngle>140</MaxAngle>
+        <Connection>
+          <ConfigKey><Variable name="ConfigKey"/></ConfigKey>
+        </Connection>
+      </KnobComposed>
+      <NumberDb>
+        <ObjectName>LevelKnobValue</ObjectName>
+        <Text>%1</Text>
+        <NumberOfDigits>1</NumberOfDigits>
+        <Size>0me,16f</Size>
+        <Alignment>center</Alignment>
+        <Connection>
+          <ConfigKey><Variable name="ConfigKey"/></ConfigKey>
+          <ConnectValueFromWidget>false</ConnectValueFromWidget>
+        </Connection>
+      </NumberDb>
+    </Children>
+  </WidgetGroup>
+</Template>

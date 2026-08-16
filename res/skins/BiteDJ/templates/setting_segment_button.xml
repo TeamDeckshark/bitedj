@@ -1,0 +1,22 @@
+<Template>
+  <PushButton>
+    <ObjectName><Variable name="ObjectName"/></ObjectName>
+    <Size>0me,0me</Size>
+    <NumberStates>2</NumberStates>
+    <State>
+      <Number>0</Number>
+      <Text><Variable name="Text"/></Text>
+    </State>
+    <State>
+      <Number>1</Number>
+      <Text><Variable name="Text"/></Text>
+    </State>
+    <Connection>
+      <ConfigKey><Variable name="ConfigKey"/></ConfigKey>
+      <EmitOnDownPress>true</EmitOnDownPress>
+      <Transform>
+        <IsEqual><Variable name="Value"/></IsEqual>
+      </Transform>
+    </Connection>
+  </PushButton>
+</Template>

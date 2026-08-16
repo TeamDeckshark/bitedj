@@ -1,0 +1,37 @@
+syntax = "proto2";
+
+package mixxx.track.io;
+
+option optimize_for = LITE_RUNTIME;
+
+enum Source {
+  ANALYZER = 0;
+  FILE_METADATA = 1;
+  USER = 2;
+}
+
+message Beat {
+  optional int32 frame_position = 1;
+  optional bool enabled = 2 [ default = true ];
+  optional Source source = 3 [ default = ANALYZER ];
+}
+
+message Bpm {
+  optional double bpm = 1;
+  optional Source source = 2 [ default = ANALYZER ];
+}
+
+message BeatMap {
+  repeated Beat beat = 1;
+  // Frame positions of detected drops. Renderer anchors bar counts on the
+  // most-recent anchor <= the visible/play position. Empty = fall back to
+  // the analyzer's natural beat-1 anchor.
+  repeated int32 downbeat_anchor_frame_position = 2;
+}
+
+message BeatGrid {
+  optional Bpm bpm = 1;
+  optional Beat first_beat = 2;
+  // See BeatMap.downbeat_anchor_frame_position.
+  repeated int32 downbeat_anchor_frame_position = 3;
+}

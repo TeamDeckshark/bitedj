@@ -1,0 +1,20 @@
+<Template>
+  <WidgetGroup>
+    <ObjectName>Overview</ObjectName>
+    <Layout>vertical</Layout>
+    <Size>0me,0me</Size>
+    <Children>
+      <WidgetGroup>
+        <ObjectName>Waveforms_Container</ObjectName>
+        <Layout>horizontal</Layout>
+        <Children>
+          <Template src="skin:waveforms.xml"></Template>
+          <Template src="skin:effects.xml"></Template>
+        </Children>
+      </WidgetGroup>
+
+      <!-- Deck strips, or the cue drawer in their place. -->
+      <Template src="skin:cuepanel.xml"></Template>
+    </Children>
+  </WidgetGroup>
+</Template>

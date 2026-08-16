@@ -1,0 +1,109 @@
+<!--
+  One deck's block on the KEY page of the Overview panel (effects.xml):
+  the deck's current key plus +/-2 semitone nudges and a reset.
+
+  The key badge binds [Channel<N>],visual_key for the text and the
+  fork-added [Channel<N>],key_shifted for `highlight`, which turns it
+  orange whenever the playing key differs from the file's own key —
+  same "playback != file" cue DeckBPM uses for rate_ratio. key_shifted
+  compares the rounded keys, so a sub-semitone offset that still renders
+  as the same key doesn't light it up.
+
+  Nudges are the fork-added pitch_up_2/pitch_down_2 push buttons on
+  KeyControl; reset is stock reset_key (pitch back to 0).
+
+  Variables:
+    channel: channel number (e.g. 1, 2)
+-->
+<Template>
+  <WidgetGroup>
+    <ObjectName>KeyFX_DeckBlock</ObjectName>
+    <Layout>vertical</Layout>
+    <Size>0me,74f</Size>
+    <Children>
+
+      <WidgetGroup>
+        <ObjectName>KeyFX_DeckHeader</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,24f</Size>
+        <Children>
+          <Label>
+            <ObjectName>KeyFX_DeckLabel_<Variable name="channel"/></ObjectName>
+            <Text>Deck <Variable name="channel"/></Text>
+            <Size>0me,24f</Size>
+            <Alignment>left</Alignment>
+          </Label>
+          <Key>
+            <ObjectName>KeyFX_DeckKey</ObjectName>
+            <TooltipId>visual_key</TooltipId>
+            <Size>56max,24f</Size>
+            <Alignment>right</Alignment>
+            <Channel><Variable name="channel"/></Channel>
+            <Connection>
+              <ConfigKey>[Channel<Variable name="channel"/>],visual_key</ConfigKey>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Channel<Variable name="channel"/>],key_shifted</ConfigKey>
+              <BindProperty>highlight</BindProperty>
+            </Connection>
+          </Key>
+        </Children>
+      </WidgetGroup>
+
+      <WidgetGroup>
+        <ObjectName>KeyFX_ButtonRow</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,44f</Size>
+        <Children>
+
+          <PushButton>
+            <ObjectName>KeyFX_Down</ObjectName>
+            <Size>46f,44f</Size>
+            <NumberStates>1</NumberStates>
+            <State>
+              <Number>0</Number>
+              <Text>&#8722;2</Text>
+            </State>
+            <Connection>
+              <ConfigKey>[Channel<Variable name="channel"/>],pitch_down_2</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+          </PushButton>
+
+          <PushButton>
+            <ObjectName>KeyFX_Up</ObjectName>
+            <Size>46f,44f</Size>
+            <NumberStates>1</NumberStates>
+            <State>
+              <Number>0</Number>
+              <Text>+2</Text>
+            </State>
+            <Connection>
+              <ConfigKey>[Channel<Variable name="channel"/>],pitch_up_2</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+          </PushButton>
+
+          <PushButton>
+            <ObjectName>KeyFX_Reset</ObjectName>
+            <Size>0me,44f</Size>
+            <NumberStates>1</NumberStates>
+            <State>
+              <Number>0</Number>
+              <Text>Reset</Text>
+            </State>
+            <Connection>
+              <ConfigKey>[Channel<Variable name="channel"/>],reset_key</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+          </PushButton>
+
+        </Children>
+      </WidgetGroup>
+
+    </Children>
+  </WidgetGroup>
+</Template>

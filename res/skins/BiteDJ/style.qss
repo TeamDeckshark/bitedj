@@ -1,0 +1,1640 @@
+#Mixxx {
+  background-color: black;
+}
+
+/* Opaque black under the tab stacks so swapping pages never reveals the
+ * cleared (white) backing store for a frame before the root repaints.
+ * Pages paint on top; transparent areas now fall back to black, not white. */
+#TabStack,
+#SettingsStack {
+  background-color: black;
+}
+
+* {
+  font-family: 'Monospace';
+}
+
+QMenuBar, QMenuBar::item, QMenu, QMenu::item {
+  background-color: #a7a9ac;
+}
+
+QMenuBar::item:pressed, QMenu::item:selected, QMenu::item:pressed {
+    background-color: rgba(255,255,255,0.2);
+}
+
+/************************************************************************/
+/*     Buttons                                                          */
+/************************************************************************/
+
+WPushButton {
+  color: #e5e6ea;
+  background-color: transparent;
+  border: 1px solid #32323c;
+  border-radius: 2px;
+  outline: none;
+}
+
+WPushButton:hover {
+  border: 1px solid #5F5F5F;
+}
+
+WPushButton[value="1"] {
+  color: #e5e6ea;
+  border: 1px solid #5F5F5F;
+  background-color: #32323c;
+}
+
+WPushButton[value="1"]:hover {
+  border: 1px solid #4B4B4B;
+  background-color: #30303a;
+}
+
+/************************************************************************/
+/*     Deck                                                             */
+/************************************************************************/
+
+#Deck {
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+
+#Deck[highlight="1"] {
+  border: 1px solid #e5e6ea;
+}
+
+#DeckBPMWrapper {
+  border: 2px solid #e5e6ea;
+  border-radius: 5px;
+  margin-bottom: 4px;
+  padding-right: 2px;
+  qproperty-layoutAlignment: 'AlignRight | AlignVCenter';
+}
+
+#DeckBPM {
+  font-size: 20px;
+}
+
+#DeckBPM[highlight="1"],
+#DeckRate[highlight="1"],
+#BPMPercent[highlight="1"] {
+  color: #c9372c;
+}
+
+#DeckBPMTitleWrapper {
+  padding: 0 2px;
+  qproperty-layoutAlignment: 'AlignRight | AlignVCenter';
+}
+
+#DeckBPMTitle {
+  font-size: 8px;
+  font-weight: bold;
+}
+
+#TrackBPMRangeContainer {
+  padding: 5px;
+  qproperty-layoutAlignment: 'AlignHCenter | AlignTop';
+}
+
+#DeckBPMRangePercent {
+  background-color: #151515;
+  padding: 0px;
+}
+
+#BPMRangePlusMinus, #RateDisplay {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+#DeckHeader {
+  background-color: #151515;
+  padding: 2px;
+}
+
+#DeckOverview {
+  margin: 50% 0;
+}
+
+#DeckTitle {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+#DeckTitlePlaying {
+  font-size: 18px;
+  font-weight: bold;
+  color: #c9372c;
+  margin-right: 4px;
+}
+
+#DeckArtist {
+  font-size: 18px;
+  color: #9a9b9c;
+}
+
+#DeckKey {
+  font-size: 13px;
+  font-weight: bold;
+  color: #08537c;
+  background-color: rgba(8, 125, 225, 0.1);
+  margin-right: 6px;
+  qproperty-alignment: 'AlignCenter';
+}
+
+/* Playing key != file key (same cue as DeckBPM for rate_ratio != 1). */
+#DeckKey[highlight="1"] {
+  color: #c9372c;
+  background-color: rgba(241, 89, 33, 0.12);
+}
+
+/* Matched pair with DeckKey, shown off the overview tab only. */
+#DeckHeaderBPM {
+  font-size: 13px;
+  font-weight: bold;
+  color: #08537c;
+  background-color: rgba(8, 125, 225, 0.1);
+  margin-right: 6px;
+  qproperty-alignment: 'AlignCenter';
+}
+
+#DeckHeaderBPM[highlight="1"] {
+  color: #c9372c;
+  background-color: rgba(241, 89, 33, 0.12);
+}
+
+#DeckChannelTitle, #DeckTrackTimeTitle, #DeckTempoTitle {
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#DeckPlayingLeft, #DeckPlayingRight {
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#DeckTrackTimeWrapper {
+  qproperty-layoutAlignment: 'AlignLeft | AlignVCenter';
+}
+
+#DeckTrackTime {
+  font-size: 36px;
+}
+
+#DeckTrackTime[highlight="1"] {
+  color: transparent;
+}
+
+#DeckTrackTimeMini {
+  font-size: 20px;
+}
+
+#DeckTrackTimeMini[highlight="1"] {
+  color: transparent;
+}
+
+#DeckTrackNumberContainer {
+  margin: 0 4px;
+  qproperty-layoutAlignment: 'AlignHCenter | AlignTop';
+}
+
+#TrackNumberWrapper, #DeckChannelTitleWrapper {
+  qproperty-layoutAlignment: 'AlignHCenter | AlignVCenter';
+}
+
+#TrackNumberTitle {
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+#TrackNumber {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+/************************************************************************/
+/*     BeatFX                                                           */
+/************************************************************************/
+
+#BeatFX_Container {
+  padding: 8px;
+  qproperty-layoutAlignment: 'AlignCenter | AlignTop';
+}
+
+#BeatFX_Header {
+  qproperty-layoutAlignment: 'AlignHCenter | AlignVCenter';
+}
+
+/* FX / KEY page tabs. Same select-only bar as the Settings sub-tabs, sized
+ * down to fit the 180px panel. */
+#FxPanel_TabBar {
+  margin: 0 0 6px 0;
+  qproperty-layoutSpacing: 4;
+}
+
+#FxPanel_TabBar WPushButton {
+  background-color: transparent;
+  border: 2px solid #32323c;
+  color: #a7a9ac;
+  font-size: 15px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#FxPanel_TabBar WPushButton[value="1"] {
+  background-color: #855ea7;
+  border-color: #855ea7;
+  color: #e7e8e9;
+}
+
+#FxPanel_Page {
+  qproperty-layoutAlignment: 'AlignTop';
+}
+
+/************************************************************************/
+/*     Cue drawer                                                       */
+/************************************************************************/
+
+/* Opens the drawer on this deck; sits between the key/BPM chips and the
+ * track title, so it stays narrow. */
+#DeckCueChip {
+  font-size: 13px;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #08537c;
+  background-color: rgba(8, 125, 225, 0.1);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  margin-right: 6px;
+}
+
+#DeckCueChip:pressed {
+  color: #e7e8e9;
+  background-color: #855ea7;
+}
+
+#CuePanel {
+  background-color: #151515;
+  padding: 2px;
+}
+
+#CuePanel_Header {
+  qproperty-layoutSpacing: 4;
+  margin-bottom: 4px;
+}
+
+#CuePanel_DeckLabel {
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #a7a9ac;
+  qproperty-alignment: 'AlignLeft | AlignVCenter';
+}
+
+/* Bank toggle. Labelled with the bank on show, the same off/active
+ * convention as BeatFX_ActiveToggle. */
+#CuePanel_BankToggle {
+  background-color: transparent;
+  border: 2px solid #32323c;
+  border-radius: 2px;
+  color: #a7a9ac;
+  font-size: 15px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#CuePanel_BankToggle[value="1"] {
+  background-color: #855ea7;
+  border-color: #855ea7;
+  color: #e7e8e9;
+}
+
+#CuePanel_Close {
+  background-color: transparent;
+  border: 2px solid #32323c;
+  border-radius: 2px;
+  color: #a7a9ac;
+  font-size: 15px;
+  font-weight: bold;
+}
+
+#CuePanel_Close:pressed {
+  border-color: #855ea7;
+  color: #e7e8e9;
+}
+
+#CuePanel_Grid {
+  qproperty-layoutSpacing: 4;
+}
+
+#CuePanel_Row {
+  qproperty-layoutSpacing: 4;
+}
+
+/* Empty slot. The set and active states get their background from the cue's
+ * own colour, applied by WHotcueButton as an inline stylesheet, so only the
+ * text and border are set here. */
+#CuePad {
+  background-color: #1a1a1a;
+  border: 1px solid #32323c;
+  border-radius: 3px;
+  color: #4a4a4a;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+#CuePad[displayValue="1"], #CuePad[displayValue="2"] {
+  color: #e7e8e9;
+  border-color: #5f5f5f;
+}
+
+/* WHotcueButton reports whether the cue colour is light or dark so the label
+ * can stay legible against it. Exempt from daylight-mode inversion, both of
+ * them: the background these are paired against is the cue's OWN colour, set
+ * by WHotcueButton as an inline stylesheet and deliberately never inverted (a
+ * red cue is red in both modes), and the light/dark property is computed from
+ * that same un-inverted colour. Invert the label and a white saved-loop pad
+ * gets white text. */
+/* no-invert */
+#CuePad[light="true"] {
+  color: #101010;
+}
+
+/* no-invert */
+#CuePad[dark="true"] {
+  color: #e7e8e9;
+}
+
+/* A pad holding a saved loop rather than a plain cue point. */
+#CuePad[type="loop"] {
+  border: 2px solid #6ee128;
+}
+
+/* Saved loop currently running. */
+#CuePad[displayValue="2"] {
+  border: 2px solid #c9372c;
+}
+
+#BeatFX_ParamRow {
+  padding: 2px 0px;
+}
+
+#BeatFX_ParamLabel {
+  color: #a7a9ac;
+  font-size: 16px;
+  font-weight: bold;
+  text-transform: uppercase;
+  padding-right: 4px;
+}
+
+#BeatFX_BucketRow {
+  qproperty-layoutSpacing: 2;
+}
+
+#BeatFX_BucketButton {
+  color: #a7a9ac;
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 2px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+#BeatFX_BucketButton[displayValue="1"] {
+  color: #c9372c;
+  border-color: #c9372c;
+  background-color: #2a1a13;
+}
+
+#BeatFX_ActiveToggle {
+  color: #a7a9ac;
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#BeatFX_ActiveToggle[value="1"] {
+  color: #c9372c;
+  border-color: #c9372c;
+}
+
+/* Deck-routing toggles for [EffectRack1_EffectUnit1]. Channel colors mirror
+ * the deck badges used in the sampler view so the FX panel and the deck
+ * strips agree on which color means which deck. */
+#BeatFX_DeckRouting {
+  qproperty-layoutSpacing: 4;
+  padding: 4px 0;
+}
+
+#BeatFX_DeckAssign1,
+#BeatFX_DeckAssign2 {
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  color: #a7a9ac;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+#BeatFX_DeckAssign1[displayValue="1"] {
+  background-color: #855ea7;
+  border-color: #855ea7;
+  color: #1a1a1a;
+}
+
+#BeatFX_DeckAssign2[displayValue="1"] {
+  background-color: #c9372c;
+  border-color: #c9372c;
+  color: #1a1a1a;
+}
+
+#BeatFX_WetRow {
+  qproperty-layoutAlignment: 'AlignVCenter';
+  qproperty-layoutSpacing: 4;
+}
+
+#BeatFX_MixLabel {
+  color: #a7a9ac;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#BeatFX_MixMeter {
+  padding: 0 1px;
+}
+
+/* KEY page: one stacked block per deck, +/-2 semitone nudges and reset. */
+#KeyFX_DeckBlock {
+  padding: 0 0 10px 0;
+}
+
+#KeyFX_DeckHeader {
+  qproperty-layoutAlignment: 'AlignVCenter';
+  qproperty-layoutSpacing: 4;
+}
+
+#KeyFX_DeckLabel_1 {
+  color: #855ea7;
+  font-size: 15px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#KeyFX_DeckLabel_2 {
+  color: #c9372c;
+  font-size: 15px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+/* Orange whenever the playing key differs from the file's key. */
+#KeyFX_DeckKey {
+  color: #e7e8e9;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+#KeyFX_DeckKey[highlight="1"] {
+  color: #c9372c;
+}
+
+#KeyFX_ButtonRow {
+  qproperty-layoutSpacing: 4;
+}
+
+#KeyFX_Down,
+#KeyFX_Up,
+#KeyFX_Reset {
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  color: #a7a9ac;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+#KeyFX_Reset {
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+#KeyFX_Down:pressed,
+#KeyFX_Up:pressed,
+#KeyFX_Reset:pressed {
+  border-color: #c9372c;
+  color: #c9372c;
+}
+
+/************************************************************************/
+/*     Effects                                                          */
+/************************************************************************/
+
+/* Opaque on purpose, unlike the transparent WPushButtons around it. Those are
+ * plain QWidgets — transparent means the skin-painted parent shows through. A
+ * QComboBox is a *native-styled* control: transparent leaves QStyle to paint it
+ * from the widget palette, which is the platform default and the one surface
+ * neither daylight-mode hook can reach, so it stayed black on a light page.
+ * Declaring the surface here puts it back inside the stylesheet, which is what
+ * the inversion works from. Colours are the BeatFX control surface its
+ * neighbours use (BucketButton / ActiveToggle / DeckAssign). */
+WEffectSelector {
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 2px;
+  color: #a7a9ac;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 4px;
+  text-transform: uppercase;
+}
+/* The drop-down button is a second palette-drawn surface: left unstyled QStyle
+ * paints its raised frame from the platform palette, which is the same black
+ * box the selector body was. Styling it flattens the frame — but Qt then stops
+ * drawing the built-in arrow instead of falling back to it, so the arrow has to
+ * come from the skin. As a QSS url() it rides the icon-inversion pipeline and
+ * flips with everything else. */
+WEffectSelector::drop-down {
+  background-color: transparent;
+  border: 0;
+  subcontrol-origin: padding;
+  subcontrol-position: center right;
+  width: 24px;
+}
+
+WEffectSelector::down-arrow {
+  image: url(skin:icons/dropdown_arrow.svg);
+  width: 12px;
+  height: 12px;
+}
+
+/* The open drop-down is a separate top-level popup, not a child of the closed
+ * combo, so it inherits none of the above. Left unstyled it falls back to the
+ * system palette — black rows that daylight mode never sees, because nothing
+ * in the skin declared them. Styling it explicitly both fixes the popup and
+ * puts it inside the stylesheet, which is what the inversion works from. */
+WEffectSelector QAbstractItemView {
+  background-color: #1a1a1a;
+  border: 1px solid #32323c;
+  color: #e5e6ea;
+  selection-background-color: #855ea7;
+  selection-color: #e7e8e9;
+}
+
+#EffectMeter {
+  padding: 0px 1px 0px 1px;
+}
+
+/************************************************************************/
+/*     Library                                                          */
+/************************************************************************/
+
+#LibraryWrapper QScrollBar {
+  background-color: #855ea7;
+}
+
+#LibraryWrapper QScrollBar::handle:horizontal {
+  border: 0;
+}
+
+#LibraryWrapper QScrollBar:horizontal {
+  height: 0;
+  width: 0;
+}
+
+#LibraryWrapper QScrollBar:vertical {
+  border: 0;
+  width: 10px;
+}
+
+#LibraryWrapper QScrollBar::add-page,
+#LibraryWrapper QScrollBar::sub-page {
+  background-color: black;
+}
+
+#LibraryWrapper QScrollBar::add-line,
+#LibraryWrapper QScrollBar::sub-line {
+  height: 0;
+  width: 0;
+}
+
+#LibraryWrapper WTrackTableViewHeader::section {
+  background-color: #32323c;
+  color: #e5e6ea;
+  font-weight: bold;
+  font-size: 18px;
+  margin: 2px;
+  text-transform: uppercase;
+}
+
+/* Rows for tracks already played this session render in blue.
+   Cleared by Settings -> General -> Played -> Reset. Keep in sync with
+   kPlayedTrackColor in browsetablemodel.cpp, which tints the Computer/USB
+   file browser (a QStandardItemModel with no styleable view property). */
+#LibraryWrapper WTrackTableView {
+  qproperty-trackPlayedColor: #4aa3e0;
+}
+
+#LibraryWrapper QTableView,
+#LibraryWrapper WLibraryTextBrowser {
+  background-color: #111;
+  alternate-background-color: #222;
+  selection-background-color: #e5e6ea;
+  color: white;
+  selection-color: black;
+  font-size: 18px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+#LibraryWrapper WLibrarySidebar {
+  background-color: #111;
+  selection-background-color: #9bcceb;
+  border-left: 4px solid gray;
+  color: #e5e6ea;
+  font-weight: bold;
+  font-size: 24px;
+  selection-color: black;
+  text-transform: uppercase;
+}
+
+#LibraryWrapper QPushButton,
+#LibraryWrapper QSpinBox,
+#LibraryWrapper QComboBox,
+#LibraryWrapper QComboBox QAbstractScrollArea {
+  background-color: #32323c;
+  color: #e5e6ea;
+}
+
+WLabel {
+  color: #e5e6ea;
+}
+
+/* Library Search */
+#SearchBox {
+  background-color: #112f5c;
+  border-radius: 0;
+  font-size: 20px;
+  font-weight: bold;
+  padding: 4px;
+  text-transform: uppercase;
+}
+
+/* Sidebar (hide/show) */
+#SidebarContainer {
+  background-color: #112f5c;
+}
+#SidebarButton {
+  background-color: rgba(0,0,0,0.2);
+  border: 2px solid lightgray;
+  border-radius: 4px;
+  color: lightgray;
+  font-size: 16px;
+  font-weight: bold;
+  margin: 4px;
+}
+#LibraryBreadcrumb {
+  color: lightgray;
+  font-size: 18px;
+  font-weight: bold;
+  padding-left: 12px;
+}
+
+/* Checkbox in library "Played" column */
+#LibraryWrapper WTrackTableView::indicator:unchecked {
+  image: url(skin:icons/library_checkbox.svg);
+}
+#LibraryWrapper WTrackTableView::indicator:hover {
+  background-color: #2d85cd;
+}
+#LibraryWrapper WTrackTableView::indicator:checked {
+  image: url(skin:icons/library_checkbox_checked.svg);
+}
+
+/************************************************************************/
+/*     Waveforms                                                        */
+/************************************************************************/
+
+#WaveformInfo {
+  margin-right: 10px;
+}
+
+#WaveformInfo_Header {
+  background-color: #32323c;
+  border-top-right-radius: 10px 25px;
+  padding-right: 2px;
+}
+
+#WaveformInfo_Header[highlight="1"] {
+  border: 2px solid #e5e6ea;
+}
+
+#WaveformInfo_Title,
+#WaveformInfo_Key,
+#WaveformInfo_Bars {
+  color: #e5e6ea;
+  font-size: 16px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#WaveformInfo_Data_Container,
+#WaveformInfo_Key_Container,
+#WaveformInfo_Bars_Container,
+#WaveformInfo_Loopsize_Container {
+  qproperty-layoutAlignment: 'AlignLeft | AlignTop';
+}
+
+#WaveformInfo_Key[highlight="1"] {
+  color: #c9372c;
+}
+
+#WaveformInfo_Loop_Icon {
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  margin: 2px;
+}
+
+#WaveformInfo_BeatloopSizeSpinBox {
+  margin: 3px;
+  padding: -4px -4px 0px -8px;
+}
+
+WBeatSpinBox {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: bold;
+  background-color: #000000;
+}
+
+WBeatSpinBox::down-arrow,
+WBeatSpinBox::up-arrow,
+WBeatSpinBox::down-button,
+WBeatSpinBox::up-button {
+  width: 0px;
+  height: 0px;
+  color: #000000;
+  background-color: #000000;
+}
+
+#WaveformInfo_KeylockButton {
+  image: url(skin:icons/keylock.svg) no-repeat center center;
+}
+
+#WaveformInfo_QuantizeButton {
+  image: url(skin:icons/quantize.svg) no-repeat center center;
+}
+
+/************************************************************************/
+/*     Tabs                                                             */
+/************************************************************************/
+
+#TabControls {
+  background-color: #855ea7;
+  margin-bottom: 5px;
+}
+
+/* Five tabs share the bar, so at the 480px floor each cell is ~96px. The
+ * margin is a percentage (not px) and the font is small enough that the
+ * longest label — SETTINGS, 8 chars of monospace — still clears its cell. */
+#TabControls WPushButton {
+  font-weight: bold;
+  font-size: 17px;
+  margin: 10px 3%;
+  max-width: 250px;
+  text-transform: uppercase;
+}
+
+#TabControls WPushButton[value="0"] {
+  border: 2px solid black;
+  color: black;
+}
+
+#TabControls WPushButton[value="1"] {
+  border: 2px solid black;
+  background-color: black;
+  color: #e7e8e9;
+}
+
+/* A recording runs while the DJ is on any tab, so it is badged where it can be
+ * stopped: a red dot on SETTINGS, the page the USB Record buttons are on. Red
+ * because that is what the Record button turns and what the drive's LED shows.
+ * It sits in the top-right corner, which is the only placement that clears the
+ * label: SETTINGS is the longest word on the bar and at the 480px floor its 8
+ * monospace chars fill nearly the whole ~90px cell, so a badge anywhere on the
+ * text's own baseline is painted over (WPushButton draws its <Text> across the
+ * whole widget rect and ignores QSS padding, so the label cannot be moved out
+ * of the way). The 40px-tall button leaves ~14px of clear space above the cap
+ * height, which is what the dot occupies. Qt's background-position takes
+ * alignment keywords only, so the inset lives in the image: recording_dot.svg
+ * is a 14x14 canvas with the 10px dot at cx=5,cy=9, i.e. 4px of empty canvas
+ * above it and to its right, and aligning that canvas top-right against the
+ * border box puts the dot 4px in from both edges — 2px clear of the 2px
+ * border. Change the inset in the SVG's width/cx and height/cy pairs
+ * (width - cx - 5 and cy - 5). */
+#TabControls WPushButton#TabButtonSettings[recording="1"] {
+  background-image: url(skin:icons/recording_dot.svg);
+  background-origin: border;
+  background-position: right top;
+  background-repeat: no-repeat;
+}
+
+/************************************************************************/
+/*     Settings                                                         */
+/************************************************************************/
+
+#Settings {
+  padding: 16px 24px;
+  qproperty-layoutAlignment: 'AlignTop';
+}
+
+#SettingsRow {
+  background-color: #151515;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  padding: 8px 16px;
+  qproperty-layoutAlignment: 'AlignVCenter';
+}
+
+#SettingsRowLabel {
+  color: #e5e6ea;
+  font-size: 16px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#SettingsSegmented {
+  qproperty-layoutAlignment: 'AlignRight | AlignVCenter';
+}
+
+#SettingsSegmentLeft,
+#SettingsSegmentMid,
+#SettingsSegmentRight {
+  background-color: transparent;
+  border: 2px solid #855ea7;
+  color: #a7a9ac;
+  font-size: 14px;
+  font-weight: bold;
+  min-width: 80px;
+  text-transform: uppercase;
+}
+
+/* Samplers MODE row carries three segments (Play/Load/Unload) plus a 2-segment
+ * SOURCE row and STOP ALL on the same line — drop the min-width so the row
+ * fits at the 480px floor without clipping. */
+#SamplersSegmented #SettingsSegmentLeft,
+#SamplersSegmented #SettingsSegmentMid,
+#SamplersSegmented #SettingsSegmentRight {
+  min-width: 60px;
+}
+
+/* The System page's SCREEN row carries rotation, Day/Night and Power on one
+ * line so the USB drive list keeps the vertical space. At the 480px floor that
+ * only clears the row width if both segment groups size to their (short)
+ * labels — 0°/180° and NIGHT/DAY are at most four 14px Monospace caps, so 60px
+ * still leaves them padding. */
+#ScreenRotSegmented,
+#ScreenModeSegmented {
+  qproperty-layoutAlignment: 'AlignRight | AlignVCenter';
+}
+
+#ScreenRotSegmented #SettingsSegmentLeft,
+#ScreenRotSegmented #SettingsSegmentRight,
+#ScreenModeSegmented #SettingsSegmentLeft,
+#ScreenModeSegmented #SettingsSegmentRight {
+  min-width: 60px;
+}
+
+#SettingsSegmentLeft {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right-width: 1px;
+}
+
+#SettingsSegmentMid {
+  border-radius: 0;
+  border-left-width: 1px;
+  border-right-width: 1px;
+}
+
+#SettingsSegmentRight {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left-width: 1px;
+}
+
+#SettingsSegmentLeft[displayValue="1"],
+#SettingsSegmentMid[displayValue="1"],
+#SettingsSegmentRight[displayValue="1"] {
+  background-color: #855ea7;
+  color: #e7e8e9;
+}
+
+#SettingsSegmentLeft[pressed="true"],
+#SettingsSegmentMid[pressed="true"],
+#SettingsSegmentRight[pressed="true"] {
+  background-color: #2d6488;
+  color: #e7e8e9;
+}
+
+/* A settings row can bind its `enabled` to the setting it depends on (General →
+ * Brake binds [BiteDJ],vinyl_mode: only a released scratch can coast, so the
+ * brake does nothing in CDJ jog mode). Qt propagates enabled down the widget
+ * tree, so disabling the row lands on the label and every segment. The
+ * selected segment keeps a muted fill rather than going flat, so the row still
+ * says which value is stored and will apply again once the mode comes back. */
+#SettingsRowLabel:disabled {
+  color: #5c707d;
+}
+
+#SettingsSegmentLeft:disabled,
+#SettingsSegmentMid:disabled,
+#SettingsSegmentRight:disabled {
+  border-color: #2b3f4d;
+  color: #5c707d;
+}
+
+#SettingsSegmentLeft[displayValue="1"]:disabled,
+#SettingsSegmentMid[displayValue="1"]:disabled,
+#SettingsSegmentRight[displayValue="1"]:disabled {
+  background-color: rgba(72, 138, 179, 0.18);
+  color: #8a99a4;
+}
+
+/* Samplers → DRIVE. One chip per mounted USB drive, built at runtime by
+ * WSamplerDrive: the choices are whatever is plugged in, so this is a list
+ * whose length changes rather than the fixed left/mid/right strip the
+ * segmented selectors below the grid are. Same fill and border as those, so
+ * the selected drive reads as the same kind of choice, but each chip is
+ * rounded on all four corners because it stands alone. Chips are
+ * SizePolicy::Ignored and share the strip evenly, so min-width is the floor
+ * that keeps four drives tappable rather than a target size. */
+#SamplerDriveChip {
+  background-color: transparent;
+  border: 2px solid #855ea7;
+  border-radius: 4px;
+  color: #a7a9ac;
+  font-size: 14px;
+  font-weight: bold;
+  min-width: 60px;
+  padding: 0 6px;
+  text-transform: uppercase;
+}
+
+#SamplerDriveChip[selected="true"] {
+  background-color: #855ea7;
+  color: #e7e8e9;
+}
+
+/* Nothing plugged in, or the drive the samples live on is not here. Muted
+ * rather than styled as a chip: it is not something to tap. */
+#SamplerDrivePlaceholder {
+  color: #5c707d;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#SettingsActionButton {
+  background-color: transparent;
+  border: 2px solid #855ea7;
+  border-radius: 4px;
+  color: #e7e8e9;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#SettingsActionButton[pressed="true"] {
+  background-color: #2d6488;
+}
+
+/* The Audio Rescan button binds `enabled` to [AudioDevices],reconfigure_enabled,
+ * which drops to 0 while a deck plays — rescanning re-opens the devices and
+ * would cut the music. */
+#SettingsActionButton:disabled {
+  border-color: #2b3f4d;
+  color: #5c707d;
+}
+
+/* Filled accent variant for the commit action (Apply) so un-applied staged
+ * settings read as a pending decision next to the outline Cancel. */
+#SettingsPrimaryButton {
+  background-color: #855ea7;
+  border: 2px solid #855ea7;
+  border-radius: 4px;
+  color: #e7e8e9;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin-right: 6px;
+}
+
+#SettingsPrimaryButton[pressed="true"] {
+  background-color: #2d6488;
+  border-color: #2d6488;
+}
+
+/* Audio Apply binds `enabled` to [AudioDevices],reconfigure_enabled, which
+ * drops to 0 while a deck is playing (applying re-opens the devices and would
+ * cut the music). Paint it dimmed so the block reads as deliberate. */
+#SettingsPrimaryButton:disabled {
+  background-color: rgba(72, 138, 179, 0.12);
+  border-color: #2b3f4d;
+  color: #5c707d;
+}
+
+#SettingsSubtabBar {
+  margin: 0 0 8px 0;
+}
+
+#SettingsSubtabBar WPushButton {
+  background-color: transparent;
+  border: 2px solid #32323c;
+  color: #a7a9ac;
+  font-size: 14px;
+  font-weight: bold;
+  margin: 0 4px;
+  text-transform: uppercase;
+}
+
+#SettingsSubtabBar WPushButton[value="1"] {
+  background-color: #855ea7;
+  border-color: #855ea7;
+  color: #e7e8e9;
+}
+
+#SettingsPanel {
+  qproperty-layoutAlignment: 'AlignTop';
+}
+
+/* The General sub-page packs two columns of rows at the 480px floor: trim row
+ * padding, label font and segment min-width so label + control fit a ~200px
+ * half-column without clipping. */
+#GeneralCol {
+  qproperty-layoutAlignment: 'AlignTop';
+  padding: 0 4px;
+}
+
+#GeneralCol #SettingsRow {
+  margin-bottom: 6px;
+  padding: 4px 8px;
+}
+
+#GeneralCol #SettingsRowLabel {
+  font-size: 13px;
+}
+
+#GeneralCol #SettingsSegmentLeft,
+#GeneralCol #SettingsSegmentMid,
+#GeneralCol #SettingsSegmentRight {
+  min-width: 40px;
+  font-size: 12px;
+}
+
+#GeneralCol #SettingsActionButton {
+  font-size: 12px;
+}
+
+#LibraryColumnsCol {
+  qproperty-layoutAlignment: 'AlignTop';
+  padding: 0 4px;
+}
+
+#LibraryColumnRow {
+  background-color: #151515;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  padding: 2px 12px;
+  qproperty-layoutAlignment: 'AlignVCenter';
+}
+
+#LibraryColumnRowLabel {
+  color: #e5e6ea;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#LibraryColumnVisibleButton {
+  background-color: transparent;
+  border: 2px solid #855ea7;
+  border-radius: 4px;
+  color: #a7a9ac;
+  font-size: 12px;
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+#LibraryColumnVisibleButton[value="1"] {
+  background-color: #855ea7;
+  color: #e7e8e9;
+}
+
+#LibraryColumnVisibleButton[pressed="true"] {
+  background-color: #2d6488;
+  color: #e7e8e9;
+}
+
+#LibraryColumnSegmented {
+  qproperty-layoutAlignment: 'AlignRight | AlignVCenter';
+}
+
+#LibraryColumnSegmented WPushButton {
+  font-size: 12px;
+  min-width: 32px;
+}
+
+/************************************************************************/
+/*     Samplers                                                         */
+/************************************************************************/
+
+#SamplersHeader {
+  padding: 4px 12px 8px 12px;
+}
+
+#SamplersHeaderGroup {
+  margin: 0 6px;
+  qproperty-layoutAlignment: 'AlignVCenter';
+}
+
+#SamplersHeaderLabel {
+  color: #a7a9ac;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  qproperty-alignment: 'AlignRight | AlignVCenter';
+  padding-right: 6px;
+}
+
+#SamplersSegmented {
+  qproperty-layoutAlignment: 'AlignVCenter';
+}
+
+/* Deck-row identity badges — colored block at the start of each row so the
+ * channel association is glanceable. Sampler wrappers use 0me width so the
+ * 8 buttons reflow narrower at the 480f minimum to make room. */
+#SamplersDeckBadge1, #SamplersDeckBadge2 {
+  border-radius: 2px;
+  color: #1a1a1a;
+  font-size: 18px;
+  font-weight: bold;
+  margin: 4px 2px 4px 4px;
+  qproperty-alignment: 'AlignCenter';
+}
+
+#SamplersDeckBadge1 {
+  background-color: #855ea7;
+}
+
+#SamplersDeckBadge2 {
+  background-color: #c9372c;
+}
+
+/* PLAY-mode sampler button.
+ *   loaded=0  → dim outline (empty slot, title row is empty)
+ *   loaded=1  → red outline (sample loaded, idle)
+ *   value=1   → solid red fill (sample playing) */
+#Sampler {
+  background-color: #32323c;
+  border: 2px solid #4a4a55;
+  border-radius: 2px;
+  margin: 2px 4px 4px 4px;
+}
+
+#Sampler[loaded="1"] {
+  border: 2px solid #d73535;
+}
+
+#Sampler[value="1"] {
+  background-color: #d73535;
+  border: 2px solid #d73535;
+}
+
+#Sampler[value="1"]:hover {
+  background-color: #d73535;
+  border: 2px solid #d73535;
+}
+
+/* LOAD-mode button: amber palette so the user knows the next press loads. */
+#SamplerLoad {
+  background-color: rgba(241, 89, 33, 0.18);
+  border: 2px dashed #c9372c;
+  border-radius: 2px;
+  color: #c9372c;
+  font-size: 11px;
+  font-weight: bold;
+  margin: 2px 4px 4px 4px;
+  text-transform: uppercase;
+}
+
+#SamplerLoad:hover {
+  background-color: rgba(241, 89, 33, 0.28);
+  border: 2px dashed #c9372c;
+}
+
+#SamplerLoad[loaded="1"] {
+  background-color: rgba(241, 89, 33, 0.30);
+}
+
+#SamplerLoad[loaded="1"]:hover {
+  background-color: rgba(241, 89, 33, 0.40);
+}
+
+#SamplerLoad[pressed="true"] {
+  background-color: #c9372c;
+  color: #1a1a1a;
+}
+
+/* UNLOAD-mode button: red destructive palette when a track is loaded; the
+ * widget's `enabled` property is bound to track_loaded, so empty slots are
+ * disabled (and dimmed) to avoid Mixxx's eject-on-empty reload-last-ejected
+ * gesture. */
+#SamplerUnload {
+  background-color: rgba(215, 53, 53, 0.22);
+  border: 2px dashed #d73535;
+  border-radius: 2px;
+  color: #d73535;
+  font-size: 11px;
+  font-weight: bold;
+  margin: 2px 4px 4px 4px;
+  text-transform: uppercase;
+}
+
+#SamplerUnload:hover {
+  background-color: rgba(215, 53, 53, 0.32);
+}
+
+#SamplerUnload:disabled {
+  background-color: rgba(215, 53, 53, 0.06);
+  border: 2px dashed #5a2020;
+  color: #5a2020;
+}
+
+#SamplerUnload[pressed="true"] {
+  background-color: #d73535;
+  color: #1a1a1a;
+}
+
+/* Track title sits directly above its sampler button. Small + elided. */
+#Sampler_Info {
+  color: #e5e6ea;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 0 2px;
+  qproperty-alignment: 'AlignBottom | AlignHCenter';
+}
+
+/* STOP ALL — destructive palette so users register it as a panic button
+ * rather than a toggle. */
+#SamplersStopAll {
+  background-color: transparent;
+  border: 2px solid #d73535;
+  border-radius: 4px;
+  color: #d73535;
+  font-size: 13px;
+  font-weight: bold;
+  margin: 0 12px;
+  text-transform: uppercase;
+}
+
+#SamplersStopAll:hover {
+  background-color: rgba(215, 53, 53, 0.18);
+  border: 2px solid #d73535;
+}
+
+#SamplersStopAll[pressed="true"] {
+  background-color: #d73535;
+  color: #1a1a1a;
+}
+
+/************************************************************************/
+/*     Soft-takeover indicator                                          */
+/************************************************************************/
+
+/* Overlays the topbar tabs in a stacked layout — background must stay
+   opaque so the tab buttons don't bleed through. */
+#SoftTakeoverStrip {
+  background-color: #140d00;
+  border-top: 1px solid #402900;
+  border-bottom: 1px solid #402900;
+}
+
+#SoftTakeoverLabel {
+  color: #c9372c;
+  font-size: 16px;
+  font-weight: bold;
+  qproperty-alignment: 'AlignCenter';
+}
+
+/************************************************************************/
+/*     Inline notification strip                                        */
+/************************************************************************/
+
+/* Overlays the topbar tabs in a stacked layout — background must stay
+   opaque so the tab buttons don't bleed through. */
+#NotificationStrip {
+  background-color: #1a1100;
+  border-top: 1px solid;
+  border-bottom: 1px solid;
+}
+
+#NotificationStrip #NotificationLabel {
+  font-size: 16px;
+  font-weight: bold;
+  qproperty-alignment: 'AlignCenter';
+}
+
+#NotificationStrip[severity="info"],
+#NotificationStrip[severity="warning"],
+#NotificationStrip[severity="error"] {
+  background-color: #1a1100;
+  border-color: #593a00;
+}
+#NotificationStrip[severity="info"] #NotificationLabel,
+#NotificationStrip[severity="warning"] #NotificationLabel,
+#NotificationStrip[severity="error"] #NotificationLabel {
+  color: #c9372c;
+}
+
+#SettingsHeader {
+  color: #a7a9ac;
+  font-size: 13px;
+  font-weight: bold;
+  margin: 0 4px 4px 4px;
+  text-transform: uppercase;
+}
+
+#SettingsVersionLabel {
+  color: #5c5e61;
+  font-size: 11px;
+}
+
+/************************************************************************/
+/*     Levels                                                           */
+/************************************************************************/
+
+/* Tighter than #Settings' 16px/24px: the page stacks two knob rows, two
+ * headers and the deck strip inside the 420px-floor height. */
+#Levels {
+  padding: 10px 16px;
+  qproperty-layoutAlignment: 'AlignTop';
+}
+
+#LevelRow {
+  background-color: #151515;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  padding: 8px 4px;
+}
+
+/* No qproperty-layoutAlignment here on purpose. WWidgetGroup forwards it to
+ * QLayout::setAlignment, which only positions a layout inside its *parent
+ * layout* — a top-level layout ignores it, so it can't centre a fixed-width
+ * knob in a wider column. The columns' children are all full-width instead
+ * (KnobComposed at 0me paints its knob centred via STRETCH_ASPECT). */
+#LevelKnobLabel {
+  color: #a7a9ac;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#LevelKnobValue {
+  color: #e5e6ea;
+  font-size: 12px;
+}
+
+/* Levels -> master EQ: eight band columns plus the Flat reset share the row
+ * width equally so the page still fits at the 480px floor (9 x ~48px). */
+#EQBandRow {
+  background-color: #151515;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  padding: 8px 4px;
+}
+
+#EQBand {
+  qproperty-layoutAlignment: 'AlignHCenter | AlignVCenter';
+}
+
+#EQBandLabel {
+  color: #a7a9ac;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+#EQBandValue {
+  color: #e5e6ea;
+  font-size: 12px;
+}
+
+#AudioDeviceList #AudioDeviceRow {
+  background-color: #151515;
+  border: 2px solid #151515;
+  border-radius: 4px;
+  color: #e5e6ea;
+  font-size: 16px;
+  font-weight: bold;
+  min-height: 56px;
+  padding: 0 16px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+#AudioDeviceList #AudioDeviceRow[assigned="false"] {
+  color: #7a7a84;
+  border-style: dashed;
+  border-color: #32323c;
+}
+
+#AudioDeviceList #AudioDeviceRow:pressed {
+  background-color: #2d6488;
+}
+
+#AudioDeviceList #AudioDeviceRow[empty="true"] {
+  background-color: transparent;
+  border: 2px dashed #32323c;
+  color: #5a5a64;
+}
+
+#ControllerList #ControllerRow {
+  background-color: #151515;
+  border: 2px solid #151515;
+  border-radius: 4px;
+  color: #e5e6ea;
+  font-size: 16px;
+  font-weight: bold;
+  min-height: 56px;
+  padding: 0 16px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+#ControllerList #ControllerRow[active="true"] {
+  background-color: #2d6488;
+  border-color: #855ea7;
+}
+
+#ControllerList #ControllerRow:pressed {
+  background-color: #2d6488;
+}
+
+#ControllerList #ControllerRow[empty="true"] {
+  background-color: transparent;
+  border: 2px dashed #32323c;
+  color: #5a5a64;
+}
+
+/* The rows live in a scroll area so more drives / controllers than fit the
+ * panel can be reached by dragging; the panel behind it has to keep showing
+ * through. */
+#UsbList #UsbScrollArea,
+#UsbList #UsbScrollContent,
+#ControllerList #ControllerScrollArea,
+#ControllerList #ControllerScrollContent {
+  background-color: transparent;
+  border: 0;
+}
+
+/* Wide enough to grab with a fingertip, with the handle inset so it still
+ * reads as a slim indicator. Track colours follow the library's scroll bar. */
+#UsbList QScrollBar:vertical,
+#ControllerList QScrollBar:vertical {
+  background-color: #151515;
+  border: 0;
+  border-radius: 4px;
+  margin: 0;
+  width: 18px;
+}
+
+#UsbList QScrollBar::handle:vertical,
+#ControllerList QScrollBar::handle:vertical {
+  background-color: #855ea7;
+  border: 0;
+  border-radius: 5px;
+  margin: 0 4px;
+  min-height: 44px;
+}
+
+#UsbList QScrollBar::handle:vertical:pressed,
+#ControllerList QScrollBar::handle:vertical:pressed {
+  background-color: #7fb2d6;
+}
+
+#UsbList QScrollBar::add-page:vertical,
+#UsbList QScrollBar::sub-page:vertical,
+#ControllerList QScrollBar::add-page:vertical,
+#ControllerList QScrollBar::sub-page:vertical {
+  background-color: transparent;
+}
+
+#UsbList QScrollBar::add-line:vertical,
+#UsbList QScrollBar::sub-line:vertical,
+#ControllerList QScrollBar::add-line:vertical,
+#ControllerList QScrollBar::sub-line:vertical {
+  height: 0;
+  width: 0;
+}
+
+/* Drive name label carries the row's appearance (there is no container widget). */
+#UsbList #UsbRowLabel {
+  background-color: #151515;
+  border: 2px solid #151515;
+  border-radius: 4px;
+  color: #e5e6ea;
+  font-size: 16px;
+  font-weight: bold;
+  min-height: 56px;
+  padding: 0 16px;
+  text-transform: uppercase;
+}
+
+/* Per-row Record and Eject buttons: outlined and clearly actionable at rest,
+ * filled with the highlight colour only while pressed. Both sit at min-width 96
+ * rather than the 110 Eject had to itself — two buttons plus a drive name is all
+ * the 400px this panel gets at the 480px floor will take, and 96 still leaves
+ * EJECT and RECORD their width with room over the 44px touch floor. */
+#UsbList #UsbEjectButton,
+#UsbList #UsbRecordButton {
+  background-color: transparent;
+  border: 2px solid #855ea7;
+  border-radius: 4px;
+  color: #7fb2d6;
+  font-size: 14px;
+  font-weight: bold;
+  min-height: 56px;
+  min-width: 96px;
+  padding: 0 14px;
+  text-transform: uppercase;
+}
+
+#UsbList #UsbEjectButton:pressed,
+#UsbList #UsbRecordButton:pressed {
+  background-color: #2d6488;
+  color: #e5e6ea;
+}
+
+/* Recording: filled red, the one colour that means this on any deck ever built
+ * (and the LED state for a drive that must not be pulled). */
+#UsbList #UsbRecordButton[recording="true"] {
+  background-color: #7a2622;
+  border-color: #c2453d;
+  color: #f0d5d2;
+}
+
+#UsbList #UsbRecordButton[recording="true"]:pressed {
+  background-color: #97302a;
+  color: #ffffff;
+}
+
+/* Only one drive can be recorded to, so the others go flat for the duration —
+ * paired with the disabled widget swallowing the tap rather than queueing it,
+ * the same way the Audio page's Apply does while a deck is playing. */
+#UsbList #UsbRecordButton:disabled {
+  border-color: #32323c;
+  color: #5a5a64;
+}
+
+/* First tap arms the button; it turns danger-red to mirror the safe-to-remove
+ * LED state and prompts the confirming second tap. */
+#UsbList #UsbEjectButton[armed="true"] {
+  background-color: #7a2622;
+  border-color: #c2453d;
+  color: #f0d5d2;
+}
+
+#UsbList #UsbEjectButton[armed="true"]:pressed {
+  background-color: #97302a;
+  color: #ffffff;
+}
+
+/* Empty-state placeholder row (a QLabel). */
+#UsbList #UsbRow[empty="true"] {
+  background-color: transparent;
+  border: 2px dashed #32323c;
+  border-radius: 4px;
+  color: #5a5a64;
+  font-size: 16px;
+  font-weight: bold;
+  min-height: 56px;
+  padding: 0 16px;
+  text-transform: uppercase;
+}
+
+#SettingsDangerButton {
+  background-color: transparent;
+  border: 2px solid #c2453d;
+  border-radius: 4px;
+  color: #e7e8e9;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#SettingsDangerButton[pressed="true"] {
+  background-color: #7a2622;
+}

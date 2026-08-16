@@ -1,0 +1,281 @@
+<Template>
+  <WidgetGroup>
+    <ObjectName>Waveform_Channel<Variable name="channel"/></ObjectName>
+    <Layout>horizontal</Layout>
+    <Size>0me,50me</Size>
+    <Children>
+      <WidgetGroup>
+        <ObjectName>WaveformInfo</ObjectName>
+        <Layout>vertical</Layout>
+        <Size>126f,0me</Size>
+        <Children>
+          <WidgetGroup>
+            <ObjectName>WaveformInfo_Header</ObjectName>
+            <Layout>horizontal</Layout>
+            <Size>0me,30max</Size>
+            <Children>
+              <Label>
+                <ObjectName>WaveformInfo_Title</ObjectName>
+                <Text>DECK<Variable name="channel"/></Text>
+              </Label>
+            </Children>
+            <Connection>
+              <ConfigKey>[Channel<Variable name="channel"/>],play</ConfigKey>
+              <BindProperty>highlight</BindProperty>
+            </Connection>
+          </WidgetGroup>
+          <WidgetGroup>
+            <ObjectName>WaveformInfo_Data_Container</ObjectName>
+            <Layout>vertical</Layout>
+            <Size>0me,25me</Size>
+            <Children>
+              <WidgetGroup>
+                <ObjectName>WaveformInfo_Key_Container</ObjectName>
+                <Layout>horizontal</Layout>
+                <Size>0me,30f</Size>
+                <Children>
+                  <!-- Left, not centred: the key used to share this row with a
+                       ♭♯ chip and centred in what was left of it. On its own it
+                       fills the row, so centring would float it in from the
+                       edge and break the left rule the BARS row below keeps. -->
+                  <Key>
+                    <ObjectName>WaveformInfo_Key</ObjectName>
+                    <TooltipId>visual_key</TooltipId>
+                    <Channel><Variable name="channel"/></Channel>
+                    <Alignment>left</Alignment>
+                    <Connection>
+                      <ConfigKey>[Channel<Variable name="channel"/>],visual_key</ConfigKey>
+                    </Connection>
+                    <Connection>
+                      <ConfigKey>[Channel<Variable name="channel"/>],key_shifted</ConfigKey>
+                      <BindProperty>highlight</BindProperty>
+                    </Connection>
+                  </Key>
+                </Children>
+              </WidgetGroup>
+              <WidgetGroup>
+                <ObjectName>WaveformInfo_Bars_Container</ObjectName>
+                <Layout>horizontal</Layout>
+                <Size>0me,10f</Size>
+                <Children>
+                  <Label>
+                    <ObjectName>WaveformInfo_Bars</ObjectName>
+                  </Label>
+                </Children>
+              </WidgetGroup>
+              <WidgetGroup>
+                <ObjectName>WaveformInfo_Loopsize_Container</ObjectName>
+                <Layout>horizontal</Layout>
+                <Size>0me,25f</Size>
+                <SetVariable name="beatloop_size_chan">[Channel<Variable name="channel"/>], beatloop_size</SetVariable>
+                <Children>
+                  <Label>
+                    <ObjectName>WaveformInfo_Loop_Icon</ObjectName>
+                    <Text>&#8635;</Text>
+                  </Label>
+                  <BeatSpinBox>
+                    <ObjectName>WaveformInfo_BeatloopSizeSpinBox</ObjectName>
+                    <TooltipId>beatloop_size</TooltipId>
+                    <Value>[Channel<Variable name="channel"/>],beatloop_size</Value>
+                    <ReadOnly>true</ReadOnly>
+                  </BeatSpinBox>
+                </Children>
+              </WidgetGroup>
+              <WidgetGroup>
+                <ObjectName>WaveformInfo_Controls</ObjectName>
+                <Layout>horizontal</Layout>
+                <Size>0me,30f</Size>
+                <Children>
+
+                  <Template src="skin:templates/toggle_button.xml">
+                    <SetVariable name="TooltipId">quantize</SetVariable>
+                    <SetVariable name="ObjectName">WaveformInfo_QuantizeButton</SetVariable>
+                    <SetVariable name="Size">30me,30f</SetVariable>
+                    <SetVariable name="LeftConnectionControl">[Channel<Variable name="channel"/>],quantize</SetVariable>
+                  </Template>
+
+                  <Template src="skin:templates/toggle_button.xml">
+                    <SetVariable name="TooltipId">keylock</SetVariable>
+                    <SetVariable name="ObjectName">WaveformInfo_KeylockButton</SetVariable>
+                    <SetVariable name="Size">30me,30f</SetVariable>
+                    <SetVariable name="LeftConnectionControl">[Channel<Variable name="channel"/>],keylock</SetVariable>
+                  </Template>
+
+                </Children>
+              </WidgetGroup>
+            </Children>
+          </WidgetGroup>
+        </Children>
+      </WidgetGroup>
+      <Visual>
+        <TooltipId>waveform_display</TooltipId>
+        <ObjectName>Waveform<Variable name="channel"/></ObjectName>
+        <Channel><Variable name="channel"/></Channel>
+        <DisableSeek>true</DisableSeek>
+        <BgColor>#000</BgColor>
+        <BeatColor>#fff</BeatColor>
+        <BeatDownbeatColor>#f15921</BeatDownbeatColor>
+        <PlayPosColor>#fff</PlayPosColor>
+        <SignalColor>#32323c</SignalColor>
+        <SignalLowColor>#004ee4</SignalLowColor>
+        <SignalMidColor>#c95a00</SignalMidColor>
+        <SignalHighColor>#f6e9d3</SignalHighColor>
+        <DefaultMark>
+          <Align>bottom|right</Align>
+          <Color>#FF0000</Color>
+          <TextColor>#FFFFFF</TextColor>
+         <Text> %1 </Text>
+        </DefaultMark>
+        <Mark>
+          <Control>cue_point</Control>
+          <Text>CUE</Text>
+          <Color>#ff6000</Color>
+          <TextColor>#ff6000</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+        <!-- Hot cue bank (slots 1-8 = rekordbox pads A-H). <Hotcue> binds the
+             end position and type as well as the position, so saved loops draw
+             their range and each mark takes the cue's own colour and label.
+             These also override the DefaultMark above for their slots. -->
+        <Mark>
+          <Hotcue>1</Hotcue>
+          <Text>A</Text>
+          <Color>#f44040</Color>
+          <TextColor>#f44040</TextColor>
+          <Align>top</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>2</Hotcue>
+          <Text>B</Text>
+          <Color>#0ddcf2</Color>
+          <TextColor>#0ddcf2</TextColor>
+          <Align>top</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>3</Hotcue>
+          <Text>C</Text>
+          <Color>#a5df13</Color>
+          <TextColor>#a5df13</TextColor>
+          <Align>top</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>4</Hotcue>
+          <Text>D</Text>
+          <Color>#9d4cfd</Color>
+          <TextColor>#9d4cfd</TextColor>
+          <Align>top</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>5</Hotcue>
+          <Text>E</Text>
+          <Color>#3fec2b</Color>
+          <TextColor>#3fec2b</TextColor>
+          <Align>top</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>6</Hotcue>
+          <Text>F</Text>
+          <Color>#e6681c</Color>
+          <TextColor>#e6681c</TextColor>
+          <Align>top</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>7</Hotcue>
+          <Text>G</Text>
+          <Color>#2749c8</Color>
+          <TextColor>#2749c8</TextColor>
+          <Align>top</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>8</Hotcue>
+          <Text>H</Text>
+          <Color>#c7b205</Color>
+          <TextColor>#c7b205</TextColor>
+          <Align>top</Align>
+        </Mark>
+
+        <!-- Memory cue bank (slots 17-24, chronological). Bottom-aligned to
+             separate them at a glance from the hot cues on top. Keep in step
+             with kMemoryCueBankStart / kMemoryCueBankSize in cueinfo.h. -->
+        <Mark>
+          <Hotcue>17</Hotcue>
+          <Text>M1</Text>
+          <Color>#9aa0a6</Color>
+          <TextColor>#9aa0a6</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>18</Hotcue>
+          <Text>M2</Text>
+          <Color>#9aa0a6</Color>
+          <TextColor>#9aa0a6</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>19</Hotcue>
+          <Text>M3</Text>
+          <Color>#9aa0a6</Color>
+          <TextColor>#9aa0a6</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>20</Hotcue>
+          <Text>M4</Text>
+          <Color>#9aa0a6</Color>
+          <TextColor>#9aa0a6</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>21</Hotcue>
+          <Text>M5</Text>
+          <Color>#9aa0a6</Color>
+          <TextColor>#9aa0a6</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>22</Hotcue>
+          <Text>M6</Text>
+          <Color>#9aa0a6</Color>
+          <TextColor>#9aa0a6</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>23</Hotcue>
+          <Text>M7</Text>
+          <Color>#9aa0a6</Color>
+          <TextColor>#9aa0a6</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>24</Hotcue>
+          <Text>M8</Text>
+          <Color>#9aa0a6</Color>
+          <TextColor>#9aa0a6</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+
+        <Mark>
+          <Control>loop_start_position</Control>
+          <Text>IN</Text>
+          <Color>#f15921</Color>
+          <Align>top</Align>
+        </Mark>
+        <Mark>
+          <Control>loop_end_position</Control>
+          <Text>OUT</Text>
+          <Color>#f15921</Color>
+          <Align>top</Align>
+        </Mark>
+        <MarkRange>
+          <StartControl>loop_start_position</StartControl>
+          <EndControl>loop_end_position</EndControl>
+          <EnabledControl>loop_enabled</EnabledControl>
+          <Color>#f15921</Color>
+          <Opacity>1</Opacity>
+          <DisabledColor>#acacac</DisabledColor>
+          <DisabledOpacity>0.4</DisabledOpacity>
+        </MarkRange>
+      </Visual>
+    </Children>
+  </WidgetGroup>
+</Template>

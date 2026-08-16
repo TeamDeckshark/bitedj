@@ -1,0 +1,367 @@
+<Template>
+  <WidgetGroup>
+    <ObjectName>Samplers</ObjectName>
+    <Layout>vertical</Layout>
+    <Children>
+
+      <!-- Deck 1 row -->
+      <WidgetGroup>
+        <ObjectName>SamplersDeck1</ObjectName>
+        <Layout>horizontal</Layout>
+        <Children>
+          <Label>
+            <ObjectName>SamplersDeckBadge1</ObjectName>
+            <Text>1</Text>
+            <Size>20f,me</Size>
+          </Label>
+          <WidgetGroup>
+            <ObjectName>SamplersDeck1Row1</ObjectName>
+            <Layout>horizontal</Layout>
+            <Children>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">1</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">2</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">3</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">4</SetVariable>
+              </Template>
+            </Children>
+          </WidgetGroup>
+          <WidgetGroup>
+            <ObjectName>SamplersDeck1Row2</ObjectName>
+            <Layout>horizontal</Layout>
+            <Children>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">5</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">6</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">7</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">8</SetVariable>
+              </Template>
+            </Children>
+          </WidgetGroup>
+        </Children>
+      </WidgetGroup>
+
+      <!-- Deck 2 row -->
+      <WidgetGroup>
+        <ObjectName>SamplersDeck2</ObjectName>
+        <Layout>horizontal</Layout>
+        <Children>
+          <Label>
+            <ObjectName>SamplersDeckBadge2</ObjectName>
+            <Text>2</Text>
+            <Size>20f,me</Size>
+          </Label>
+          <WidgetGroup>
+            <ObjectName>SamplersDeck2Row1</ObjectName>
+            <Layout>horizontal</Layout>
+            <Children>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">9</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">10</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">11</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">12</SetVariable>
+              </Template>
+            </Children>
+          </WidgetGroup>
+          <WidgetGroup>
+            <ObjectName>SamplersDeck2Row2</ObjectName>
+            <Layout>horizontal</Layout>
+            <Children>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">13</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">14</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">15</SetVariable>
+              </Template>
+              <Template src="skin:sampler.xml">
+                <SetVariable name="sampler">16</SetVariable>
+              </Template>
+            </Children>
+          </WidgetGroup>
+        </Children>
+      </WidgetGroup>
+
+      <!-- DRIVE — the one USB drive the whole grid is filled from and saved
+           to. One chip per mounted drive, built at runtime by WSamplerDrive
+           (the choices are whatever is plugged in), so there is always
+           something on screen saying where these samples live. Sits directly
+           under the grid, above SOURCE, because everything below it is
+           conditional on this choice. -->
+      <WidgetGroup>
+        <ObjectName>SamplersHeader</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,48f</Size>
+        <Children>
+          <WidgetGroup>
+            <ObjectName>SamplersHeaderGroup</ObjectName>
+            <Layout>horizontal</Layout>
+            <Size>0me,me</Size>
+            <Children>
+              <Label>
+                <ObjectName>SamplersHeaderLabel</ObjectName>
+                <Text>DRIVE</Text>
+                <Size>56f,me</Size>
+              </Label>
+              <!-- 44f chips in a 48f row, not the 56f the selectors below get:
+                   at the 420px floor this tab already spends 312 of its 360 on
+                   the grid (2 x 80f), the SOURCE/MODE row (72f) and the decks
+                   (80max), so 48 is exactly the slack the spacer was absorbing.
+                   The chips still clear the 44px touch floor; anything taller
+                   comes out of the deck strip. -->
+              <SamplerDrive>
+                <ObjectName>SamplerDriveStrip</ObjectName>
+                <Size>0me,44f</Size>
+              </SamplerDrive>
+            </Children>
+          </WidgetGroup>
+        </Children>
+      </WidgetGroup>
+
+      <!-- SOURCE / MODE selector — sits below the grid so the buttons dominate
+           the upper half of the screen. -->
+      <WidgetGroup>
+        <ObjectName>SamplersHeader</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,72f</Size>
+        <Children>
+          <WidgetGroup>
+            <ObjectName>SamplersHeaderGroup</ObjectName>
+            <Layout>horizontal</Layout>
+            <Size>0me,me</Size>
+            <Children>
+              <Label>
+                <ObjectName>SamplersHeaderLabel</ObjectName>
+                <Text>SOURCE</Text>
+                <Size>56f,me</Size>
+              </Label>
+              <!-- SOURCE picks the deck LOAD clones from, so a deck with
+                   nothing on it is not a source worth offering. Each segment
+                   sits in its own group bound to that deck's track_loaded:
+                   Qt propagates enabled down the widget tree, and unlike the
+                   settings rows (which grey a whole row from one connection)
+                   the two decks here have to grey independently. A disabled
+                   WWidget never synthesizes touch -> mouse, so the segment
+                   also stops taking taps that could only select an empty
+                   deck. Layout-neutral — a WidgetGroup's layout defaults to
+                   zero spacing and margins. -->
+              <WidgetGroup>
+                <ObjectName>SamplersSegmented</ObjectName>
+                <Layout>horizontal</Layout>
+                <Size>0me,56f</Size>
+                <Children>
+                  <WidgetGroup>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,0me</Size>
+                    <Children>
+                      <Template src="skin:templates/setting_segment_button.xml">
+                        <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                        <SetVariable name="Text">Deck 1</SetVariable>
+                        <SetVariable name="ConfigKey">[Samplers],source_deck_index</SetVariable>
+                        <SetVariable name="Value">0</SetVariable>
+                      </Template>
+                    </Children>
+                    <Connection>
+                      <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                      <ConfigKey>[Channel1],track_loaded</ConfigKey>
+                      <BindProperty>enabled</BindProperty>
+                    </Connection>
+                  </WidgetGroup>
+                  <WidgetGroup>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,0me</Size>
+                    <Children>
+                      <Template src="skin:templates/setting_segment_button.xml">
+                        <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                        <SetVariable name="Text">Deck 2</SetVariable>
+                        <SetVariable name="ConfigKey">[Samplers],source_deck_index</SetVariable>
+                        <SetVariable name="Value">1</SetVariable>
+                      </Template>
+                    </Children>
+                    <Connection>
+                      <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                      <ConfigKey>[Channel2],track_loaded</ConfigKey>
+                      <BindProperty>enabled</BindProperty>
+                    </Connection>
+                  </WidgetGroup>
+                </Children>
+              </WidgetGroup>
+            </Children>
+          </WidgetGroup>
+          <WidgetGroup>
+            <ObjectName>SamplersHeaderGroup</ObjectName>
+            <Layout>horizontal</Layout>
+            <Size>0me,me</Size>
+            <Children>
+              <Label>
+                <ObjectName>SamplersHeaderLabel</ObjectName>
+                <Text>MODE</Text>
+                <Size>56f,me</Size>
+              </Label>
+              <WidgetGroup>
+                <ObjectName>SamplersSegmented</ObjectName>
+                <Layout>horizontal</Layout>
+                <Size>0me,56f</Size>
+                <Children>
+                  <Template src="skin:templates/setting_segment_button.xml">
+                    <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                    <SetVariable name="Text">Play</SetVariable>
+                    <SetVariable name="ConfigKey">[Samplers],load_mode</SetVariable>
+                    <SetVariable name="Value">0</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/setting_segment_button.xml">
+                    <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
+                    <SetVariable name="Text">Load</SetVariable>
+                    <SetVariable name="ConfigKey">[Samplers],load_mode</SetVariable>
+                    <SetVariable name="Value">1</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/setting_segment_button.xml">
+                    <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                    <SetVariable name="Text">Unload</SetVariable>
+                    <SetVariable name="ConfigKey">[Samplers],load_mode</SetVariable>
+                    <SetVariable name="Value">2</SetVariable>
+                  </Template>
+                </Children>
+              </WidgetGroup>
+            </Children>
+          </WidgetGroup>
+
+          <!-- STOP ALL — fires every [SamplerN],stop in one tap. Sized smaller
+               than the segmented selectors so it's clearly a panic action and
+               not confused with a normal toggle. -->
+          <PushButton>
+            <ObjectName>SamplersStopAll</ObjectName>
+            <Size>96f,48f</Size>
+            <NumberStates>1</NumberStates>
+            <State>
+              <Number>0</Number>
+              <Text>STOP ALL</Text>
+            </State>
+            <Connection>
+              <ConfigKey>[Sampler1],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler2],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler3],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler4],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler5],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler6],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler7],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler8],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler9],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler10],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler11],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler12],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler13],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler14],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler15],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+            <Connection>
+              <ConfigKey>[Sampler16],stop</ConfigKey>
+              <ConnectValueToWidget>false</ConnectValueToWidget>
+              <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+          </PushButton>
+        </Children>
+      </WidgetGroup>
+
+      <!-- Expanding spacer absorbs leftover vertical space so the grid +
+           toggles anchor near the top while the decks stay pinned to the
+           bottom. -->
+      <WidgetGroup>
+        <ObjectName>SettingsSpacer</ObjectName>
+        <Size>0me,0me</Size>
+      </WidgetGroup>
+
+      <WidgetGroup>
+        <ObjectName>Decks</ObjectName>
+        <Layout>horizontal</Layout>
+        <Size>0me,80max</Size>
+        <Children>
+          <Template src="skin:deck.xml">
+            <SetVariable name="channel">1</SetVariable>
+          </Template>
+          <Template src="skin:deck.xml">
+            <SetVariable name="channel">2</SetVariable>
+          </Template>
+        </Children>
+      </WidgetGroup>
+    </Children>
+  </WidgetGroup>
+</Template>

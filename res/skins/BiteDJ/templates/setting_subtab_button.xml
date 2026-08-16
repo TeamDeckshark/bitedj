@@ -1,0 +1,22 @@
+<Template>
+  <PushButton>
+    <ObjectName>SettingsSubtabButton</ObjectName>
+    <Size>0me,40f</Size>
+    <NumberStates>2</NumberStates>
+    <State>
+      <Number>0</Number>
+      <Text><Variable name="Text"/></Text>
+    </State>
+    <State>
+      <Number>1</Number>
+      <Text><Variable name="Text"/></Text>
+    </State>
+    <!-- Select-only, not a toggle: always emit 1 on press (never 0),
+         so tapping the already-active sub-tab is a no-op instead of hiding it. -->
+    <LeftClickIsPushButton>true</LeftClickIsPushButton>
+    <Connection>
+      <ConfigKey>[SettingsTab],<Variable name="ConfigKey"/></ConfigKey>
+      <EmitOnDownPress>true</EmitOnDownPress>
+    </Connection>
+  </PushButton>
+</Template>

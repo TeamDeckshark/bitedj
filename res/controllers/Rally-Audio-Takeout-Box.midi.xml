@@ -1,0 +1,961 @@
+<?xml version='1.0' encoding='utf-8'?>
+<MixxxControllerPreset mixxxVersion="2.4.0" schemaVersion="1">
+<info>
+    <name>Rally Audio Takeout Box</name>
+    <author>Rally Audio</author>
+    <description>2-deck + crossfader mapping for the Rally Audio Takeout Box.
+Converted from djay Pro 5.6.1 mapping.
+Decks 1-2 on MIDI channels 1-2. Crossfader on CC 75 (both channels).
+Endpoint: Takeout MIDI+CDC</description>
+</info>
+
+<controller id="Takeout MIDI+CDC">
+    <scriptfiles>
+        <file filename="Rally-Audio-Takeout-Box-scripts.js" functionprefix="TakeoutBox"/>
+    </scriptfiles>
+
+    <controls>
+
+<!-- ============================================================ --><!-- DECK 1 | MIDI Channel 1 (note 0x90 / CC 0xB0) --><!-- ============================================================ -->
+
+<!-- Deck 1: Play/Pause -->
+<control>
+    <group>[Channel1]</group>
+    <key>TakeoutBox.playPause</key>
+    <status>0x90</status>
+    <midino>0x00</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Scratch touch -->
+<control>
+    <group>[Channel1]</group>
+    <key>TakeoutBox.wheelTouch</key>
+    <status>0x90</status>
+    <midino>0x5B</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Scratch wheel (CC 33, rel) -->
+<control>
+    <group>[Channel1]</group>
+    <key>TakeoutBox.scratchMove</key>
+    <status>0xB0</status>
+    <midino>0x21</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Speed encoder (CC 36, rel, flipped) -->
+<control>
+    <group>[Channel1]</group>
+    <key>TakeoutBox.speedKnob</key>
+    <status>0xB0</status>
+    <midino>0x24</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Filter (CC 70) -->
+<control>
+    <group>[QuickEffectRack1_[Channel1]]</group>
+    <key>TakeoutBox.filter</key>
+    <status>0xB0</status>
+    <midino>0x46</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: EQ High (CC 73) -->
+<control>
+    <group>[EqualizerRack1_[Channel1]_Effect1]</group>
+    <key>TakeoutBox.eqHigh</key>
+    <status>0xB0</status>
+    <midino>0x49</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: EQ Mid (CC 72) -->
+<control>
+    <group>[EqualizerRack1_[Channel1]_Effect1]</group>
+    <key>TakeoutBox.eqMid</key>
+    <status>0xB0</status>
+    <midino>0x48</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: EQ Low (CC 71) -->
+<control>
+    <group>[EqualizerRack1_[Channel1]_Effect1]</group>
+    <key>TakeoutBox.eqLow</key>
+    <status>0xB0</status>
+    <midino>0x47</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Match key (note 99) -->
+<control>
+    <group>[Channel1]</group>
+    <key>TakeoutBox.matchKey</key>
+    <status>0x90</status>
+    <midino>0x63</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Crossfader (CC 75, flipped) -->
+<control>
+    <group>[Master]</group>
+    <key>TakeoutBox.crossfader</key>
+    <status>0xB0</status>
+    <midino>0x4B</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Sampler 1 (note 54) -->
+<control>
+    <group>[Sampler1]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x90</status>
+    <midino>0x36</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Sampler 2 (note 56) -->
+<control>
+    <group>[Sampler2]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x90</status>
+    <midino>0x38</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Sampler 3 (note 58) -->
+<control>
+    <group>[Sampler3]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x90</status>
+    <midino>0x3A</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Sampler 4 (note 60) -->
+<control>
+    <group>[Sampler4]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x90</status>
+    <midino>0x3C</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Sampler 5 (note 62) -->
+<control>
+    <group>[Sampler5]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x90</status>
+    <midino>0x3E</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Sampler 6 (note 64) -->
+<control>
+    <group>[Sampler6]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x90</status>
+    <midino>0x40</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Sampler 7 (note 66) -->
+<control>
+    <group>[Sampler7]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x90</status>
+    <midino>0x42</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Sampler 8 (note 68) -->
+<control>
+    <group>[Sampler8]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x90</status>
+    <midino>0x44</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Library scroll (CC 50) -->
+<control>
+    <group>[Library]</group>
+    <key>TakeoutBox.libraryScroll</key>
+    <status>0xB0</status>
+    <midino>0x32</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Library back -->
+<control>
+    <group>[Library]</group>
+    <key>TakeoutBox.libraryBack</key>
+    <status>0x90</status>
+    <midino>0x53</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Library toggle source -->
+<control>
+    <group>[Library]</group>
+    <key>TakeoutBox.libraryToggleSource</key>
+    <status>0x90</status>
+    <midino>0x54</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Load track -->
+<control>
+    <group>[Channel1]</group>
+    <key>TakeoutBox.libraryLoad</key>
+    <status>0x90</status>
+    <midino>0x60</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Toggle library visible -->
+<control>
+    <group>[Library]</group>
+    <key>TakeoutBox.libraryToggleVisible</key>
+    <status>0x90</status>
+    <midino>0x59</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 1: Cue -->
+<control>
+    <group>[Channel1]</group>
+    <key>cue_default</key>
+    <status>0x90</status>
+    <midino>0x02</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Sync -->
+<control>
+    <group>[Channel1]</group>
+    <key>sync_enabled</key>
+    <status>0x90</status>
+    <midino>0x04</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Auto-loop on/off -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatloop_activate</key>
+    <status>0x90</status>
+    <midino>0x4A</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Loop halve -->
+<control>
+    <group>[Channel1]</group>
+    <key>loop_halve</key>
+    <status>0x90</status>
+    <midino>0x46</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Loop double -->
+<control>
+    <group>[Channel1]</group>
+    <key>loop_double</key>
+    <status>0x90</status>
+    <midino>0x48</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Hot cue 1 (note 12) -->
+<control>
+    <group>[Channel1]</group>
+    <key>hotcue_1_activate</key>
+    <status>0x90</status>
+    <midino>0x0C</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Hot cue 2 (note 10) -->
+<control>
+    <group>[Channel1]</group>
+    <key>hotcue_2_activate</key>
+    <status>0x90</status>
+    <midino>0x0A</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Hot cue 3 (note 8) -->
+<control>
+    <group>[Channel1]</group>
+    <key>hotcue_3_activate</key>
+    <status>0x90</status>
+    <midino>0x08</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Hot cue 4 (note 6) -->
+<control>
+    <group>[Channel1]</group>
+    <key>hotcue_4_activate</key>
+    <status>0x90</status>
+    <midino>0x06</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Hot cue 5 (note 20) -->
+<control>
+    <group>[Channel1]</group>
+    <key>hotcue_5_activate</key>
+    <status>0x90</status>
+    <midino>0x14</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Hot cue 6 (note 18) -->
+<control>
+    <group>[Channel1]</group>
+    <key>hotcue_6_activate</key>
+    <status>0x90</status>
+    <midino>0x12</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Hot cue 7 (note 16) -->
+<control>
+    <group>[Channel1]</group>
+    <key>hotcue_7_activate</key>
+    <status>0x90</status>
+    <midino>0x10</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Hot cue 8 (note 14) -->
+<control>
+    <group>[Channel1]</group>
+    <key>hotcue_8_activate</key>
+    <status>0x90</status>
+    <midino>0x0E</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Skip backward 4 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatjump_4_backward</key>
+    <status>0x90</status>
+    <midino>0x16</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Skip backward 8 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatjump_8_backward</key>
+    <status>0x90</status>
+    <midino>0x18</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Skip backward 16 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatjump_16_backward</key>
+    <status>0x90</status>
+    <midino>0x1A</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Skip backward 32 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatjump_32_backward</key>
+    <status>0x90</status>
+    <midino>0x1C</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Skip forward 4 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatjump_4_forward</key>
+    <status>0x90</status>
+    <midino>0x1E</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Skip forward 8 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatjump_8_forward</key>
+    <status>0x90</status>
+    <midino>0x20</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Skip forward 16 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatjump_16_forward</key>
+    <status>0x90</status>
+    <midino>0x22</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Skip forward 32 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatjump_32_forward</key>
+    <status>0x90</status>
+    <midino>0x24</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Bounce loop 0.03125 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatlooproll_0.03125_activate</key>
+    <status>0x90</status>
+    <midino>0x26</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Bounce loop 0.0625 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatlooproll_0.0625_activate</key>
+    <status>0x90</status>
+    <midino>0x28</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Bounce loop 0.125 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatlooproll_0.125_activate</key>
+    <status>0x90</status>
+    <midino>0x2A</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Bounce loop 0.25 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatlooproll_0.25_activate</key>
+    <status>0x90</status>
+    <midino>0x2C</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Bounce loop 0.5 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatlooproll_0.5_activate</key>
+    <status>0x90</status>
+    <midino>0x2E</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Bounce loop 1 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatlooproll_1_activate</key>
+    <status>0x90</status>
+    <midino>0x30</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Bounce loop 2 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatlooproll_2_activate</key>
+    <status>0x90</status>
+    <midino>0x32</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 1: Bounce loop 4 -->
+<control>
+    <group>[Channel1]</group>
+    <key>beatlooproll_4_activate</key>
+    <status>0x90</status>
+    <midino>0x34</midino>
+    <options><normal/></options>
+</control>
+
+<!-- ============================================================ --><!-- DECK 2 | MIDI Channel 2 (note 0x91 / CC 0xB1) --><!-- ============================================================ -->
+
+<!-- Deck 2: Play/Pause -->
+<control>
+    <group>[Channel2]</group>
+    <key>TakeoutBox.playPause</key>
+    <status>0x91</status>
+    <midino>0x00</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Scratch touch -->
+<control>
+    <group>[Channel2]</group>
+    <key>TakeoutBox.wheelTouch</key>
+    <status>0x91</status>
+    <midino>0x5B</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Scratch wheel (CC 33, rel) -->
+<control>
+    <group>[Channel2]</group>
+    <key>TakeoutBox.scratchMove</key>
+    <status>0xB1</status>
+    <midino>0x21</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Speed encoder (CC 36, rel, flipped) -->
+<control>
+    <group>[Channel2]</group>
+    <key>TakeoutBox.speedKnob</key>
+    <status>0xB1</status>
+    <midino>0x24</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Filter (CC 70) -->
+<control>
+    <group>[QuickEffectRack1_[Channel2]]</group>
+    <key>TakeoutBox.filter</key>
+    <status>0xB1</status>
+    <midino>0x46</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: EQ High (CC 73) -->
+<control>
+    <group>[EqualizerRack1_[Channel2]_Effect1]</group>
+    <key>TakeoutBox.eqHigh</key>
+    <status>0xB1</status>
+    <midino>0x49</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: EQ Mid (CC 72) -->
+<control>
+    <group>[EqualizerRack1_[Channel2]_Effect1]</group>
+    <key>TakeoutBox.eqMid</key>
+    <status>0xB1</status>
+    <midino>0x48</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: EQ Low (CC 71) -->
+<control>
+    <group>[EqualizerRack1_[Channel2]_Effect1]</group>
+    <key>TakeoutBox.eqLow</key>
+    <status>0xB1</status>
+    <midino>0x47</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Match key (note 99) -->
+<control>
+    <group>[Channel2]</group>
+    <key>TakeoutBox.matchKey</key>
+    <status>0x91</status>
+    <midino>0x63</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Crossfader (CC 75, flipped) -->
+<control>
+    <group>[Master]</group>
+    <key>TakeoutBox.crossfader</key>
+    <status>0xB1</status>
+    <midino>0x4B</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Sampler 1 (note 54) -->
+<control>
+    <group>[Sampler1]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x91</status>
+    <midino>0x36</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Sampler 2 (note 56) -->
+<control>
+    <group>[Sampler2]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x91</status>
+    <midino>0x38</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Sampler 3 (note 58) -->
+<control>
+    <group>[Sampler3]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x91</status>
+    <midino>0x3A</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Sampler 4 (note 60) -->
+<control>
+    <group>[Sampler4]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x91</status>
+    <midino>0x3C</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Sampler 5 (note 62) -->
+<control>
+    <group>[Sampler5]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x91</status>
+    <midino>0x3E</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Sampler 6 (note 64) -->
+<control>
+    <group>[Sampler6]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x91</status>
+    <midino>0x40</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Sampler 7 (note 66) -->
+<control>
+    <group>[Sampler7]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x91</status>
+    <midino>0x42</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Sampler 8 (note 68) -->
+<control>
+    <group>[Sampler8]</group>
+    <key>TakeoutBox.samplerButton</key>
+    <status>0x91</status>
+    <midino>0x44</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Library scroll (CC 50) -->
+<control>
+    <group>[Library]</group>
+    <key>TakeoutBox.libraryScroll</key>
+    <status>0xB1</status>
+    <midino>0x32</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Library back -->
+<control>
+    <group>[Library]</group>
+    <key>TakeoutBox.libraryBack</key>
+    <status>0x91</status>
+    <midino>0x53</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Library toggle source -->
+<control>
+    <group>[Library]</group>
+    <key>TakeoutBox.libraryToggleSource</key>
+    <status>0x91</status>
+    <midino>0x54</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Load track -->
+<control>
+    <group>[Channel2]</group>
+    <key>TakeoutBox.libraryLoad</key>
+    <status>0x91</status>
+    <midino>0x60</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Toggle library visible -->
+<control>
+    <group>[Library]</group>
+    <key>TakeoutBox.libraryToggleVisible</key>
+    <status>0x91</status>
+    <midino>0x59</midino>
+    <options><Script-Binding/></options>
+</control>
+
+<!-- Deck 2: Cue -->
+<control>
+    <group>[Channel2]</group>
+    <key>cue_default</key>
+    <status>0x91</status>
+    <midino>0x02</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Sync -->
+<control>
+    <group>[Channel2]</group>
+    <key>sync_enabled</key>
+    <status>0x91</status>
+    <midino>0x04</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Auto-loop on/off -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatloop_activate</key>
+    <status>0x91</status>
+    <midino>0x4A</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Loop halve -->
+<control>
+    <group>[Channel2]</group>
+    <key>loop_halve</key>
+    <status>0x91</status>
+    <midino>0x46</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Loop double -->
+<control>
+    <group>[Channel2]</group>
+    <key>loop_double</key>
+    <status>0x91</status>
+    <midino>0x48</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Hot cue 1 (note 12) -->
+<control>
+    <group>[Channel2]</group>
+    <key>hotcue_1_activate</key>
+    <status>0x91</status>
+    <midino>0x0C</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Hot cue 2 (note 10) -->
+<control>
+    <group>[Channel2]</group>
+    <key>hotcue_2_activate</key>
+    <status>0x91</status>
+    <midino>0x0A</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Hot cue 3 (note 8) -->
+<control>
+    <group>[Channel2]</group>
+    <key>hotcue_3_activate</key>
+    <status>0x91</status>
+    <midino>0x08</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Hot cue 4 (note 6) -->
+<control>
+    <group>[Channel2]</group>
+    <key>hotcue_4_activate</key>
+    <status>0x91</status>
+    <midino>0x06</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Hot cue 5 (note 20) -->
+<control>
+    <group>[Channel2]</group>
+    <key>hotcue_5_activate</key>
+    <status>0x91</status>
+    <midino>0x14</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Hot cue 6 (note 18) -->
+<control>
+    <group>[Channel2]</group>
+    <key>hotcue_6_activate</key>
+    <status>0x91</status>
+    <midino>0x12</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Hot cue 7 (note 16) -->
+<control>
+    <group>[Channel2]</group>
+    <key>hotcue_7_activate</key>
+    <status>0x91</status>
+    <midino>0x10</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Hot cue 8 (note 14) -->
+<control>
+    <group>[Channel2]</group>
+    <key>hotcue_8_activate</key>
+    <status>0x91</status>
+    <midino>0x0E</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Skip backward 4 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatjump_4_backward</key>
+    <status>0x91</status>
+    <midino>0x16</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Skip backward 8 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatjump_8_backward</key>
+    <status>0x91</status>
+    <midino>0x18</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Skip backward 16 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatjump_16_backward</key>
+    <status>0x91</status>
+    <midino>0x1A</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Skip backward 32 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatjump_32_backward</key>
+    <status>0x91</status>
+    <midino>0x1C</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Skip forward 4 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatjump_4_forward</key>
+    <status>0x91</status>
+    <midino>0x1E</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Skip forward 8 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatjump_8_forward</key>
+    <status>0x91</status>
+    <midino>0x20</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Skip forward 16 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatjump_16_forward</key>
+    <status>0x91</status>
+    <midino>0x22</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Skip forward 32 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatjump_32_forward</key>
+    <status>0x91</status>
+    <midino>0x24</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Bounce loop 0.03125 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatlooproll_0.03125_activate</key>
+    <status>0x91</status>
+    <midino>0x26</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Bounce loop 0.0625 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatlooproll_0.0625_activate</key>
+    <status>0x91</status>
+    <midino>0x28</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Bounce loop 0.125 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatlooproll_0.125_activate</key>
+    <status>0x91</status>
+    <midino>0x2A</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Bounce loop 0.25 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatlooproll_0.25_activate</key>
+    <status>0x91</status>
+    <midino>0x2C</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Bounce loop 0.5 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatlooproll_0.5_activate</key>
+    <status>0x91</status>
+    <midino>0x2E</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Bounce loop 1 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatlooproll_1_activate</key>
+    <status>0x91</status>
+    <midino>0x30</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Bounce loop 2 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatlooproll_2_activate</key>
+    <status>0x91</status>
+    <midino>0x32</midino>
+    <options><normal/></options>
+</control>
+
+<!-- Deck 2: Bounce loop 4 -->
+<control>
+    <group>[Channel2]</group>
+    <key>beatlooproll_4_activate</key>
+    <status>0x91</status>
+    <midino>0x34</midino>
+    <options><normal/></options>
+</control>
+
+    </controls>
+</controller>
+</MixxxControllerPreset>
