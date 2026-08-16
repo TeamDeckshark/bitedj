@@ -1,4 +1,6 @@
-<img alt="Bite DJ logo" src="https://github.com/user-attachments/assets/c5127e7d-1b04-489e-a902-96628e850304" />
+<img alt="Bite DJ logo - vert color on dark" src="https://github.com/user-attachments/assets/7d24793a-7660-4c75-906b-6f83c201619f" />
+
+By Deckshark
 
 # bitedj
 BiteDJ is an independent project based upon the free and open source Mixxx DJ software and is distributed under the GNU General Public License v2.0. Support requests regarding BiteDJ should be directed at its maintainers.
