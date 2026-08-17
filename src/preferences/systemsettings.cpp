@@ -259,11 +259,22 @@ QStringList SystemSettings::removableRoots() {
     // These mirror the roots the Rekordbox library feature uses to find USB
     // devices (rekordboxfeature.cpp), so anything the user sees in the browser
     // sidebar is enumerated here too.
-    return QStringList{
+    QStringList roots{
             QStringLiteral("/media"),
             QStringLiteral("/run/media"),
             QStringLiteral("/mnt"),
     };
+
+    // Desktop automounters such as udisks2 mount removable filesystems below
+    // a per-user directory. Keep the base roots for appliance configurations
+    // that mount drives directly below /media or /run/media, and only add the
+    // user roots when USER is available to avoid scanning the same paths twice.
+    const QString user = QString::fromLocal8Bit(qgetenv("USER"));
+    if (!user.isEmpty()) {
+        roots.append(QStringLiteral("/media/") + user);
+        roots.append(QStringLiteral("/run/media/") + user);
+    }
+    return roots;
 }
 
 // static

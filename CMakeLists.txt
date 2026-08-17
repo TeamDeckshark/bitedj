@@ -1617,6 +1617,7 @@ if(BUILD_TESTING)
     src/test/sqliteliketest.cpp
     src/test/synccontroltest.cpp
     src/test/synctrackmetadatatest.cpp
+    src/test/systemsettings_test.cpp
     src/test/tableview_test.cpp
     src/test/taglibtest.cpp
     src/test/touchscrollfilter_test.cpp
