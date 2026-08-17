@@ -1,0 +1,129 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow
+
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Only keep the newest run per PR/branch alive, older ones are obsolete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read # to fetch code (actions/checkout)
+
+jobs:
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-24.04
+    # A cold (ccache-less) build of mixxx-lib takes roughly an hour.
+    timeout-minutes: 120
+    env:
+      CCACHE_DIR: /home/runner/.cache/ccache
+      # Render analyzer/waveform tests to an offscreen buffer, there is no
+      # display server on the runner.
+      QT_QPA_PLATFORM: offscreen
+      GTEST_COLOR: 1
+      CTEST_OUTPUT_ON_FAILURE: 1
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: "Check out repository"
+        uses: actions/checkout@v4
+        with:
+          # This is necessary for making `git describe` work.
+          fetch-depth: 0
+
+      - name: "Install build dependencies"
+        # `< /dev/null` so the script never blocks on its interactive prompt
+        # about the (optional) fonts-ubuntu package.
+        run: tools/debian_buildenv.sh setup < /dev/null
+
+      - name: "Set up GitHub cache for ccache"
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ubuntu-24.04-tests-${{ github.ref }}-${{ github.run_number }}
+          restore-keys: |
+            ubuntu-24.04-tests-${{ github.ref }}
+            ubuntu-24.04-tests-refs/heads/main
+            ubuntu-24.04-tests
+
+      - name: "Set up ccache"
+        run: |
+          ccache --zero-stats
+          ccache --max-size=2G
+
+      - name: "Create build directory"
+        run: mkdir build
+
+      - name: "Configure"
+        # Feature flags mirror the upstream Mixxx Linux CI build so that the
+        # test suite is exercised in the same configuration users get.
+        # BUILD_TESTING=ON is explicit: configuring must fail loudly if GTest
+        # is missing rather than silently producing a build without tests.
+        run: >-
+          cmake
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DBUILD_TESTING=ON
+          -DQT6=ON
+          -DBATTERY=ON
+          -DBROADCAST=ON
+          -DBULK=ON
+          -DFFMPEG=ON
+          -DHID=ON
+          -DKEYFINDER=ON
+          -DLILV=ON
+          -DLOCALECOMPARE=ON
+          -DMAD=ON
+          -DMODPLUG=ON
+          -DOPUS=ON
+          -DQTKEYCHAIN=ON
+          -DVINYLCONTROL=ON
+          -DWAVPACK=ON
+          -DDOWNLOAD_MANUAL=OFF
+          -DINSTALL_USER_UDEV_RULES=OFF
+          -DDEBUG_ASSERTIONS_FATAL=OFF
+          -DWARNINGS_FATAL=OFF
+          -DCMAKE_VERBOSE_MAKEFILE=OFF
+          -L
+          ..
+        working-directory: build
+
+      - name: "Set up gcc problem matcher"
+        uses: ammaraskar/gcc-problem-matcher@0.3.0
+
+      - name: "Build test suite"
+        run: cmake --build . --config RelWithDebInfo --target mixxx-test
+        working-directory: build
+        env:
+          # GitHub Actions automatically zstd compresses caches
+          CCACHE_NOCOMPRESS: true
+
+      - name: "Print ccache stats"
+        run: |
+          ccache --show-stats
+          ccache --cleanup
+
+      - name: "Run unit tests"
+        # --no-tests=error guards against a configuration that registers no
+        # tests at all, which ctest would otherwise report as success.
+        run: >-
+          ctest
+          --no-tests=error
+          --timeout 45
+          --parallel 1
+          --output-junit test-results.xml
+        working-directory: build
+
+      - name: "Upload test results"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: build/test-results.xml
+          if-no-files-found: warn
