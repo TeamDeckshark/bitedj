@@ -201,7 +201,6 @@ PioneerDDJ400.init = function() {
     for (let i = 1; i <= 3; i++) {
         engine.makeConnection("[EffectRack1_EffectUnit1_Effect" + i +"]", "enabled", PioneerDDJ400.toggleFxLight);
     }
-    engine.makeConnection("[EffectRack1_EffectUnit1]", "focused_effect", PioneerDDJ400.toggleFxLight);
 
     // Bite DJ: jog mode is chosen in the in-skin General settings tab via the
     // [BiteDJ],vinyl_mode CO (1 = Vinyl/scratch, 0 = CDJ/pitch-bend). Subscribe
@@ -269,9 +268,11 @@ PioneerDDJ400.toggleFxLight = function(_value, _group, _control) {
     PioneerDDJ400.toggleLight(PioneerDDJ400.lights.shiftBeatFx, enabled);
 };
 
+// Bite DJ skin only renders one effect slot (Effect1), so all BEAT FX
+// controls operate on it directly rather than on Mixxx's per-chain
+// "focused_effect" slot-cycling mechanism.
 PioneerDDJ400.focusedFxGroup = function() {
-    const focusedFx = engine.getValue("[EffectRack1_EffectUnit1]", "focused_effect");
-    return "[EffectRack1_EffectUnit1_Effect" + focusedFx + "]";
+    return "[EffectRack1_EffectUnit1_Effect1]";
 };
 
 PioneerDDJ400.beatFxLevelDepthRotate = function(_channel, _control, value) {
