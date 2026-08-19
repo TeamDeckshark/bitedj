@@ -55,6 +55,12 @@ const QString kControlsGroup = QStringLiteral("[Controls]");
 const QString kHotcueActivatePlaysKey = QStringLiteral("HotcueActivatePlays");
 constexpr double kHotcueActivatePlaysDefault = 1.0;
 
+// Mixxx track-time display mode stored in mixxx.cfg:
+// 0 = elapsed, 1 = remaining, 2 = elapsed and remaining.
+const QString kPositionDisplayKey = QStringLiteral("PositionDisplay");
+constexpr double kPositionDisplayRemaining = 1.0;
+constexpr double kPositionDisplayElapsedAndRemaining = 2.0;
+
 // Unloading a track is asynchronous, so the drive stays busy for a short while
 // after we request the eject (see ejectRow). Retry the unmount while pumping the
 // event loop, up to this many attempts spaced this many milliseconds apart
@@ -112,6 +118,22 @@ SystemSettings::SystemSettings(UserSettingsPointer pConfig,
         : m_pConfig(pConfig),
           m_pPlayerManager(std::move(pPlayerManager)),
           m_pRecordingManager(std::move(pRecordingManager)) {
+    // BiteDJ has one visible track-time field, so Mixxx's combined elapsed and
+    // remaining mode leaves it blank. Normalize an unset/empty value and the
+    // upstream default (2) to remaining time (1). Preserve explicit elapsed
+    // (0) and remaining (1) choices.
+    const ConfigKey positionDisplayKey(kControlsGroup, kPositionDisplayKey);
+    const QString positionDisplay =
+            m_pConfig->getValueString(positionDisplayKey).trimmed();
+    bool positionDisplayIsNumber = false;
+    const double positionDisplayValue =
+            positionDisplay.toDouble(&positionDisplayIsNumber);
+    if (positionDisplay.isEmpty() ||
+            (positionDisplayIsNumber &&
+                    positionDisplayValue == kPositionDisplayElapsedAndRemaining)) {
+        m_pConfig->setValue(positionDisplayKey, kPositionDisplayRemaining);
+    }
+
     m_pCoUsbCount = std::make_unique<ControlObject>(ConfigKey(kGroup, "usb_count"));
     m_pCoUsbCount->setReadOnly();
 
