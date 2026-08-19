@@ -1,5 +1,7 @@
 #include "engine/controls/cuecontrol.h"
 
+#include <algorithm>
+
 #include "control/controlindicator.h"
 #include "control/controlobject.h"
 #include "control/controlpushbutton.h"
@@ -201,6 +203,27 @@ void CueControl::createControls() {
     m_pHotcueFocusColorNext = std::make_unique<ControlPushButton>(
             ConfigKey(m_group, "hotcue_focus_color_next"));
 
+    m_pMemoryCueSet = std::make_unique<ControlPushButton>(
+        ConfigKey(m_group, "memorycue_set"));
+    m_pMemoryCueSet->setButtonMode(ControlPushButton::TRIGGER);
+    m_pMemoryCueDelete = std::make_unique<ControlPushButton>(
+        ConfigKey(m_group, "memorycue_delete"));
+    m_pMemoryCueDelete->setButtonMode(ControlPushButton::TRIGGER);
+    m_pMemoryCuePrev = std::make_unique<ControlPushButton>(
+        ConfigKey(m_group, "memorycue_prev"));
+    m_pMemoryCuePrev->setButtonMode(ControlPushButton::TRIGGER);
+    m_pMemoryCueNext = std::make_unique<ControlPushButton>(
+        ConfigKey(m_group, "memorycue_next"));
+    m_pMemoryCueNext->setButtonMode(ControlPushButton::TRIGGER);
+    m_pMemoryCueSelected = std::make_unique<ControlObject>(
+        ConfigKey(m_group, "memorycue_selected"));
+    m_pMemoryCueSelected->setReadOnly();
+    m_pMemoryCueSelected->forceSet(0.0);
+    m_pMemoryCueCount =
+        std::make_unique<ControlObject>(ConfigKey(m_group, "memorycue_count"));
+    m_pMemoryCueCount->setReadOnly();
+    m_pMemoryCueCount->forceSet(0.0);
+
     // Create hotcue controls
     for (int i = 0; i < m_iNumHotCues; ++i) {
         HotcueControl* pControl = new HotcueControl(m_group, i);
@@ -334,6 +357,15 @@ void CueControl::connectControls() {
             &CueControl::hotcueFocusColorNext,
             Qt::DirectConnection);
 
+    connect(m_pMemoryCueSet.get(), &ControlObject::valueChanged, this,
+            &CueControl::memoryCueSet, Qt::DirectConnection);
+    connect(m_pMemoryCueDelete.get(), &ControlObject::valueChanged, this,
+            &CueControl::memoryCueDelete, Qt::DirectConnection);
+    connect(m_pMemoryCuePrev.get(), &ControlObject::valueChanged, this,
+            &CueControl::memoryCuePrev, Qt::DirectConnection);
+    connect(m_pMemoryCueNext.get(), &ControlObject::valueChanged, this,
+            &CueControl::memoryCueNext, Qt::DirectConnection);
+
     // Hotcue controls
     for (const auto& pControl : std::as_const(m_hotcueControls)) {
         connect(pControl, &HotcueControl::hotcuePositionChanged,
@@ -420,6 +452,10 @@ void CueControl::disconnectControls() {
 
     disconnect(m_pHotcueFocusColorPrev.get(), nullptr, this, nullptr);
     disconnect(m_pHotcueFocusColorNext.get(), nullptr, this, nullptr);
+    disconnect(m_pMemoryCueSet.get(), nullptr, this, nullptr);
+    disconnect(m_pMemoryCueDelete.get(), nullptr, this, nullptr);
+    disconnect(m_pMemoryCuePrev.get(), nullptr, this, nullptr);
+    disconnect(m_pMemoryCueNext.get(), nullptr, this, nullptr);
 
     for (const auto& pControl : std::as_const(m_hotcueControls)) {
         disconnect(pControl, nullptr, this, nullptr);
@@ -493,6 +529,8 @@ void CueControl::trackLoaded(TrackPointer pNewTrack) {
         m_pOutroEndEnabled->forceSet(0.0);
         m_n60dBSoundStartPosition.setValue(Cue::kNoPosition);
         setHotcueFocusIndex(Cue::kNoHotCue);
+        setSelectedMemoryCue(nullptr);
+        m_pMemoryCueCount->forceSet(0.0);
         m_pLoadedTrack.reset();
         m_usedSeekOnLoadPosition.setValue(mixxx::audio::kStartFramePos);
     }
@@ -526,6 +564,7 @@ void CueControl::trackLoaded(TrackPointer pNewTrack) {
 
     // Update COs with cues from track.
     loadCuesFromTrack();
+    setSelectedMemoryCue(nullptr);
 
     // Seek track according to SeekOnLoadMode.
     SeekOnLoadMode seekOnLoadMode = getSeekOnLoadPreference();
@@ -758,6 +797,7 @@ void CueControl::loadCuesFromTrack() {
     DEBUG_ASSERT(mainCuePosition.isValid());
     const auto quantizedMainCuePosition = quantizeCuePoint(mainCuePosition);
     m_pCuePoint->set(quantizedMainCuePosition.toEngineSamplePosMaybeInvalid());
+    updateMemoryCueState();
 }
 
 void CueControl::trackAnalyzed() {
@@ -1256,6 +1296,200 @@ void CueControl::hotcueClear(HotcueControl* pControl, double value) {
     detachCue(pControl);
     m_pLoadedTrack->removeCue(pCue);
     setHotcueFocusIndex(Cue::kNoHotCue);
+    updateMemoryCueState();
+}
+
+QList<HotcueControl *> CueControl::memoryCueControlsInPositionOrder() const {
+  QList<HotcueControl *> controls;
+  const int end = mixxx::kMemoryCueBankStart + mixxx::kMemoryCueBankSize;
+  for (int hotcueIndex = mixxx::kMemoryCueBankStart; hotcueIndex < end;
+       ++hotcueIndex) {
+    HotcueControl *pControl = m_hotcueControls.value(hotcueIndex, nullptr);
+    if (pControl && pControl->getPosition().isValid()) {
+      controls.append(pControl);
+    }
+  }
+  std::sort(controls.begin(), controls.end(),
+            [](const auto *pLeft, const auto *pRight) {
+              return pLeft->getPosition() < pRight->getPosition();
+            });
+  return controls;
+}
+
+HotcueControl *
+CueControl::memoryCueAtPosition(mixxx::audio::FramePos position) const {
+  if (!position.isValid()) {
+    return nullptr;
+  }
+
+  const QList<HotcueControl *> controls = memoryCueControlsInPositionOrder();
+  for (HotcueControl *pControl : controls) {
+    // FramePos is expressed in audio frames. Treat sub-frame differences as
+    // the same point so rounding at the engine-sample boundary is harmless.
+    if (fabs(pControl->getPosition() - position) < 0.5) {
+      return pControl;
+    }
+  }
+  return nullptr;
+}
+
+void CueControl::setMemoryCueAtMainCue(HotcueControl *pControl, double value,
+                                       mixxx::audio::FramePos position) {
+  auto lock = lockMutex(&m_trackMutex);
+  if (!m_pLoadedTrack || !position.isValid()) {
+    return;
+  }
+
+  hotcueClear(pControl, value);
+
+  const int hotcueIndex = pControl->getHotcueIndex();
+  mixxx::RgbColor color = mixxx::PredefinedColorPalettes::kDefaultCueColor;
+  ConfigKey autoHotcueColorsKey("[Controls]", "auto_hotcue_colors");
+  if (getConfig()->getValue(autoHotcueColorsKey, false)) {
+    color = m_colorPaletteSettings.getHotcueColorPalette().colorForHotcueIndex(
+        hotcueIndex);
+  } else {
+    color = colorFromConfig(ConfigKey("[Controls]", "HotcueDefaultColorIndex"));
+  }
+
+  CuePointer pCue = m_pLoadedTrack->createAndAddCue(
+      mixxx::CueType::HotCue, hotcueIndex, position,
+      mixxx::audio::kInvalidFramePos, color);
+  attachCue(pCue, pControl);
+}
+
+void CueControl::setSelectedMemoryCue(HotcueControl *pControl) {
+  if (pControl) {
+    const int hotcueIndex = pControl->getHotcueIndex();
+    VERIFY_OR_DEBUG_ASSERT(hotcueIndex >= mixxx::kMemoryCueBankStart &&
+                           hotcueIndex < mixxx::kMemoryCueBankStart +
+                                             mixxx::kMemoryCueBankSize) {
+      return;
+    }
+    m_selectedMemoryCueIndex = hotcueIndex;
+    m_pMemoryCueSelected->forceSet(hotcueIndex - mixxx::kMemoryCueBankStart +
+                                   1);
+  } else {
+    m_selectedMemoryCueIndex = Cue::kNoHotCue;
+    m_pMemoryCueSelected->forceSet(0.0);
+  }
+}
+
+void CueControl::updateMemoryCueState() {
+  const QList<HotcueControl *> controls = memoryCueControlsInPositionOrder();
+  m_pMemoryCueCount->forceSet(controls.size());
+  if (m_selectedMemoryCueIndex == Cue::kNoHotCue) {
+    return;
+  }
+  HotcueControl *pSelected =
+      m_hotcueControls.value(m_selectedMemoryCueIndex, nullptr);
+  if (!pSelected || !pSelected->getPosition().isValid()) {
+    setSelectedMemoryCue(nullptr);
+  }
+}
+
+void CueControl::callAdjacentMemoryCue(int direction) {
+  const QList<HotcueControl *> controls = memoryCueControlsInPositionOrder();
+  if (controls.isEmpty()) {
+    setSelectedMemoryCue(nullptr);
+    return;
+  }
+
+  const mixxx::audio::FramePos currentPosition = frameInfo().currentPosition;
+  if (!currentPosition.isValid()) {
+    return;
+  }
+
+  HotcueControl *pTarget = nullptr;
+  if (direction > 0) {
+    for (HotcueControl *pControl : controls) {
+      if (pControl->getPosition() - currentPosition > 0.5) {
+        pTarget = pControl;
+        break;
+      }
+    }
+  } else {
+    for (auto it = controls.crbegin(); it != controls.crend(); ++it) {
+      if (currentPosition - (*it)->getPosition() > 0.5) {
+        pTarget = *it;
+        break;
+      }
+    }
+  }
+
+  // Do not wrap at either end of the track.
+  if (!pTarget) {
+    return;
+  }
+  setSelectedMemoryCue(pTarget);
+  // Memory Cue CALL is a head-positioning operation, not a performance
+  // trigger: stop and seek exactly instead of using hotcue_activate.
+  hotcueGotoAndStop(pTarget, 1.0);
+}
+
+void CueControl::memoryCueSet(double value) {
+  if (value <= 0) {
+    return;
+  }
+
+  const bool loopEnabled = m_pLoopEnabled->toBool();
+  const mixxx::audio::FramePos position =
+      loopEnabled ? mixxx::audio::FramePos::fromEngineSamplePosMaybeInvalid(
+                        m_pLoopStartPosition->get())
+                  : mixxx::audio::FramePos::fromEngineSamplePosMaybeInvalid(
+                        m_pCuePoint->get());
+  if (!position.isValid()) {
+    return;
+  }
+  if (memoryCueAtPosition(position)) {
+    return;
+  }
+
+  const int end = mixxx::kMemoryCueBankStart + mixxx::kMemoryCueBankSize;
+  for (int hotcueIndex = mixxx::kMemoryCueBankStart; hotcueIndex < end;
+       ++hotcueIndex) {
+    HotcueControl *pControl = m_hotcueControls.value(hotcueIndex, nullptr);
+    if (pControl && pControl->getStatus() == HotcueControl::Status::Empty) {
+      if (loopEnabled) {
+        hotcueSet(pControl, value, HotcueSetMode::Loop);
+      } else {
+        setMemoryCueAtMainCue(pControl, value, position);
+      }
+      // Storing a Memory Cue does not CALL it. Leave navigation unselected so
+      // the next CALL is not constrained by the newly stored cue's bank slot.
+      setSelectedMemoryCue(nullptr);
+      updateMemoryCueState();
+      return;
+    }
+  }
+}
+
+void CueControl::memoryCueDelete(double value) {
+  if (value <= 0) {
+    return;
+  }
+
+  HotcueControl *pControl = memoryCueAtPosition(frameInfo().currentPosition);
+  if (!pControl) {
+    setSelectedMemoryCue(nullptr);
+    return;
+  }
+  setSelectedMemoryCue(pControl);
+  hotcueClear(pControl, value);
+  setSelectedMemoryCue(nullptr);
+  updateMemoryCueState();
+}
+
+void CueControl::memoryCuePrev(double value) {
+  if (value > 0) {
+    callAdjacentMemoryCue(-1);
+  }
+}
+
+void CueControl::memoryCueNext(double value) {
+  if (value > 0) {
+    callAdjacentMemoryCue(1);
+  }
 }
 
 void CueControl::hotcuePositionChanged(

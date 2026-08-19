@@ -143,7 +143,7 @@
         </Connection>
       </WidgetGroup>
 
-      <!-- Memory cue bank: slots 17-24, chronological. Keep in step with
+      <!-- Memory cue bank: slots 17-26, chronological. Keep in step with
            kMemoryCueBankStart / kMemoryCueBankSize in cueinfo.h. -->
       <WidgetGroup>
         <ObjectName>CuePanel_Grid</ObjectName>
@@ -175,6 +175,11 @@
                 <SetVariable name="hotcue">20</SetVariable>
                 <SetVariable name="label">M4</SetVariable>
               </Template>
+              <Template src="skin:templates/cue_pad.xml">
+                <SetVariable name="channel"><Variable name="channel"/></SetVariable>
+                <SetVariable name="hotcue">21</SetVariable>
+                <SetVariable name="label">M5</SetVariable>
+              </Template>
             </Children>
           </WidgetGroup>
           <WidgetGroup>
@@ -182,11 +187,6 @@
             <Layout>horizontal</Layout>
             <Size>0me,56f</Size>
             <Children>
-              <Template src="skin:templates/cue_pad.xml">
-                <SetVariable name="channel"><Variable name="channel"/></SetVariable>
-                <SetVariable name="hotcue">21</SetVariable>
-                <SetVariable name="label">M5</SetVariable>
-              </Template>
               <Template src="skin:templates/cue_pad.xml">
                 <SetVariable name="channel"><Variable name="channel"/></SetVariable>
                 <SetVariable name="hotcue">22</SetVariable>
@@ -201,6 +201,16 @@
                 <SetVariable name="channel"><Variable name="channel"/></SetVariable>
                 <SetVariable name="hotcue">24</SetVariable>
                 <SetVariable name="label">M8</SetVariable>
+              </Template>
+              <Template src="skin:templates/cue_pad.xml">
+                <SetVariable name="channel"><Variable name="channel"/></SetVariable>
+                <SetVariable name="hotcue">25</SetVariable>
+                <SetVariable name="label">M9</SetVariable>
+              </Template>
+              <Template src="skin:templates/cue_pad.xml">
+                <SetVariable name="channel"><Variable name="channel"/></SetVariable>
+                <SetVariable name="hotcue">26</SetVariable>
+                <SetVariable name="label">M10</SetVariable>
               </Template>
             </Children>
           </WidgetGroup>

@@ -194,7 +194,7 @@
           <Align>top</Align>
         </Mark>
 
-        <!-- Memory cue bank (slots 17-24, chronological). Bottom-aligned to
+        <!-- Memory cue bank (slots 17-26, chronological). Bottom-aligned to
              separate them at a glance from the hot cues on top. Keep in step
              with kMemoryCueBankStart / kMemoryCueBankSize in cueinfo.h. -->
         <Mark>
@@ -249,6 +249,20 @@
         <Mark>
           <Hotcue>24</Hotcue>
           <Text>M8</Text>
+          <Color>#9aa0a6</Color>
+          <TextColor>#9aa0a6</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>25</Hotcue>
+          <Text>M9</Text>
+          <Color>#9aa0a6</Color>
+          <TextColor>#9aa0a6</TextColor>
+          <Align>bottom</Align>
+        </Mark>
+        <Mark>
+          <Hotcue>26</Hotcue>
+          <Text>M10</Text>
           <Color>#9aa0a6</Color>
           <TextColor>#9aa0a6</TextColor>
           <Align>bottom</Align>
