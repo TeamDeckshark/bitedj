@@ -536,7 +536,7 @@
             </control>
 
             <control>
-                <description>CUE/LOOP CALL LEFT (DECK1) - press - half active loop</description>
+                <description>CUE/LOOP CALL LEFT (DECK1) - previous memory cue / half active loop</description>
                 <group>[Channel1]</group>
                 <key>PioneerDDJFLX2.cueLoopCallLeft</key>
                 <status>0x90</status>
@@ -546,9 +546,9 @@
                 </options>
             </control>
             <control>
-                <description>CUE/LOOP CALL LEFT + SHIFT (DECK1) - press - quick jump back</description>
+                <description>CUE/LOOP CALL LEFT + SHIFT (DECK1) - delete memory cue at current position</description>
                 <group>[Channel1]</group>
-                <key>PioneerDDJFLX2.quickJumpBack</key>
+                <key>PioneerDDJFLX2.memoryCueDelete</key>
                 <status>0x90</status>
                 <midino>0x3E</midino>
                 <options>
@@ -557,7 +557,7 @@
             </control>
 
             <control>
-                <description>CUE/LOOP CALL LEFT (DECK2) - press - half active loop</description>
+                <description>CUE/LOOP CALL LEFT (DECK2) - previous memory cue / half active loop</description>
                 <group>[Channel2]</group>
                 <key>PioneerDDJFLX2.cueLoopCallLeft</key>
                 <status>0x91</status>
@@ -567,9 +567,9 @@
                 </options>
             </control>
             <control>
-                <description>CUE/LOOP CALL LEFT + SHIFT (DECK2) - press - quick jump back</description>
+                <description>CUE/LOOP CALL LEFT + SHIFT (DECK2) - delete memory cue at current position</description>
                 <group>[Channel2]</group>
-                <key>PioneerDDJFLX2.quickJumpBack</key>
+                <key>PioneerDDJFLX2.memoryCueDelete</key>
                 <status>0x91</status>
                 <midino>0x3E</midino>
                 <options>
@@ -578,7 +578,7 @@
             </control>
 
             <control>
-                <description>CUE/LOOP CALL LEFT (DECK1) - press - double active loop</description>
+                <description>CUE/LOOP CALL RIGHT (DECK1) - next memory cue / double active loop</description>
                 <group>[Channel1]</group>
                 <key>PioneerDDJFLX2.cueLoopCallRight</key>
                 <status>0x90</status>
@@ -588,9 +588,9 @@
                 </options>
             </control>
             <control>
-                <description>CUE/LOOP CALL RIGHT + SHIFT (DECK1) - press - quick jump forwards</description>
+                <description>CUE/LOOP CALL RIGHT + SHIFT (DECK1) - store memory cue</description>
                 <group>[Channel1]</group>
-                <key>PioneerDDJFLX2.quickJumpForward</key>
+                <key>PioneerDDJFLX2.memoryCueSet</key>
                 <status>0x90</status>
                 <midino>0x3D</midino>
                 <options>
@@ -599,7 +599,7 @@
             </control>
 
             <control>
-                <description>CUE/LOOP CALL LEFT (DECK2) - press - double active loop</description>
+                <description>CUE/LOOP CALL RIGHT (DECK2) - next memory cue / double active loop</description>
                 <group>[Channel2]</group>
                 <key>PioneerDDJFLX2.cueLoopCallRight</key>
                 <status>0x91</status>
@@ -609,9 +609,9 @@
                 </options>
             </control>
             <control>
-                <description>CUE/LOOP CALL RIGHT + SHIFT (DECK2) - press - quick jump forwards</description>
+                <description>CUE/LOOP CALL RIGHT + SHIFT (DECK2) - store memory cue</description>
                 <group>[Channel2]</group>
-                <key>PioneerDDJFLX2.quickJumpForward</key>
+                <key>PioneerDDJFLX2.memoryCueSet</key>
                 <status>0x91</status>
                 <midino>0x3D</midino>
                 <options>

@@ -40,6 +40,27 @@ class HotcueControlTest : public BaseSignalPathTest {
         m_pHotcue2Status = std::make_unique<ControlProxy>(m_sGroup1, "hotcue_2_status");
         m_pHotcue2Position = std::make_unique<ControlProxy>(m_sGroup1, "hotcue_2_position");
         m_pHotcue2EndPosition = std::make_unique<ControlProxy>(m_sGroup1, "hotcue_2_endposition");
+        m_pMemoryCue17Status =
+            std::make_unique<ControlProxy>(m_sGroup1, "hotcue_17_status");
+        m_pMemoryCue17Position =
+            std::make_unique<ControlProxy>(m_sGroup1, "hotcue_17_position");
+        m_pMemoryCue18Status =
+            std::make_unique<ControlProxy>(m_sGroup1, "hotcue_18_status");
+        m_pMemoryCue18Position =
+            std::make_unique<ControlProxy>(m_sGroup1, "hotcue_18_position");
+        m_pMemoryCueSet =
+            std::make_unique<ControlProxy>(m_sGroup1, "memorycue_set");
+        m_pMemoryCueDelete =
+            std::make_unique<ControlProxy>(m_sGroup1, "memorycue_delete");
+        m_pMemoryCuePrev =
+            std::make_unique<ControlProxy>(m_sGroup1, "memorycue_prev");
+        m_pMemoryCueNext =
+            std::make_unique<ControlProxy>(m_sGroup1, "memorycue_next");
+        m_pMemoryCueSelected =
+            std::make_unique<ControlProxy>(m_sGroup1, "memorycue_selected");
+        m_pMemoryCueCount =
+            std::make_unique<ControlProxy>(m_sGroup1, "memorycue_count");
+        m_pCueSet = std::make_unique<ControlProxy>(m_sGroup1, "cue_set");
         m_pQuantizeEnabled = std::make_unique<ControlProxy>(m_sGroup1, "quantize");
     }
 
@@ -118,8 +139,170 @@ class HotcueControlTest : public BaseSignalPathTest {
     std::unique_ptr<ControlProxy> m_pHotcue2Status;
     std::unique_ptr<ControlProxy> m_pHotcue2Position;
     std::unique_ptr<ControlProxy> m_pHotcue2EndPosition;
+    std::unique_ptr<ControlProxy> m_pMemoryCue17Status;
+    std::unique_ptr<ControlProxy> m_pMemoryCue17Position;
+    std::unique_ptr<ControlProxy> m_pMemoryCue18Status;
+    std::unique_ptr<ControlProxy> m_pMemoryCue18Position;
+    std::unique_ptr<ControlProxy> m_pMemoryCueSet;
+    std::unique_ptr<ControlProxy> m_pMemoryCueDelete;
+    std::unique_ptr<ControlProxy> m_pMemoryCuePrev;
+    std::unique_ptr<ControlProxy> m_pMemoryCueNext;
+    std::unique_ptr<ControlProxy> m_pMemoryCueSelected;
+    std::unique_ptr<ControlProxy> m_pMemoryCueCount;
+    std::unique_ptr<ControlProxy> m_pCueSet;
     std::unique_ptr<ControlProxy> m_pQuantizeEnabled;
 };
+
+TEST_F(HotcueControlTest, MemoryCueCallUsesPositionOrderAndStops) {
+  TrackPointer pTrack = createTestTrack();
+  const mixxx::audio::FramePos earlyPosition(3000);
+  const mixxx::audio::FramePos latePosition(9000);
+  pTrack->createAndAddCue(mixxx::CueType::HotCue, mixxx::kMemoryCueBankStart,
+                          latePosition, mixxx::audio::kInvalidFramePos);
+  pTrack->createAndAddCue(mixxx::CueType::HotCue,
+                          mixxx::kMemoryCueBankStart + 1, earlyPosition,
+                          mixxx::audio::kInvalidFramePos);
+  loadTrack(pTrack);
+
+  EXPECT_DOUBLE_EQ(2.0, m_pMemoryCueCount->get());
+  EXPECT_DOUBLE_EQ(0.0, m_pMemoryCueSelected->get());
+
+  m_pPlay->set(1.0);
+  ProcessBuffer();
+  m_pMemoryCueNext->set(1.0);
+  ProcessBuffer();
+  EXPECT_FALSE(m_pPlay->toBool());
+  EXPECT_EQ(earlyPosition, currentFramePosition());
+  EXPECT_DOUBLE_EQ(2.0, m_pMemoryCueSelected->get());
+
+  m_pMemoryCueNext->set(1.0);
+  ProcessBuffer();
+  EXPECT_EQ(latePosition, currentFramePosition());
+  EXPECT_DOUBLE_EQ(1.0, m_pMemoryCueSelected->get());
+
+  m_pMemoryCuePrev->set(1.0);
+  ProcessBuffer();
+  EXPECT_EQ(earlyPosition, currentFramePosition());
+  EXPECT_DOUBLE_EQ(2.0, m_pMemoryCueSelected->get());
+}
+
+TEST_F(HotcueControlTest, MemoryCueCallUsesCurrentPositionWithSingleCue) {
+  TrackPointer pTrack = createTestTrack();
+  const mixxx::audio::FramePos cuePosition(5000);
+  const mixxx::audio::FramePos beforePosition(1000);
+  const mixxx::audio::FramePos afterPosition(9000);
+  pTrack->createAndAddCue(mixxx::CueType::HotCue, mixxx::kMemoryCueBankStart,
+                          cuePosition, mixxx::audio::kInvalidFramePos);
+  loadTrack(pTrack);
+
+  setCurrentFramePosition(afterPosition);
+  m_pMemoryCuePrev->set(1.0);
+  ProcessBuffer();
+  EXPECT_EQ(cuePosition, currentFramePosition());
+
+  setCurrentFramePosition(beforePosition);
+  m_pMemoryCueNext->set(1.0);
+  ProcessBuffer();
+  EXPECT_EQ(cuePosition, currentFramePosition());
+
+  setCurrentFramePosition(afterPosition);
+  m_pMemoryCueNext->set(1.0);
+  ProcessBuffer();
+  EXPECT_EQ(afterPosition, currentFramePosition());
+
+  setCurrentFramePosition(beforePosition);
+  m_pMemoryCuePrev->set(1.0);
+  ProcessBuffer();
+  EXPECT_EQ(beforePosition, currentFramePosition());
+}
+
+TEST_F(HotcueControlTest, MemoryCueSetAndDeleteUseReservedBank) {
+  createAndLoadFakeTrack();
+  const mixxx::audio::FramePos cuePosition(5000);
+  const mixxx::audio::FramePos playPosition(9000);
+  setCurrentFramePosition(cuePosition);
+  m_pCueSet->set(1.0);
+  ProcessBuffer();
+  setCurrentFramePosition(playPosition);
+
+  m_pMemoryCueSet->set(1.0);
+  ProcessBuffer();
+  EXPECT_DOUBLE_EQ(static_cast<double>(HotcueControl::Status::Set),
+                   m_pMemoryCue17Status->get());
+  EXPECT_EQ(cuePosition.toEngineSamplePos(), m_pMemoryCue17Position->get());
+  EXPECT_EQ(playPosition, currentFramePosition());
+  EXPECT_DOUBLE_EQ(1.0, m_pMemoryCueCount->get());
+  EXPECT_DOUBLE_EQ(0.0, m_pMemoryCueSelected->get());
+
+  setCurrentFramePosition(cuePosition);
+  m_pMemoryCueDelete->set(1.0);
+  ProcessBuffer();
+  EXPECT_DOUBLE_EQ(static_cast<double>(HotcueControl::Status::Empty),
+                   m_pMemoryCue17Status->get());
+  EXPECT_DOUBLE_EQ(0.0, m_pMemoryCueCount->get());
+  EXPECT_DOUBLE_EQ(0.0, m_pMemoryCueSelected->get());
+}
+
+TEST_F(HotcueControlTest,
+       MemoryCueSetAtExistingPositionDoesNotDuplicateAndDeleteUsesPosition) {
+  createAndLoadFakeTrack();
+  const mixxx::audio::FramePos firstPosition(5000);
+  const mixxx::audio::FramePos secondPosition(9000);
+
+  setCurrentFramePosition(firstPosition);
+  m_pCueSet->set(1.0);
+  ProcessBuffer();
+  m_pMemoryCueSet->set(1.0);
+  ProcessBuffer();
+  m_pMemoryCueSet->set(0.0);
+
+  setCurrentFramePosition(secondPosition);
+  m_pCueSet->set(1.0);
+  ProcessBuffer();
+  m_pMemoryCueSet->set(1.0);
+  ProcessBuffer();
+  m_pMemoryCueSet->set(0.0);
+  EXPECT_DOUBLE_EQ(2.0, m_pMemoryCueCount->get());
+  EXPECT_DOUBLE_EQ(0.0, m_pMemoryCueSelected->get());
+
+  // Select the second cue through CALL, then return to the first cue position.
+  // A duplicate SET must not adopt the first cue as the selection.
+  setCurrentFramePosition(mixxx::audio::FramePos(12000));
+  m_pMemoryCuePrev->set(1.0);
+  ProcessBuffer();
+  EXPECT_EQ(secondPosition, currentFramePosition());
+  EXPECT_DOUBLE_EQ(2.0, m_pMemoryCueSelected->get());
+
+  setCurrentFramePosition(firstPosition);
+  m_pCueSet->set(1.0);
+  ProcessBuffer();
+  m_pMemoryCueSet->set(1.0);
+  ProcessBuffer();
+
+  EXPECT_DOUBLE_EQ(2.0, m_pMemoryCueCount->get());
+  // A duplicate SET is a no-op, including the prior selection state.
+  EXPECT_DOUBLE_EQ(2.0, m_pMemoryCueSelected->get());
+  EXPECT_EQ(firstPosition.toEngineSamplePos(), m_pMemoryCue17Position->get());
+  EXPECT_EQ(secondPosition.toEngineSamplePos(), m_pMemoryCue18Position->get());
+  EXPECT_DOUBLE_EQ(static_cast<double>(HotcueControl::Status::Set),
+                   m_pMemoryCue18Status->get());
+
+  m_pMemoryCueDelete->set(1.0);
+  ProcessBuffer();
+  // DELETE resolves its target from the current position, not the previously
+  // selected memory cue.
+  EXPECT_DOUBLE_EQ(static_cast<double>(HotcueControl::Status::Empty),
+                   m_pMemoryCue17Status->get());
+  EXPECT_DOUBLE_EQ(static_cast<double>(HotcueControl::Status::Set),
+                   m_pMemoryCue18Status->get());
+  EXPECT_DOUBLE_EQ(1.0, m_pMemoryCueCount->get());
+
+  // DELETE clears the selection, but NEXT still resolves from the deleted
+  // cue's position and reaches the remaining cue.
+  m_pMemoryCueNext->set(1.0);
+  ProcessBuffer();
+  EXPECT_EQ(secondPosition, currentFramePosition());
+}
 
 TEST_F(HotcueControlTest, DefautltControlValues) {
     TrackPointer pTrack = createTestTrack();
