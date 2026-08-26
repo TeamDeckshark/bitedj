@@ -11,7 +11,7 @@
 }
 
 * {
-  font-family: 'Monospace';
+  font-family: 'Inter', sans-serif, 'Monospace';
 }
 
 QMenuBar, QMenuBar::item, QMenu, QMenu::item {
