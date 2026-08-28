@@ -5,10 +5,12 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <memory>
 
 #include "audio/types.h"
 #include "preferences/usersettings.h"
+#include "soundio/sounddevicestatus.h"
 #include "soundio/soundmanagerutil.h"
 
 class ControlObject;
@@ -23,8 +25,9 @@ class SoundManager;
 //
 // The Audio settings sub-page assigns each output bus (Master, Booth,
 // Headphones) independently to any detected device + stereo channel pair, or
-// leaves it unrouted ("None"). Inputs, per-deck routing, API selection, and
-// buffer-size tuning are still not exposed.
+// leaves it unrouted ("None"), and picks a latency-vs-quality preset that sets
+// the sample rate and audio buffer size together (see LatencyMode). Inputs,
+// per-deck routing, and API selection are still not exposed.
 //
 // Output routing lives entirely here: it is the sole owner of the audio
 // output config. Enabling/disabling a MIDI controller (ControllerSettings)
@@ -41,6 +44,27 @@ class AudioDeviceSettings : public QObject {
         BusBooth = 1,
         BusHeadphones = 2,
         BusCount = 3,
+    };
+
+    // Latency-vs-quality preset. The Audio sub-page exposes exactly these two
+    // points instead of the sample-rate and buffer-size combo boxes upstream
+    // DlgPrefSound shows: on a fixed appliance the only question a DJ actually
+    // has is "tight jog/scratch response" vs "headroom against underruns".
+    //
+    // Both presets land on the same 64-frame base period, because
+    // SoundManagerConfig::getFramesPerBuffer() computes
+    // bit_ceil(sampleRate / 1000) << (index - 1) and bit_ceil is 64 for both
+    // 44 and 48 kHz -- so the index alone picks the frame count:
+    //   Latency: 44100 Hz, index 3 ->  256 frames -> 5.8 ms
+    //   Quality: 48000 Hz, index 5 -> 1024 frames -> 21.3 ms
+    // Custom is never selectable from the UI; it is what a soundconfig.xml
+    // holding any other rate/index pair (hand-edited, or carried over from
+    // desktop Mixxx) reports, so neither segment lights and the hint says so
+    // rather than silently mislabelling the running config.
+    enum LatencyMode {
+        ModeQuality = 0,
+        ModeLatency = 1,
+        ModeCustom = 2,
     };
 
     AudioDeviceSettings(UserSettingsPointer pConfig,
@@ -92,10 +116,17 @@ class AudioDeviceSettings : public QObject {
   private slots:
     void onSoundManagerDevicesUpdated();
     void onSampleRateChanged(double rate);
+    void onLatencyModeChanged(double mode);
     void onRescanRequested(double value);
     void onApplyRequested(double value);
     void onRevertRequested(double value);
     void onDeckCountChanged(double numDecks);
+    // The output device we had open died under us (SoundManager's watchdog
+    // already closed everything). Starts the automatic recovery retry.
+    void onOutputDeviceLost();
+    // One recovery attempt: re-enumerate and, if the configured device is back,
+    // re-open against it. Rescheduled by m_recoveryTimer until it succeeds.
+    void attemptRecovery();
 
   private:
     // A selectable target for a bus: a device + the base channel of a stereo
@@ -106,11 +137,22 @@ class AudioDeviceSettings : public QObject {
     };
 
     void refreshDeviceList();
-    // Recomputes [AudioDevices],dirty: 1 while any staged bus assignment or
-    // the sample-rate CO differs from the live config snapshot taken by the
-    // last refreshDeviceList. The skin keys the Apply/Cancel vs Rescan
-    // button swap off this CO.
+    // Recomputes [AudioDevices],dirty: 1 while any staged bus assignment, the
+    // sample-rate CO, or the staged buffer-size index differs from the live
+    // config snapshot taken by the last refreshDeviceList. The skin keys the
+    // Apply/Cancel vs Rescan button swap off this CO.
     void updateDirty();
+    // Rate + buffer-size index that a preset stands for. ModeCustom maps to
+    // the currently staged pair, so asking for it is a no-op.
+    static int sampleRateForMode(int mode);
+    static unsigned int bufferSizeIndexForMode(int mode);
+    // Reverse lookup: the preset a (rate, index) pair corresponds to, or
+    // ModeCustom when it matches neither.
+    static int modeForConfig(int sampleRate, unsigned int bufferSizeIndex);
+    // Recomputes [AudioDevices],latency_mode from the staged rate/index pair
+    // without re-entering onLatencyModeChanged (the CO is written with
+    // forceSet, which still emits, so the slot guards on an unchanged pair).
+    void updateLatencyMode();
     // Rebuilds SoundManagerConfig from the three m_busDeviceIndex/
     // m_busChannelBase assignments and applies it (blocking). Reconciles state
     // from the resulting config afterwards (setConfig only emits devicesSetup
@@ -148,6 +190,20 @@ class AudioDeviceSettings : public QObject {
     static AudioPathType typeForBus(int busIndex);
     static QString nameForBus(int busIndex);
     int findIndexForDeviceId(const SoundDeviceId& id) const;
+    // Shared by rescan() and attemptRecovery(): re-enumerate the host's
+    // devices, re-point the live config at whatever the configured devices
+    // came back as, and re-open. Returns the setConfig status.
+    SoundDeviceStatus reopenDevices();
+    // True when every device the live config routes a bus to is present in the
+    // freshly enumerated device list. Recovery only pays for a re-open once
+    // the hardware is actually back.
+    bool configuredOutputDevicesPresent() const;
+    // Stops the retry loop and clears the "reconnecting" notification.
+    void endRecovery(bool succeeded);
+    // Writes one line describing the state that decides whether audio is
+    // actually audible (master enable/gain, and each deck's play, loaded,
+    // position and volume) to the log. Called on every successful (re)connect.
+    void logAudioPathState(const char* context) const;
 
     static QAtomicPointer<AudioDeviceSettings> s_pInstance;
 
@@ -169,6 +225,13 @@ class AudioDeviceSettings : public QObject {
     int m_liveBusChannelBase[BusCount];
     int m_liveSampleRate;
 
+    // Staged audio buffer size index (SoundManagerConfig::AudioBufferSizeIndex),
+    // moved as a pair with the sample-rate CO by the latency-mode preset and
+    // committed only by applyBusConfig, plus the live snapshot updateDirty
+    // compares it against.
+    unsigned int m_bufferSizeIndex;
+    unsigned int m_liveBufferSizeIndex;
+
     QStringList m_busLabels;
 
     // True between the Apply/Rescan tap and applyBusConfig/rescan finishing —
@@ -180,6 +243,7 @@ class AudioDeviceSettings : public QObject {
     std::unique_ptr<ControlObject> m_pCoCount;
     std::unique_ptr<ControlObject> m_pCoSelectedIndex;
     std::unique_ptr<ControlObject> m_pCoSampleRate;
+    std::unique_ptr<ControlObject> m_pCoLatencyMode;
     std::unique_ptr<ControlObject> m_pCoRescan;
     std::unique_ptr<ControlObject> m_pCoConfigured;
     std::unique_ptr<ControlObject> m_pCoApply;
@@ -198,4 +262,14 @@ class AudioDeviceSettings : public QObject {
     // which is what un-greys Rescan instead of waiting on a play CO that the
     // dead engine will never clear.
     ControlProxy* m_pSoundStatus;
+
+    // Automatic recovery from an output device that vanished (USB controller
+    // power-cycled, hub reset). SoundManager's watchdog notices and closes the
+    // devices; this timer then re-enumerates every kRecoveryIntervalMs until
+    // the device is back and re-opens against it, so the user does not have to
+    // find Rescan in the settings to get audio again.
+    QTimer m_recoveryTimer;
+    // True from the loss until a re-open succeeds (or the user reconfigures
+    // the audio devices themselves, which supersedes the retry).
+    bool m_recovering;
 };

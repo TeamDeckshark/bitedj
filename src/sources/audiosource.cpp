@@ -298,28 +298,55 @@ ReadableSampleFrames AudioSource::readSampleFrames(
                     << "Failed to read sample frames:"
                     << "expected =" << writable.frameIndexRange()
                     << ", actual =" << readable.frameIndexRange();
-            auto shrinkedFrameIndexRange = m_frameIndexRange;
             if (readable.frameIndexRange().empty()) {
-                // Adjust upper bound: Consider all audio data following
-                // the read position until the end as unreadable
+                // Bite DJ: do NOT conclude that the audio data ends here.
+                //
+                // Upstream shrank the readable range back to this position,
+                // writing off the whole remainder of the track -- permanently.
+                // The narrowed range is propagated to every source in the proxy
+                // chain by adjustFrameIndexRange(), and CachingReader only ever
+                // intersects the range it carries with the one each read
+                // reports, so nothing can widen it again for the life of the
+                // track load. A deck that hit this played silence to the end of
+                // the track with no way back short of reloading it.
+                //
+                // Shrinking is a claim about the file's content, and a read
+                // that returned *nothing* is no evidence about content: it is
+                // equally well explained by the storage having gone away, which
+                // on this device is routine rather than exceptional. The music
+                // lives on hot-pluggable USB drives behind a dwc_otg controller
+                // that is known to drop and re-enumerate them mid-session (see
+                // usbcore.old_scheme_first in the sharkware KERNEL_OPTIONS and
+                // why it is there). One such blink used to cost the rest of the
+                // track.
+                //
+                // A partial read is different and still shrinks below: reading
+                // some frames and then stopping is positive evidence about
+                // where the decodable data ends.
+                //
+                // The cost is that a genuinely malformed file whose real end
+                // happens to land on a chunk boundary -- so that the first
+                // failing read comes back empty rather than short -- now warns
+                // once per chunk for the rest of its declared length instead of
+                // shrinking once and going quiet. That is the right way round:
+                // a rare bad file is noisy in the log, rather than every USB
+                // hiccup silently killing a live set.
+                return readable;
+            }
+            auto shrinkedFrameIndexRange = m_frameIndexRange;
+            // Adjust lower bound of readable audio data
+            if (writable.frameIndexRange().start() <
+                    readable.frameIndexRange().start()) {
+                shrinkedFrameIndexRange.shrinkFront(
+                        readable.frameIndexRange().start() -
+                        shrinkedFrameIndexRange.start());
+            }
+            // Adjust upper bound of readable audio data
+            if (writable.frameIndexRange().end() >
+                    readable.frameIndexRange().end()) {
                 shrinkedFrameIndexRange.shrinkBack(
                         shrinkedFrameIndexRange.end() -
-                        writable.frameIndexRange().start());
-            } else {
-                // Adjust lower bound of readable audio data
-                if (writable.frameIndexRange().start() <
-                        readable.frameIndexRange().start()) {
-                    shrinkedFrameIndexRange.shrinkFront(
-                            readable.frameIndexRange().start() -
-                            shrinkedFrameIndexRange.start());
-                }
-                // Adjust upper bound of readable audio data
-                if (writable.frameIndexRange().end() >
-                        readable.frameIndexRange().end()) {
-                    shrinkedFrameIndexRange.shrinkBack(
-                            shrinkedFrameIndexRange.end() -
-                            readable.frameIndexRange().end());
-                }
+                        readable.frameIndexRange().end());
             }
             DEBUG_ASSERT(shrinkedFrameIndexRange.isSubrangeOf(m_frameIndexRange) &&
                     shrinkedFrameIndexRange.length() < m_frameIndexRange.length());

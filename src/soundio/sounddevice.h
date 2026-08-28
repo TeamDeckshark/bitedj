@@ -38,6 +38,31 @@ class SoundDevice {
     virtual void writeProcess(SINT framesPerBuffer) = 0;
     virtual QString getError() const = 0;
     virtual mixxx::audio::SampleRate getDefaultSampleRate() const = 0;
+
+    /// Bite DJ: liveness signals for SoundManager's device watchdog.
+    ///
+    /// A USB audio interface that loses power takes its ALSA card with it, and
+    /// nothing in PortAudio tells us about it: the stream handle stays valid,
+    /// isOpen() keeps returning true and the engine simply stops being called.
+    /// These two let SoundManager notice, so it can tear the dead device down
+    /// and put the app back in a state the user can recover from.
+    ///
+    /// isStreamHealthy() reports whether the host API still considers the
+    /// stream running. It must answer true whenever the answer is not
+    /// meaningful (device not open, or we asked for the teardown ourselves) so
+    /// that a device the watchdog should ignore never looks broken.
+    virtual bool isStreamHealthy() const {
+        return true;
+    }
+
+    /// Monotonically increasing count of audio callbacks this device has
+    /// entered. Only its *changes* are meaningful — a device that cannot
+    /// report one (the network stream) may return a constant, which the
+    /// watchdog treats as "no opinion" as long as some other open device is
+    /// still counting up.
+    virtual quint64 callbackTick() const {
+        return 0;
+    }
     mixxx::audio::ChannelCount getNumOutputChannels() const;
     mixxx::audio::ChannelCount getNumInputChannels() const;
     SoundDeviceStatus addOutput(const AudioOutputBuffer& out);

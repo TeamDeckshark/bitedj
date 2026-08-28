@@ -10,6 +10,7 @@
 #include "effects/chains/standardeffectchain.h"
 #include "effects/effectslot.h"
 #include "effects/effectsmessenger.h"
+#include "effects/eqmode.h"
 #include "effects/presets/effectchainpreset.h"
 #include "effects/presets/effectpresetmanager.h"
 #include "effects/presets/effectxmlelements.h"
@@ -49,6 +50,24 @@ EffectsManager::EffectsManager(
             new EffectChainPresetManager(pConfig, m_pBackendManager));
 
     m_pVisibleEffectsList = VisibleEffectsListPointer(new VisibleEffectsList());
+
+    // EQ vs Isolator knob response. A toggling push button so the Levels page
+    // can flip it with a plain 2-state WPushButton and a controller can be
+    // mapped to it, seeded from and written back to mixxx.cfg the same way as
+    // the other [BiteDJ] preferences.
+    const ConfigKey eqModeKey(EqCurve::kModeGroup, EqCurve::kModeKey);
+    m_pEqMode = std::make_unique<ControlPushButton>(eqModeKey);
+    m_pEqMode->setButtonMode(ControlPushButton::TOGGLE);
+    m_pEqMode->setStates(2);
+    m_pEqMode->set(m_pConfig->getValue(eqModeKey, EqCurve::kModeDefault));
+    // The control is its own context object: it outlives nothing this lambda
+    // touches and dies with the EffectsManager that owns both.
+    QObject::connect(m_pEqMode.get(),
+            &ControlObject::valueChanged,
+            m_pEqMode.get(),
+            [this, eqModeKey](double value) {
+                m_pConfig->setValue(eqModeKey, value != 0.0 ? 1 : 0);
+            });
 }
 
 EffectsManager::~EffectsManager() {

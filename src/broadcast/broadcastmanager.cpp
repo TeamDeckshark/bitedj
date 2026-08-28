@@ -35,11 +35,11 @@ BroadcastManager::BroadcastManager(SettingsManager* pSettingsManager,
     // Initialize libshout
     shout_init();
 
-    // Initialize connections list from the current state of BroadcastSettings
-    const QList<BroadcastProfilePtr> profiles = m_pBroadcastSettings->profiles();
-    for (const BroadcastProfilePtr& profile : profiles) {
-        addConnection(profile);
-    }
+    // Initialize connections list from the current state of BroadcastSettings.
+    // Note this is normally a no-op: the destructor forces [Shoutcast],enabled
+    // off, so broadcasting is off at every startup and connectionWanted() is
+    // false for every profile until the user turns it on.
+    addWantedConnections();
 
     // Connect add/remove profiles signals.
     // Passing the raw pointer from QSharedPointer to connect() is fine, since
@@ -123,7 +123,9 @@ void BroadcastManager::slotControlEnabled(double v) {
 }
 
 void BroadcastManager::slotProfileAdded(BroadcastProfilePtr profile) {
-    addConnection(profile);
+    if (connectionWanted(profile)) {
+        addConnection(profile);
+    }
 }
 
 void BroadcastManager::slotProfileRemoved(BroadcastProfilePtr profile) {
@@ -131,6 +133,13 @@ void BroadcastManager::slotProfileRemoved(BroadcastProfilePtr profile) {
 }
 
 void BroadcastManager::slotProfilesChanged() {
+    // Connections are created on demand rather than at startup, so a profile
+    // that was just enabled (in the preferences, or by broadcasting being
+    // switched on) has none yet. Create those first: the loop below only walks
+    // connections that already exist. This is the single point every path that
+    // can newly want a connection passes through.
+    addWantedConnections();
+
     const QVector<NetworkOutputStreamWorkerPtr> workers = m_pNetworkStream->outputWorkers();
     for (const NetworkOutputStreamWorkerPtr& pWorker : workers) {
         ShoutConnectionPtr connection = qSharedPointerCast<ShoutConnection>(pWorker);
@@ -141,6 +150,31 @@ void BroadcastManager::slotProfilesChanged() {
                 profile->setConnectionStatus(BroadcastProfile::STATUS_UNCONNECTED);
             }
             connection->applySettings();
+        }
+    }
+}
+
+// A ShoutConnection is not a passive object. addConnection() registers it with
+// EngineNetworkStream, and SoundDeviceNetwork::writeProcess() walks every
+// registered worker from inside the audio callback -- so a connection that can
+// never connect still costs work on the RT thread on every buffer, and its FIFO
+// over/underflows are reported through SoundManager::underflowHappened().
+//
+// Upstream created one for every profile at startup and kept it for the whole
+// session, including for profiles that were never enabled. On a device with no
+// IP stack at all that meant a permanent phantom worker whose underruns were
+// indistinguishable in the log from the sound card dropping out. Create one
+// only while it could actually be used.
+bool BroadcastManager::connectionWanted(const BroadcastProfilePtr& profile) const {
+    return profile && profile->getEnabled() && m_pBroadcastEnabled->toBool();
+}
+
+void BroadcastManager::addWantedConnections() {
+    const QList<BroadcastProfilePtr> profiles = m_pBroadcastSettings->profiles();
+    for (const BroadcastProfilePtr& profile : profiles) {
+        if (connectionWanted(profile)) {
+            // Already-connected profiles are rejected by addConnection itself.
+            addConnection(profile);
         }
     }
 }

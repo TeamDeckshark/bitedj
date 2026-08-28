@@ -3,8 +3,15 @@
 // change very often, so this file can be included in other parts of the code
 // where the version number needs to be known at the preprocessor stage and
 // using the VersionInfo class is not an option.
+//
+// Bite DJ: MIXXX_VERSION_* is the *base* version, i.e. the upstream stable
+// release this fork is built on. It is kept for tracking upstream merges, for
+// the config-file upgrade path and for the manual URLs -- it is not what the
+// product displays. BITEDJ_VERSION below is the version shown to the user.
 #define MIXXX_VERSION_MAJOR @CMAKE_PROJECT_VERSION_MAJOR@
 #define MIXXX_VERSION_MINOR @CMAKE_PROJECT_VERSION_MINOR@
 #define MIXXX_VERSION_PATCH @CMAKE_PROJECT_VERSION_PATCH@
 #define MIXXX_VERSION_SUFFIX "@MIXXX_VERSION_PRERELEASE@"
+#define BITEDJ_VERSION "@BITEDJ_VERSION@"
+#define BITEDJ_VERSION_SUFFIX "@BITEDJ_VERSION_PRERELEASE@"
 #define MIXXX_BUILD_FLAGS "@MIXXX_BUILD_FLAGS@"

@@ -19,9 +19,13 @@ DlgAbout::DlgAbout()
     mixxx_icon->load(QString(MIXXX_ICON_PATH));
     mixxx_logo->load(QString(MIXXX_LOGO_PATH));
 
-    version_label->setText(VersionStore::applicationName() +
+    version_label->setText(VersionStore::productName() +
             QStringLiteral(" ") + VersionStore::version());
-    git_version_label->setText(VersionStore::gitVersion());
+    // Bite DJ: the Mixxx release this build is based on stays visible next to
+    // the git describe output, so the base version can still be read off here.
+    git_version_label->setText(QStringLiteral("%1 (Mixxx %2)")
+                                       .arg(VersionStore::gitVersion(),
+                                               VersionStore::mixxxVersion()));
     qt_version_label->setText(VersionStore::qtVersion());
     platform_label->setText(VersionStore::platform());
     QLocale locale;
@@ -36,9 +40,9 @@ DlgAbout::DlgAbout()
 
     QString s_devTeam =
             tr("Mixxx %1.%2 Development Team")
-                    .arg(QString::number(
-                                 VersionStore::versionNumber().majorVersion()),
-                            QString::number(VersionStore::versionNumber()
+                    .arg(QString::number(VersionStore::mixxxVersionNumber()
+                                                 .majorVersion()),
+                            QString::number(VersionStore::mixxxVersionNumber()
                                                     .minorVersion()));
     QString s_contributions = tr("With contributions from:");
     QString s_specialThanks = tr("And special thanks to:");

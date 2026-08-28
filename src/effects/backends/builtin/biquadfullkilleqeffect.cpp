@@ -3,6 +3,7 @@
 #include "effects/backends/builtin/equalizer_util.h"
 #include "effects/backends/effectmanifest.h"
 #include "effects/defs.h"
+#include "effects/eqmode.h"
 #include "engine/effects/engineeffectparameter.h"
 #include "util/math.h"
 
@@ -15,8 +16,6 @@ constexpr double kQBoost = 0.3;
 constexpr double kQKill = 0.9;
 constexpr double kQLowKillShelve = 0.4;
 constexpr double kQHighKillShelve = 0.4;
-constexpr double kKillGain = -23;
-constexpr double kBesselStartRatio = 0.25;
 
 double getCenterFrequency(double low, double high) {
     double scaleLow = log10(low);
@@ -26,23 +25,46 @@ double getCenterFrequency(double low, double high) {
     return pow(10, scaleCenter);
 }
 
-double knobValueToBiquadGainDb(double value, bool kill) {
+// The two knob characters are two of the three signal paths this effect
+// already owns, picked one at a time rather than blended:
+//
+//   EQ mode       the bell/shelving biquads do the cutting and the LV-Mix
+//                 crossover sits at unity, so the band bottoms out at
+//                 kDeckMaxCutDb and still passes signal at the stop.
+//   Isolator mode the biquads stay flat and the crossover does the cutting,
+//                 because only a band-split mix can actually reach zero.
+//
+// Boost is the same either way — an isolator only differs on the cut side.
+// The parameter is linear over 0 (bottom stop) .. 1 (detent) .. 2 (full
+// boost), so `value` is knob travel and the curves in effects/eqmode.h can be
+// written the way they are specified: against rotation.
+
+double knobValueToBiquadGainDb(double value, bool kill, EqMode mode) {
     if (kill) {
-        return kKillGain;
+        // The crossover below takes the band out completely, so a flat biquad
+        // adds nothing to that — and a flat biquad drops out of the chain.
+        return 0.0;
     }
-    if (value > kBesselStartRatio) {
-        return ratio2db(value);
+    if (value >= 1.0) {
+        return math_min(value - 1.0, 1.0) * EqCurve::kDeckBoostDb;
     }
-    double startDB = ratio2db(kBesselStartRatio);
-    value = 1 - (value / kBesselStartRatio);
-    return (kKillGain - startDB) * value + startDB;
+    if (mode == EqMode::Isolator) {
+        return 0.0;
+    }
+    return EqCurve::cutGainDb(EqMode::Eq, 1.0 - value, EqCurve::kDeckMaxCutDb);
 }
 
-double knobValueToBesselRatio(double value, bool kill) {
+double knobValueToBesselRatio(double value, bool kill, EqMode mode) {
     if (kill) {
         return 0.0;
     }
-    return math_min(value / kBesselStartRatio, 1.0);
+    if (mode != EqMode::Isolator || value >= 1.0) {
+        // Unity through the crossover: it sums the three bands back into the
+        // (delayed) input, so the band is untouched and only the group delay
+        // this effect always carries remains.
+        return 1.0;
+    }
+    return EqCurve::cutGain(EqMode::Isolator, 1.0 - value, EqCurve::kDeckMaxCutDb);
 }
 
 } // anonymous namespace
@@ -62,13 +84,17 @@ EffectManifestPointer BiquadFullKillEQEffect::getManifest() {
     pManifest->setVersion("1.0");
     pManifest->setDescription(
             QObject::tr(
-                    "A 3-band Equalizer that combines an Equalizer and an "
-                    "Isolator circuit to offer gentle slopes and full kill.") +
-            " " + EqualizerUtil::adjustFrequencyShelvesTip());
+                    "A 3-band Equalizer that carries both an Equalizer and an "
+                    "Isolator circuit; [BiteDJ],eq_mode picks which one the "
+                    "knobs drive."));
     pManifest->setEffectRampsFromDry(true);
     pManifest->setIsMixingEQ(true);
 
-    EqualizerUtil::createCommonParameters(pManifest.data(), false);
+    // Linear rather than the stock audio taper: both knob curves are specified
+    // against rotation, so the parameter has to *be* rotation. 0 = bottom
+    // stop, 1 = centre detent, 2 = full boost, and MIDI 64 lands exactly on
+    // the detent (ControlPotmeterBehavior::midiToParameter's 0.5-at-64 case).
+    EqualizerUtil::createCommonParameters(pManifest.data(), true);
     return pManifest;
 }
 
@@ -147,7 +173,8 @@ void BiquadFullKillEQEffectGroupState::setFilters(
 
 BiquadFullKillEQEffect::BiquadFullKillEQEffect()
         : m_pLoFreqCorner(kMixerProfile, kLowEqFrequency),
-          m_pHiFreqCorner(kMixerProfile, kHighEqFrequency) {
+          m_pHiFreqCorner(kMixerProfile, kHighEqFrequency),
+          m_pEqMode(EqCurve::kModeGroup, EqCurve::kModeKey) {
 }
 
 void BiquadFullKillEQEffect::loadEngineEffectParameters(
@@ -183,17 +210,19 @@ void BiquadFullKillEQEffect::processChannel(
                 pState->m_highFreqCorner);
     }
 
+    const EqMode mode = EqCurve::modeFromControlValue(m_pEqMode.get());
+
     // Ramp to dry, when disabling, this will ramp from dry when enabling as well
     double bqGainLow = 0;
     double bqGainMid = 0;
     double bqGainHigh = 0;
     if (enableState != EffectEnableState::Disabling) {
         bqGainLow = knobValueToBiquadGainDb(
-                m_pPotLow->value(), m_pKillLow->toBool());
+                m_pPotLow->value(), m_pKillLow->toBool(), mode);
         bqGainMid = knobValueToBiquadGainDb(
-                m_pPotMid->value(), m_pKillMid->toBool());
+                m_pPotMid->value(), m_pKillMid->toBool(), mode);
         bqGainHigh = knobValueToBiquadGainDb(
-                m_pPotHigh->value(), m_pKillHigh->toBool());
+                m_pPotHigh->value(), m_pKillHigh->toBool(), mode);
     }
 
     int activeFilters = 0;
@@ -398,11 +427,11 @@ void BiquadFullKillEQEffect::processChannel(
                 pOutput, pOutput, engineParameters.samplesPerBuffer());
     } else {
         double fLow = knobValueToBesselRatio(
-                m_pPotLow->value(), m_pKillLow->toBool());
+                m_pPotLow->value(), m_pKillLow->toBool(), mode);
         double fMid = knobValueToBesselRatio(
-                m_pPotMid->value(), m_pKillMid->toBool());
+                m_pPotMid->value(), m_pKillMid->toBool(), mode);
         double fHigh = knobValueToBesselRatio(
-                m_pPotHigh->value(), m_pKillHigh->toBool());
+                m_pPotHigh->value(), m_pKillHigh->toBool(), mode);
         pState->m_lvMixIso->processChannel(pOutput,
                 pOutput,
                 engineParameters.samplesPerBuffer(),

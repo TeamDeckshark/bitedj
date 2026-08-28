@@ -85,6 +85,9 @@ CachingReader::CachingReader(const QString& group,
             this, &CachingReader::trackLoadFailed,
             Qt::DirectConnection);
 
+    // Must not be InheritPriority: that would hand this thread the main
+    // thread's SCHED_FIFO 49 by accident (see the caution in main()). The
+    // priority that actually applies is set by the worker itself in run().
     m_worker.start(QThread::HighPriority);
 }
 

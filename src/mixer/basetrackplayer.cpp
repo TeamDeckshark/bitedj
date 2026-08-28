@@ -561,7 +561,6 @@ void BaseTrackPlayerImpl::slotLoadTrack(TrackPointer pNewTrack, bool bPlay) {
 
     loadTrack(pNewTrack);
 
-   
     // emit this before pEngineBuffer->loadTrack() to avoid receiving
     // unexpected slotTrackLoaded() before, in case the track is still cached #10504.
     emit loadingTrack(pNewTrack, pOldTrack);

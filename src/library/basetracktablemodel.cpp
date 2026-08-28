@@ -707,9 +707,9 @@ QVariant BaseTrackTableModel::roleValue(
                 if (role == Qt::ToolTipRole || role == kDataExportRole) {
                     return QString::number(bpm.value(), 'f', 4);
                 } else {
-                    // Bite DJ: BPM is always shown to the user as a whole
-                    // number, so the configurable column precision is ignored.
-                    return QLocale().toString(bpm.value(), 'f', 0);
+                    // Use the locale here to make the display and editor consistent.
+                    // Custom precision, set in DlgPrefLibrary.
+                    return QLocale().toString(bpm.value(), 'f', s_bpmColumnPrecision);
                 }
             } else {
                 return QChar('-');

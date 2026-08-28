@@ -4,6 +4,7 @@
 #include "moc_engineworkerscheduler.cpp"
 #include "util/compatibility/qmutex.h"
 #include "util/event.h"
+#include "util/rtscheduling.h"
 
 namespace {
 // Upper bound on how long the scheduler sleeps without a runWorkers() wake-up.
@@ -51,6 +52,18 @@ void EngineWorkerScheduler::runWorkers() {
 
 void EngineWorkerScheduler::run() {
     static const QString tag("EngineWorkerScheduler");
+
+    // The wake-up hop between the audio callback and CachingReaderWorker, the
+    // only EngineWorker there is. All it does per callback is walk the worker
+    // list and wake whoever is ready, but it was doing that on SCHED_OTHER at
+    // nice 0 (EngineMixer passes QThread::HighPriority to start(), which means
+    // nothing under SCHED_OTHER), so a busy GUI thread on the same core could
+    // sit in front of it and delay every chunk fetch behind it. Runs one rung
+    // above the worker it wakes so a new request never queues behind the
+    // decode of the previous one; see util/rtscheduling.h.
+    mixxx::promoteCurrentThreadToRealtime(
+            mixxx::kRtPrioEngineWorkerScheduler, "EngineWorkerScheduler");
+
     bool quit = false;
     while (!quit) {
         Event::start(tag);

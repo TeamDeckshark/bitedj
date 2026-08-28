@@ -35,8 +35,8 @@
                   <NumberBpm>
                     <ObjectName>DeckHeaderBPM</ObjectName>
                     <TooltipId>visual_bpm</TooltipId>
-                    <Size>40max,20f</Size>
-                    <NumberOfDigits>0</NumberOfDigits>
+                    <Size>54max,20f</Size>
+                    <NumberOfDigits>1</NumberOfDigits>
                     <Channel><Variable name="channel"/></Channel>
                     <Connection>
                       <ConfigKey>[Channel<Variable name="channel"/>],visual_bpm</ConfigKey>
@@ -396,7 +396,7 @@
                   <NumberBpm>
                     <ObjectName>DeckBPM</ObjectName>
                     <TooltipId>visual_bpm</TooltipId>
-                    <NumberOfDigits>0</NumberOfDigits>
+                    <NumberOfDigits>1</NumberOfDigits>
                     <Channel><Variable name="channel"/></Channel>
                     <Connection>
                       <ConfigKey>[Channel<Variable name="channel"/>],visual_bpm</ConfigKey>

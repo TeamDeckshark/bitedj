@@ -17,6 +17,7 @@
 #include "util/db/dbconnectionpooled.h"
 #include "util/db/dbconnectionpooler.h"
 #include "util/logger.h"
+#include "util/rtscheduling.h"
 
 namespace {
 
@@ -93,6 +94,29 @@ AnalyzerThread::AnalyzerThread(
 }
 
 void AnalyzerThread::doRun() {
+    // Analysis is background work by definition, and on this appliance it is
+    // the one job that reliably runs flat out while tracks are playing. Every
+    // thread that feeds the audio callback its next chunk — CachingReaderWorker
+    // and the engine worker pool — shares the same housekeeping cores (the
+    // engine itself pins to the isolated one, which no inherited affinity mask
+    // can reach) and runs SCHED_OTHER at nice 0, so an analyzer left at the
+    // default weight competes with them head-on and the decks glitch audibly
+    // while a track is being scanned.
+    //
+    // Done here, from inside the worker, rather than through the QThread
+    // priority TrackAnalysisScheduler passes to start(): Qt maps
+    // QThread::LowPriority onto SCHED_OTHER's single priority level, i.e. onto
+    // nothing at all, and the ad-hoc scheduler PlayerManager creates for
+    // on-load analysis does not set AnalyzerModeFlags::LowPriority anyway, so
+    // WorkerThread::run() never even calls setPriority() for it. Doing it here
+    // also covers both schedulers with one rule.
+    //
+    // It must come before the first openAudioSource() below: decoder worker
+    // threads are spawned per track and inherit the policy and nice value of
+    // the thread that creates them.
+    const QByteArray threadName = name().toLocal8Bit();
+    mixxx::demoteCurrentThreadToBackground(threadName.constData());
+
     std::unique_ptr<AnalysisDao> pAnalysisDao;
     // The thread-local database connection  must not be closed
     // before returning from this function.

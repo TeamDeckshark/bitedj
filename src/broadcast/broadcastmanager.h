@@ -45,6 +45,15 @@ class BroadcastManager : public QObject {
     void slotConnectionStatusChanged(int newState);
 
   private:
+    // True when a ShoutConnection should exist for this profile, i.e. Live
+    // Broadcasting is switched on AND the profile itself is enabled. See the
+    // comment on the definition for why a connection is not free to keep
+    // around.
+    bool connectionWanted(const BroadcastProfilePtr& profile) const;
+    // Creates a connection for every profile connectionWanted() accepts that
+    // does not have one yet. Idempotent.
+    void addWantedConnections();
+
     bool addConnection(BroadcastProfilePtr profile);
     bool removeConnection(BroadcastProfilePtr profile);
     ShoutConnectionPtr findConnectionForProfile(BroadcastProfilePtr profile);

@@ -204,6 +204,53 @@
             </Children>
           </WidgetGroup>
 
+          <!-- Tenth column: how far a turned-down EQ knob actually cuts.
+               EQ bottoms out at a finite shelf (~-26 dB on the decks, the
+               band's -12 dB floor here) and flattens on the way; ISO reaches
+               silence at the stop, which makes it steeper than EQ over the
+               back half of the travel and gentler over the front half. The
+               choice is global — [BiteDJ],eq_mode is read by the deck EQs the
+               controller drives as well as by these eight bands — so it rides
+               along in the EQ row rather than taking a row of its own, the
+               same constraint that put Flat beside the knobs.
+
+               A 2-state button rather than the settings pages' EQ|ISO segment
+               pair: at the 480px floor this column is 44px, which is a touch
+               target for one button and not for two. -->
+          <WidgetGroup>
+            <ObjectName>EQMode</ObjectName>
+            <Layout>vertical</Layout>
+            <SizePolicy>me,min</SizePolicy>
+            <Children>
+              <Label>
+                <ObjectName>EQBandLabel</ObjectName>
+                <Text>MODE</Text>
+                <Size>0me,16f</Size>
+                <Alignment>center</Alignment>
+              </Label>
+              <PushButton>
+                <ObjectName>EQModeButton</ObjectName>
+                <Size>0me,44f</Size>
+                <NumberStates>2</NumberStates>
+                <State>
+                  <Number>0</Number>
+                  <Text>EQ</Text>
+                </State>
+                <State>
+                  <Number>1</Number>
+                  <Text>Iso</Text>
+                </State>
+                <Connection>
+                  <ConfigKey>[BiteDJ],eq_mode</ConfigKey>
+                  <EmitOnDownPress>true</EmitOnDownPress>
+                </Connection>
+              </PushButton>
+              <WidgetGroup>
+                <Size>0me,16f</Size>
+              </WidgetGroup>
+            </Children>
+          </WidgetGroup>
+
         </Children>
       </WidgetGroup>
 

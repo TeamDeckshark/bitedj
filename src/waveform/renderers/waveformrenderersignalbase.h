@@ -38,6 +38,9 @@ public:
 
   protected:
     ControlProxy* m_pEQEnabled;
+    // [BiteDJ],eq_mode — the band knobs' parameter is knob travel, not gain,
+    // so the tint has to run it through the same curve the engine does.
+    ControlProxy* m_pEqMode;
     ControlProxy* m_pLowFilterControlObject;
     ControlProxy* m_pMidFilterControlObject;
     ControlProxy* m_pHighFilterControlObject;

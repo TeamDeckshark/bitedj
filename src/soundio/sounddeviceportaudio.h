@@ -3,6 +3,7 @@
 #include <portaudio.h>
 
 #include <QString>
+#include <atomic>
 #include <condition_variable>
 #include <memory>
 
@@ -30,6 +31,10 @@ class SoundDevicePortAudio : public SoundDevice {
     void readProcess(SINT framesPerBuffer) override;
     void writeProcess(SINT framesPerBuffer) override;
     QString getError() const override;
+    bool isStreamHealthy() const override;
+    quint64 callbackTick() const override {
+        return m_callbackTick.load(std::memory_order_relaxed);
+    }
 
     // This callback function gets called every time the sound device runs out of
     // samples (ie. when it needs more sound to play)
@@ -47,6 +52,13 @@ class SoundDevicePortAudio : public SoundDevice {
                         CSAMPLE *output, const CSAMPLE* in,
                         const PaStreamCallbackTimeInfo *timeInfo,
                         PaStreamCallbackFlags statusFlags);
+
+    // Called from the callback trampolines on entry, before any processing,
+    // so the watchdog sees a tick even if the callback itself stalls inside
+    // the engine.
+    void bumpCallbackTick() {
+        m_callbackTick.fetch_add(1, std::memory_order_relaxed);
+    }
 
     // Callback called once the process callback returns paAbort.
     void finishedCallback();
@@ -91,6 +103,10 @@ class SoundDevicePortAudio : public SoundDevice {
     PerformanceTimer m_clkRefTimer;
     PaTime m_lastCallbackEntrytoDacSecs;
     std::atomic<int> m_callbackResult;
+    // Bumped on entry to every process callback (see callbackTick()). Written
+    // from the audio thread, read from the GUI thread by the watchdog; relaxed
+    // ordering is enough because only the fact that it changed matters.
+    std::atomic<quint64> m_callbackTick;
     std::mutex m_finishedMutex;
     std::condition_variable m_finishedCV;
     bool m_bFinished;

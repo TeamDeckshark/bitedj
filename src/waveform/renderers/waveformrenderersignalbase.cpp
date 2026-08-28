@@ -1,6 +1,7 @@
 #include "waveformrenderersignalbase.h"
 
 #include "control/controlproxy.h"
+#include "effects/eqmode.h"
 #include "util/colorcomponents.h"
 #include "waveform/waveformwidgetfactory.h"
 #include "waveformwidgetrenderer.h"
@@ -13,6 +14,7 @@ WaveformRendererSignalBase::WaveformRendererSignalBase(
         WaveformWidgetRenderer* waveformWidgetRenderer)
         : WaveformRendererAbstract(waveformWidgetRenderer),
           m_pEQEnabled(nullptr),
+          m_pEqMode(nullptr),
           m_pLowFilterControlObject(nullptr),
           m_pMidFilterControlObject(nullptr),
           m_pHighFilterControlObject(nullptr),
@@ -57,6 +59,9 @@ void WaveformRendererSignalBase::deleteControls() {
     if (m_pEQEnabled) {
         delete m_pEQEnabled;
     }
+    if (m_pEqMode) {
+        delete m_pEqMode;
+    }
     if (m_pLowFilterControlObject) {
         delete m_pLowFilterControlObject;
     }
@@ -83,6 +88,7 @@ bool WaveformRendererSignalBase::init() {
     //create controls
     m_pEQEnabled = new ControlProxy(
             m_waveformRenderer->getGroup(), "filterWaveformEnable");
+    m_pEqMode = new ControlProxy(EqCurve::kModeGroup, EqCurve::kModeKey);
     const QString effectGroup = kEffectGroupFormat.arg(m_waveformRenderer->getGroup());
     m_pLowFilterControlObject = new ControlProxy(effectGroup, QStringLiteral("parameter1"));
     m_pMidFilterControlObject = new ControlProxy(effectGroup, QStringLiteral("parameter2"));
@@ -191,9 +197,17 @@ void WaveformRendererSignalBase::getGains(float* pAllGain,
             if (m_pLowFilterControlObject &&
                 m_pMidFilterControlObject &&
                 m_pHighFilterControlObject) {
-                lowGain = static_cast<CSAMPLE_GAIN>(m_pLowFilterControlObject->get());
-                midGain = static_cast<CSAMPLE_GAIN>(m_pMidFilterControlObject->get());
-                highGain = static_cast<CSAMPLE_GAIN>(m_pHighFilterControlObject->get());
+                // parameter1..3 are knob travel (0 = stop, 1 = detent, 2 =
+                // full boost), so the band gain they stand for depends on
+                // which knob curve is in force.
+                const EqMode mode = EqCurve::modeFromControlValue(
+                        m_pEqMode ? m_pEqMode->get() : EqCurve::kModeDefault);
+                lowGain = static_cast<CSAMPLE_GAIN>(EqCurve::deckBandGain(
+                        mode, m_pLowFilterControlObject->get()));
+                midGain = static_cast<CSAMPLE_GAIN>(EqCurve::deckBandGain(
+                        mode, m_pMidFilterControlObject->get()));
+                highGain = static_cast<CSAMPLE_GAIN>(EqCurve::deckBandGain(
+                        mode, m_pHighFilterControlObject->get()));
             }
 
             lowGain *= static_cast<CSAMPLE_GAIN>(

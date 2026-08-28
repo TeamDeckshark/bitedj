@@ -2,6 +2,7 @@
 
 #include <QMap>
 
+#include "control/pollingcontrolproxy.h"
 #include "effects/backends/effectprocessor.h"
 #include "util/class.h"
 #include "util/types.h"
@@ -29,7 +30,7 @@ class GraphicEQEffectGroupState : public EffectState {
 
 class GraphicEQEffect : public EffectProcessorImpl<GraphicEQEffectGroupState> {
   public:
-    GraphicEQEffect() = default;
+    GraphicEQEffect();
     ~GraphicEQEffect() override = default;
 
     static QString getId();
@@ -54,6 +55,9 @@ class GraphicEQEffect : public EffectProcessorImpl<GraphicEQEffectGroupState> {
     EngineEffectParameterPointer m_pPotLow;
     QList<EngineEffectParameterPointer> m_pPotMid;
     EngineEffectParameterPointer m_pPotHigh;
+
+    // [BiteDJ],eq_mode: EQ or Isolator response, see effects/eqmode.h.
+    PollingControlProxy m_pEqMode;
 
     mixxx::audio::SampleRate m_oldSampleRate;
 

@@ -2,6 +2,7 @@
 
 #include <QDateTime>
 #include <QList>
+#include <QMetaType>
 #include <QString>
 #include <QStringList>
 
@@ -12,7 +13,21 @@ struct FsHistorySession {
     QDateTime startedAt;
     int trackCount = 0;
     int durationSeconds = 0;
+
+    /// So a re-read of a drive can be recognised as having found nothing new.
+    friend bool operator==(const FsHistorySession& lhs, const FsHistorySession& rhs) {
+        return lhs.name == rhs.name && lhs.startedAt == rhs.startedAt &&
+                lhs.trackCount == rhs.trackCount &&
+                lhs.durationSeconds == rhs.durationSeconds;
+    }
+    friend bool operator!=(const FsHistorySession& lhs, const FsHistorySession& rhs) {
+        return !(lhs == rhs);
+    }
 };
+
+// Handed from the writer thread back to the GUI thread as a queued signal
+// argument; see FsHistoryWorker::trackLogged().
+Q_DECLARE_METATYPE(FsHistorySession)
 
 /// Portable, per-filesystem store for the history of what was played off a
 /// drive.
@@ -28,8 +43,8 @@ struct FsHistorySession {
 /// absolute survives a re-plug.
 ///
 /// Tracks played from somewhere other than a removable drive have no stick to
-/// be written to; SetlogFeature keeps logging those to this unit's own library
-/// database as before ("This Unit" in the sidebar).
+/// be written to, and are not recorded at all: this unit keeps no history of
+/// its own (see SetlogFeature).
 ///
 /// Like the other .bitedj stores this one does not keep its connections open;
 /// see ScopedFsStore for why a lingering file descriptor would break eject.

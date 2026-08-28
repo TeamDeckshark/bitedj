@@ -62,7 +62,7 @@ QString Bpm::displayValueText(double value) {
     if (!isValidValue(value)) {
         return QString();
     }
-    return QString("%1").arg(value, 3, 'f', 0);
+    return QString("%1").arg(value, 3, 'f', 1);
 }
 
 QDebug operator<<(QDebug dbg, Bpm arg) {

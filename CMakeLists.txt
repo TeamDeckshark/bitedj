@@ -90,10 +90,23 @@ if(QOPENGL)
   add_compile_definitions(MIXXX_USE_QOPENGL)
 endif()
 
+# The upstream Mixxx version this fork is built on. It is NOT the version shown
+# to the user (see BITEDJ_VERSION below) -- it records the latest merged
+# upstream stable release, and it is what the config-file upgrade path and the
+# Mixxx manual URLs are keyed on. Bump it when merging a new upstream release.
 project(mixxx VERSION 2.5.6)
 enable_language(C CXX)
 # Work around missing version suffixes support https://gitlab.kitware.com/cmake/cmake/-/issues/16716
 set(MIXXX_VERSION_PRERELEASE "") # set to "alpha" "beta" or ""
+
+# The Bite DJ fork version. This is the product version displayed in the UI and
+# reported by `bitedj --version`; it moves independently of the Mixxx base
+# version above.
+set(BITEDJ_VERSION "1.0")
+set(BITEDJ_VERSION_PRERELEASE "") # set to "alpha" "beta" or ""
+if(NOT BITEDJ_VERSION MATCHES "^[0-9]+(\\.[0-9]+)*$")
+  message(FATAL_ERROR "BITEDJ_VERSION must be a dot-separated numeric version, got '${BITEDJ_VERSION}'")
+endif()
 
 set(CMAKE_PROJECT_HOMEPAGE_URL "https://www.mixxx.org")
 set(CMAKE_PROJECT_DESCRIPTION "Mixxx is Free DJ software that gives you everything you need to perform live mixes.")
@@ -607,6 +620,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/library/dao/fsanalysiscache.cpp
   src/library/dao/fscueoverridestore.cpp
   src/library/dao/fshistorystore.cpp
+  src/library/dao/fshistoryworker.cpp
   src/library/dao/fsmetaoverridestore.cpp
   src/library/dao/fssamplerbankstore.cpp
   src/library/dao/fsstore.cpp
@@ -1555,11 +1569,13 @@ if(BUILD_TESTING)
     src/test/enginerecord_test.cpp
     src/test/enginesidechain_test.cpp
     src/test/enginesynctest.cpp
+    src/test/eqmode_test.cpp
     src/test/fileinfo_test.cpp
     src/test/foldertreemodel_test.cpp
     src/test/frametest.cpp
     src/test/fscueoverridestore_test.cpp
     src/test/fshistorystore_test.cpp
+    src/test/fshistoryworker_test.cpp
     src/test/fsmetaoverridestore_test.cpp
     src/test/fssamplerbankstore_test.cpp
     src/test/samplerdrive_test.cpp
@@ -1731,7 +1747,8 @@ endif()
 
 get_target_property(MIXXX_BUILD_FLAGS mixxx-lib COMPILE_OPTIONS)
 
-# uses CMAKE_PROJECT_VERSION MIXXX_VERSION_PRERELEASE MIXXX_BUILD_FLAGS
+# uses CMAKE_PROJECT_VERSION MIXXX_VERSION_PRERELEASE BITEDJ_VERSION
+# BITEDJ_VERSION_PRERELEASE MIXXX_BUILD_FLAGS
 configure_file(src/version.h.in src/version.h @ONLY)
 
 if(GIT_COMMIT_DATE AND NOT GIT_COMMIT_DATE MATCHES "^[0-9]*-[0-9]*-[0-9]*T[0-9]*\\:[0-9]*\\:[0-9]*[+-][0-9]*\\:[0-9]*$")

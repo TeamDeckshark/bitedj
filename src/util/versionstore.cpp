@@ -31,28 +31,55 @@ namespace {
 const QVersionNumber kMixxxVersionNumber = QVersionNumber(
         MIXXX_VERSION_MAJOR, MIXXX_VERSION_MINOR, MIXXX_VERSION_PATCH);
 const QString kMixxxVersionSuffix = QString(MIXXX_VERSION_SUFFIX);
+const QVersionNumber kBiteVersionNumber =
+        QVersionNumber::fromString(QStringLiteral(BITEDJ_VERSION));
+const QString kBiteVersionSuffix = QString(BITEDJ_VERSION_SUFFIX);
 const QString kMixxx = QStringLiteral("Mixxx");
+const QString kBiteDJ = QStringLiteral("Bite DJ");
 const QString kBuildFlags = QString(MIXXX_BUILD_FLAGS);
+
+QString formatVersion(const QVersionNumber& number, const QString& suffix) {
+    if (suffix.isEmpty()) {
+        return number.toString();
+    }
+    return number.toString() + QChar('-') + suffix;
+}
 
 } // namespace
 
 // static
 QString VersionStore::version() {
-    if (kMixxxVersionSuffix.isEmpty()) {
-        return kMixxxVersionNumber.toString();
-    } else {
-        return kMixxxVersionNumber.toString() + QStringLiteral("-") + kMixxxVersionSuffix;
-    }
+    return formatVersion(kBiteVersionNumber, kBiteVersionSuffix);
 }
 
 // static
 QVersionNumber VersionStore::versionNumber() {
-    return kMixxxVersionNumber;
+    return kBiteVersionNumber;
 }
 
 // static
 QString VersionStore::versionSuffix() {
+    return kBiteVersionSuffix;
+}
+
+// static
+QString VersionStore::mixxxVersion() {
+    return formatVersion(kMixxxVersionNumber, kMixxxVersionSuffix);
+}
+
+// static
+QVersionNumber VersionStore::mixxxVersionNumber() {
+    return kMixxxVersionNumber;
+}
+
+// static
+QString VersionStore::mixxxVersionSuffix() {
     return kMixxxVersionSuffix;
+}
+
+// static
+QString VersionStore::productName() {
+    return kBiteDJ;
 }
 
 QDateTime VersionStore::date() {
@@ -212,6 +239,7 @@ void VersionStore::logBuildDetails() {
     QString buildFlags = VersionStore::buildFlags();
 
     QStringList buildInfo;
+    buildInfo.append(QString("Mixxx %1").arg(VersionStore::mixxxVersion()));
     buildInfo.append(QString("git %1").arg(VersionStore::gitVersion()));
 #ifndef DISABLE_BUILDTIME // buildtime=1, on by default
     buildInfo.append("built on: " __DATE__ " @ " __TIME__);
@@ -222,7 +250,7 @@ void VersionStore::logBuildDetails() {
     QString buildInfoFormatted = QString("(%1)").arg(buildInfo.join("; "));
 
     // This is the first line in mixxx.log
-    qDebug().noquote() << applicationName() << version << buildInfoFormatted << "is starting...";
+    qDebug().noquote() << productName() << version << buildInfoFormatted << "is starting...";
 
     QStringList depVersions = dependencyVersions();
     qDebug() << "Compile time library versions:";

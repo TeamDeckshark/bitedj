@@ -16,6 +16,7 @@
 #include "control/controlobject.h"
 #include "control/controlpushbutton.h"
 #include "library/dao/fsanalysiscache.h"
+#include "library/dao/fshistoryworker.h"
 #include "mixer/basetrackplayer.h"
 #include "mixer/playermanager.h"
 #include "mixer/samplerdrive.h"
@@ -41,10 +42,10 @@ constexpr double kVinylModeDefault = 1.0;
 // (1x) speed takes to coast to a standstill, so throwing the platter gives a
 // backspin whose length the DJ picks here; 0 restores stock Mixxx's near-instant
 // ramp. Read by ControllerScriptInterfaceLegacy::scratchDisable on each release,
-// so a change applies to the very next throw. The default matches a Technics
-// brake, which is the feel the setting exists to reproduce — that is the Long
-// segment in the settings tab, Short being half of it.
-constexpr double kVinylBrakeDefault = 3.6;
+// so a change applies to the very next throw. Defaults off (the Off segment in
+// the settings tab) so a released platter behaves like stock Mixxx until the DJ
+// asks for a backspin; Long is a Technics-like brake and Short is half of it.
+constexpr double kVinylBrakeDefault = 0.0;
 
 // Hot cue gating (General settings tab). Shares one key with the config value
 // CueControl reads, so the CO seeds from it and writes straight back to it.
@@ -572,6 +573,13 @@ bool SystemSettings::ejectMountPoint(const QString& mountPoint,
     // filesystem busy and makes umount fail EBUSY. Cancelling lets the worker
     // release the descriptor before the retry loop below attempts the unmount.
     TrackAnalysisScheduler::cancelAnalysisUnderPath(mountPoint);
+
+    // Let any history append that is still queued for this drive reach it
+    // before the filesystem goes away: the write is deliberately off the GUI
+    // thread (see FsHistoryWorker), so unlike every other store here it can
+    // still have work outstanding at this point. Bounded, so a stick that has
+    // stopped answering delays the eject rather than freezing the unit.
+    FsHistoryWorker::flushFilesystem(mountPoint);
 
     // Close any per-filesystem analysis caches open on this drive. A track that
     // was analyzed from the USB leaves the FsAnalysisCache SQLite connection (and

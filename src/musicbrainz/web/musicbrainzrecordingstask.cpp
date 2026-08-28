@@ -31,7 +31,7 @@ constexpr Duration kMinDurationBetweenRequests = Duration::fromMillis(1000);
 QString userAgentRawHeaderValue() {
     return VersionStore::applicationName() +
             QStringLiteral("/") +
-            VersionStore::version() +
+            VersionStore::mixxxVersion() +
             QStringLiteral(" ( ") +
             // QStringLiteral(MIXXX_WEBSITE_URL) fails to compile on Fedora 36 with GCC 12.0.x
             MIXXX_WEBSITE_URL +

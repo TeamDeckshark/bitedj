@@ -7,6 +7,8 @@
 #include <sched.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #include <cerrno>
 #include <cstdlib>
@@ -15,10 +17,29 @@
 
 namespace mixxx {
 
-#if defined(__LINUX__) && defined(SCHED_IDLE)
+#ifdef __LINUX__
 namespace {
-// Weakest SCHED_OTHER weighting, used only when SCHED_IDLE is unavailable.
+// Weakest SCHED_OTHER weighting: the fallback when SCHED_IDLE is unavailable,
+// and the actual mechanism behind demoteCurrentThreadToBackground().
 constexpr int kNiceLowest = 19;
+
+// ioprio_set(2) has no glibc wrapper. IOPRIO_WHO_PROCESS with who == 0 is the
+// calling *thread*, exactly as it is for setpriority(PRIO_PROCESS, 0, ...);
+// class 2 is best-effort and 7 its weakest level.
+constexpr int kIoprioWhoProcess = 1;
+constexpr int kIoprioClassShift = 13;
+constexpr int kIoprioClassBestEffort = 2;
+constexpr int kIoprioBestEffortLowest = 7;
+
+void demoteCurrentThreadIoPriority(const char* threadName) {
+    constexpr int ioprio =
+            (kIoprioClassBestEffort << kIoprioClassShift) | kIoprioBestEffortLowest;
+    if (syscall(SYS_ioprio_set, kIoprioWhoProcess, 0, ioprio) != 0) {
+        // Not fatal: the I/O scheduler in use may simply not have priorities.
+        qWarning() << "Failed to lower I/O priority of thread" << threadName
+                   << ":" << strerror(errno);
+    }
+}
 } // namespace
 #endif
 
@@ -63,6 +84,44 @@ bool demoteCurrentThreadToIdle(const char* threadName) {
     }
     qWarning() << "Failed to renice thread" << threadName << ":" << strerror(errno);
     return false;
+#else
+    Q_UNUSED(threadName);
+    return false;
+#endif
+}
+
+bool demoteCurrentThreadToBackground(const char* threadName) {
+#ifdef __LINUX__
+    bool batched = false;
+#ifdef SCHED_BATCH
+    sched_param param{};
+    // SCHED_BATCH has no priority levels of its own; nice is the weighting.
+    param.sched_priority = 0;
+    const int err = pthread_setschedparam(pthread_self(), SCHED_BATCH, &param);
+    if (err == 0) {
+        batched = true;
+    } else {
+        qWarning() << "Failed to set SCHED_BATCH for thread" << threadName << ":"
+                   << strerror(err) << "- staying on SCHED_OTHER";
+    }
+#endif
+    // The nice value is what actually keeps this thread out of the audio
+    // path's way, and it survives the policy change either way, so it is set
+    // second and regardless of whether SCHED_BATCH took. PRIO_PROCESS with
+    // who == 0 is the calling thread on Linux; nice values are per-thread.
+    const bool reniced = setpriority(PRIO_PROCESS, 0, kNiceLowest) == 0;
+    if (!reniced) {
+        qWarning() << "Failed to renice thread" << threadName << "to"
+                   << kNiceLowest << ":" << strerror(errno);
+    }
+    if (!batched && !reniced) {
+        return false;
+    }
+    qInfo() << "Thread" << threadName << "scheduled as background work"
+            << (batched ? "(SCHED_BATCH," : "(SCHED_OTHER,") << "nice"
+            << (reniced ? kNiceLowest : getpriority(PRIO_PROCESS, 0)) << ")";
+    demoteCurrentThreadIoPriority(threadName);
+    return true;
 #else
     Q_UNUSED(threadName);
     return false;

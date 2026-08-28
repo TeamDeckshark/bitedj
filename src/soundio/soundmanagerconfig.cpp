@@ -7,6 +7,7 @@
 #include "soundio/sounddevice.h"
 #include "soundio/soundmanager.h"
 #include "soundio/soundmanagerutil.h"
+#include "util/assert.h"
 #include "util/cmdlineargs.h"
 #include "util/math.h"
 
@@ -455,6 +456,86 @@ void SoundManagerConfig::clearInputs() {
     m_inputs.clear();
     m_iNumMicInputs = 0;
     m_bExternalRecordBroadcastConnected = false;
+}
+
+bool SoundManagerConfig::relinkDeviceIds() {
+    VERIFY_OR_DEBUG_ASSERT(m_pSoundManager != nullptr) {
+        return false;
+    }
+    const QList<SoundDevicePointer> soundDevices =
+            m_pSoundManager->getDeviceList(m_api, true, true);
+    if (soundDevices.isEmpty()) {
+        return false;
+    }
+
+    // Build the replacement mapping first, then rewrite both hashes in one
+    // pass. Rewriting in place is not safe: two configured ids can resolve
+    // onto the same hardware id.
+    QHash<SoundDeviceId, SoundDeviceId> relinked;
+    const QSet<SoundDeviceId> configuredDevices = getDevices();
+    for (const auto& configuredId : configuredDevices) {
+        QList<SoundDeviceId> matchesByName;
+        for (const auto& pDevice : soundDevices) {
+            const SoundDeviceId hardwareId = pDevice->getDeviceId();
+            if (hardwareId.name == configuredId.name) {
+                matchesByName.append(hardwareId);
+            }
+        }
+        if (matchesByName.isEmpty()) {
+            // Still gone. Leave the id alone so setupDevices() reports it as
+            // not found and the user sees the device they configured.
+            continue;
+        }
+
+        SoundDeviceId resolvedId = matchesByName.first();
+        if (matchesByName.size() > 1) {
+            // Ambiguous by name. Prefer the same ALSA hw:X,Y if we have one
+            // and it is still present, exactly as readFromDisk() does; a card
+            // that merely got a new PortAudio index is then still recognised.
+            // Otherwise leave the id alone rather than guessing, since picking
+            // the wrong one of two identical interfaces would silently route
+            // the mix to the wrong output.
+            bool resolved = false;
+            if (!configuredId.alsaHwDevice.isEmpty()) {
+                for (const auto& hardwareId : std::as_const(matchesByName)) {
+                    if (hardwareId.alsaHwDevice == configuredId.alsaHwDevice) {
+                        resolvedId = hardwareId;
+                        resolved = true;
+                        break;
+                    }
+                }
+            }
+            if (!resolved) {
+                continue;
+            }
+        }
+
+        if (resolvedId != configuredId) {
+            relinked.insert(configuredId, resolvedId);
+        }
+    }
+
+    if (relinked.isEmpty()) {
+        return false;
+    }
+
+    QMultiHash<SoundDeviceId, AudioOutput> outputs;
+    for (auto it = m_outputs.constBegin(); it != m_outputs.constEnd(); ++it) {
+        outputs.insert(relinked.value(it.key(), it.key()), it.value());
+    }
+    m_outputs = outputs;
+
+    QMultiHash<SoundDeviceId, AudioInput> inputs;
+    for (auto it = m_inputs.constBegin(); it != m_inputs.constEnd(); ++it) {
+        inputs.insert(relinked.value(it.key(), it.key()), it.value());
+    }
+    m_inputs = inputs;
+
+    for (auto it = relinked.constBegin(); it != relinked.constEnd(); ++it) {
+        qInfo() << "Sound device" << it.key().debugName()
+                << "re-enumerated as" << it.value().debugName();
+    }
+    return true;
 }
 
 bool SoundManagerConfig::hasMicInputs() {

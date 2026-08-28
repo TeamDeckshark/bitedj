@@ -52,6 +52,7 @@ int paV19Callback(const void *inputBuffer, void *outputBuffer,
                   const PaStreamCallbackTimeInfo *timeInfo,
                   PaStreamCallbackFlags statusFlags,
                   void *soundDevice) {
+    ((SoundDevicePortAudio*)soundDevice)->bumpCallbackTick();
     return ((SoundDevicePortAudio*) soundDevice)->callbackProcess(
             (SINT) framesPerBuffer, (CSAMPLE*) outputBuffer,
             (const CSAMPLE*) inputBuffer, timeInfo, statusFlags);
@@ -62,6 +63,7 @@ int paV19CallbackDrift(const void *inputBuffer, void *outputBuffer,
                        const PaStreamCallbackTimeInfo *timeInfo,
                        PaStreamCallbackFlags statusFlags,
                        void *soundDevice) {
+    ((SoundDevicePortAudio*)soundDevice)->bumpCallbackTick();
     return ((SoundDevicePortAudio*) soundDevice)->callbackProcessDrift(
             (SINT) framesPerBuffer, (CSAMPLE*) outputBuffer,
             (const CSAMPLE*) inputBuffer, timeInfo, statusFlags);
@@ -72,6 +74,7 @@ int paV19CallbackClkRef(const void *inputBuffer, void *outputBuffer,
                         const PaStreamCallbackTimeInfo *timeInfo,
                         PaStreamCallbackFlags statusFlags,
                         void *soundDevice) {
+    ((SoundDevicePortAudio*)soundDevice)->bumpCallbackTick();
     return ((SoundDevicePortAudio*) soundDevice)->callbackProcessClkRef(
             (SINT) framesPerBuffer, (CSAMPLE*) outputBuffer,
             (const CSAMPLE*) inputBuffer, timeInfo, statusFlags);
@@ -103,7 +106,8 @@ SoundDevicePortAudio::SoundDevicePortAudio(UserSettingsPointer config,
           m_syncBuffers(2),
           m_invalidTimeInfoCount(0),
           m_lastCallbackEntrytoDacSecs(0),
-          m_callbackResult(paAbort) {
+          m_callbackResult(paAbort),
+          m_callbackTick(0) {
     // Setting parent class members:
     m_hostAPI = Pa_GetHostApiInfo(deviceInfo->hostApi)->name;
     m_sampleRate = mixxx::audio::SampleRate::fromDouble(deviceInfo->defaultSampleRate);
@@ -508,6 +512,26 @@ SoundDeviceStatus SoundDevicePortAudio::close() {
 
 QString SoundDevicePortAudio::getError() const {
     return m_lastError;
+}
+
+bool SoundDevicePortAudio::isStreamHealthy() const {
+    PaStream* pStream = m_pStream.load(std::memory_order_acquire);
+    if (!pStream) {
+        // Not open, so there is no stream to have an opinion about. close()
+        // clears this last, after the host API has let go of the device.
+        return true;
+    }
+    if (m_callbackResult.load(std::memory_order_acquire) != paContinue) {
+        // We asked the callback to abort (close() is in flight, or open()
+        // failed part way). The stream going inactive is the expected outcome,
+        // not a fault.
+        return true;
+    }
+    // 1 = running, 0 = stopped/finished, negative = PortAudio error. A USB
+    // interface losing power surfaces here: the ALSA host API tears the stream
+    // down from its own thread and the stream stops being active, while the
+    // handle stays valid and isOpen() keeps returning true.
+    return Pa_IsStreamActive(pStream) == 1;
 }
 
 void SoundDevicePortAudio::readProcess(SINT framesPerBuffer) {

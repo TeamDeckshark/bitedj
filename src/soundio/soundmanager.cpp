@@ -3,6 +3,7 @@
 #include <portaudio.h>
 
 #include <QLibrary>
+#include <QStringList>
 #include <QThread>
 #include <QtGlobal>
 #include <cstring> // for memcpy and strcmp
@@ -35,6 +36,38 @@ const QString kAppGroup = QStringLiteral("[App]");
 
 #define CPU_OVERLOAD_DURATION 500 // in ms
 
+// How often the aggregated underrun warning is written to the log. Underruns
+// tend to arrive in bursts of hundreds, so they are counted in the audio
+// callback and reported in aggregate to keep the log readable.
+constexpr int kUnderflowLogIntervalMillis = 5000;
+
+// Drains one set of underrun counters and writes a line for it, or nothing if
+// no underruns were counted. Called from the main thread only; the counters are
+// atomics because the audio callback is what increments them.
+void logUnderflowGroup(QAtomicInt* pCount,
+        QAtomicInteger<quint32>* pCodes,
+        quint64* pTotal,
+        const char* what) {
+    const int count = pCount->fetchAndStoreRelaxed(0);
+    if (count == 0) {
+        return;
+    }
+    const quint32 codes = pCodes->fetchAndStoreRelaxed(0);
+    *pTotal += static_cast<quint64>(count);
+
+    QStringList codeList;
+    for (int code = 0; code < 32; ++code) {
+        if (codes & (1U << code)) {
+            codeList.append(QString::number(code));
+        }
+    }
+
+    qWarning().nospace() << what << ": " << count << " in the last "
+                         << kUnderflowLogIntervalMillis / 1000 << " s, "
+                         << *pTotal << " total (codes: "
+                         << codeList.join(QChar(',')) << ")";
+}
+
 struct DeviceMode {
     SoundDevicePointer pDevice;
     bool isInput;
@@ -44,6 +77,20 @@ struct DeviceMode {
 #ifdef __LINUX__
 constexpr unsigned int kSleepSecondsAfterClosingDevice = 5;
 #endif
+
+// Bite DJ: device watchdog cadence and stall threshold. See
+// SoundManager::checkDeviceHealth().
+//
+// The poll is cheap (an atomic load per open device plus one
+// Pa_IsStreamActive), so it can run often enough to react within a fraction of
+// a second when the host API notices the loss itself.
+constexpr int kDeviceWatchdogIntervalMillis = 250;
+// How long every open device may go without entering a single callback before
+// we call the output dead. This only backstops the case where the host API
+// does *not* notice — the ALSA thread wedged in the driver rather than
+// erroring out — so it is set well above any plausible scheduling hiccup:
+// even at the 21.3 ms quality-preset period that is ~90 missed callbacks.
+constexpr int kCallbackStallMillis = 2000;
 } // anonymous namespace
 
 SoundManager::SoundManager(UserSettingsPointer pConfig,
@@ -54,9 +101,16 @@ SoundManager::SoundManager(UserSettingsPointer pConfig,
           m_config(this),
           m_pErrorDevice(nullptr),
           m_underflowHappened(0),
+          m_underflowCount(0),
+          m_underflowCodes(0),
+          m_underflowTotalCount(0),
+          m_networkUnderflowCount(0),
+          m_networkUnderflowCodes(0),
+          m_networkUnderflowTotalCount(0),
           m_underflowUpdateCount(0),
           m_audioLatencyOverloadCount(kAppGroup, QStringLiteral("audio_latency_overload_count")),
-          m_audioLatencyOverload(kAppGroup, QStringLiteral("audio_latency_overload")) {
+          m_audioLatencyOverload(kAppGroup, QStringLiteral("audio_latency_overload")),
+          m_lastCallbackTickSum(0) {
     // TODO(xxx) some of these ControlObject are not needed by soundmanager, or are unused here.
     // It is possible to take them out?
     m_pControlObjectSoundStatusCO = new ControlObject(
@@ -74,6 +128,21 @@ SoundManager::SoundManager(UserSettingsPointer pConfig,
     m_pNetworkStream = QSharedPointer<EngineNetworkStream>(
             new EngineNetworkStream(2, 0));
 
+    m_underflowLogTimer.setInterval(kUnderflowLogIntervalMillis);
+    m_underflowLogTimer.setTimerType(Qt::VeryCoarseTimer);
+    connect(&m_underflowLogTimer,
+            &QTimer::timeout,
+            this,
+            &SoundManager::logUnderflows);
+    m_underflowLogTimer.start();
+
+    m_deviceWatchdogTimer.setInterval(kDeviceWatchdogIntervalMillis);
+    m_deviceWatchdogTimer.setTimerType(Qt::CoarseTimer);
+    connect(&m_deviceWatchdogTimer,
+            &QTimer::timeout,
+            this,
+            &SoundManager::checkDeviceHealth);
+
     queryDevices();
 
     if (!m_config.readFromDisk()) {
@@ -87,6 +156,11 @@ SoundManager::SoundManager(UserSettingsPointer pConfig,
 }
 
 SoundManager::~SoundManager() {
+    stopDeviceWatchdog();
+    m_underflowLogTimer.stop();
+    // Report whatever was counted but not logged yet.
+    logUnderflows();
+
     // Clean up devices.
     const bool sleepAfterClosing = false;
     clearDeviceList(sleepAfterClosing);
@@ -147,6 +221,10 @@ QList<QString> SoundManager::getHostAPIList() const {
 
 void SoundManager::closeDevices(bool sleepAfterClosing) {
     //qDebug() << "SoundManager::closeDevices()";
+
+    // Nothing to watch once we start tearing devices down, and the watchdog
+    // must not observe the half-closed state it would see mid-loop.
+    stopDeviceWatchdog();
 
     bool closed = false;
     for (const auto& pDevice : std::as_const(m_devices)) {
@@ -502,6 +580,10 @@ SoundDeviceStatus SoundManager::setupDevices() {
             outputDevicesOpened > 0 ?
                     SOUNDMANAGER_CONNECTED : SOUNDMANAGER_DISCONNECTED);
 
+    // Covers both the Ok and the ErrorDeviceCount return below: whatever did
+    // open still needs watching. Self-guards when there is nothing to watch.
+    startDeviceWatchdog();
+
     // returns OK if we were able to open all the devices the user wanted
     if (devicesNotFound.isEmpty()) {
         emit devicesSetup();
@@ -515,6 +597,103 @@ closeAndError:
     const bool sleepAfterClosing = false;
     closeDevices(sleepAfterClosing);
     return status;
+}
+
+void SoundManager::startDeviceWatchdog() {
+    // Only arm for a real output device. The internal network stream is always
+    // "open" when broadcasting/recording is wired up but cannot report
+    // callback ticks, and losing it is not the failure this guards against.
+    bool haveRealOutput = false;
+    for (const auto& pDevice : std::as_const(m_devices)) {
+        if (pDevice->isOpen() &&
+                pDevice->getDeviceId().name != kNetworkDeviceInternalName &&
+                !pDevice->outputs().isEmpty()) {
+            haveRealOutput = true;
+            break;
+        }
+    }
+    if (!haveRealOutput) {
+        stopDeviceWatchdog();
+        return;
+    }
+    m_lastCallbackTickSum = 0;
+    for (const auto& pDevice : std::as_const(m_devices)) {
+        if (pDevice->isOpen()) {
+            m_lastCallbackTickSum += pDevice->callbackTick();
+        }
+    }
+    m_callbackTickTimer.start();
+    m_deviceWatchdogTimer.start();
+}
+
+void SoundManager::stopDeviceWatchdog() {
+    m_deviceWatchdogTimer.stop();
+    m_callbackTickTimer.invalidate();
+}
+
+void SoundManager::checkDeviceHealth() {
+    if (m_pControlObjectSoundStatusCO->get() != SOUNDMANAGER_CONNECTED) {
+        // Something else already tore the devices down (a rescan, an apply, or
+        // shutdown). Nothing to watch.
+        stopDeviceWatchdog();
+        return;
+    }
+
+    bool haveRealOutput = false;
+    bool streamDied = false;
+    quint64 tickSum = 0;
+    for (const auto& pDevice : std::as_const(m_devices)) {
+        if (!pDevice->isOpen()) {
+            continue;
+        }
+        tickSum += pDevice->callbackTick();
+        if (pDevice->getDeviceId().name == kNetworkDeviceInternalName ||
+                pDevice->outputs().isEmpty()) {
+            continue;
+        }
+        haveRealOutput = true;
+        if (!pDevice->isStreamHealthy()) {
+            qWarning() << "Sound device" << pDevice->getDisplayName()
+                       << "is open but its stream is no longer running;"
+                       << "treating the output as lost";
+            streamDied = true;
+        }
+    }
+
+    if (!haveRealOutput) {
+        stopDeviceWatchdog();
+        return;
+    }
+
+    if (tickSum != m_lastCallbackTickSum) {
+        m_lastCallbackTickSum = tickSum;
+        m_callbackTickTimer.restart();
+    }
+
+    // Backstop for a host API that wedges without reporting an error. Note
+    // that a GUI thread blocked for longer than the threshold cannot trip
+    // this on its own: the poll it delayed still sees a tick sum that moved
+    // on while it was away, and restarts the clock.
+    const bool stalled = m_callbackTickTimer.isValid() &&
+            m_callbackTickTimer.elapsed() > kCallbackStallMillis;
+    if (stalled) {
+        qWarning() << "No audio callback for" << m_callbackTickTimer.elapsed()
+                   << "ms; treating the output device as lost";
+    }
+
+    if (!streamDied && !stalled) {
+        return;
+    }
+
+    // Tear the dead device down before telling anyone. closeDevices() sets
+    // [SoundManager],status to SOUNDMANAGER_DISCONNECTED and delivers
+    // onOutputDisconnected() to every registered AudioSource, so by the time
+    // the signal lands the app has stopped believing it has an output and it
+    // is safe for the handler to re-open. No cooldown sleep: the hardware is
+    // already gone, there is nothing for the host API to release.
+    const bool sleepAfterClosing = false;
+    closeDevices(sleepAfterClosing);
+    emit outputDeviceLost();
 }
 
 SoundDevicePointer SoundManager::getErrorDevice() const {
@@ -690,6 +869,21 @@ void SoundManager::setConfiguredDeckCount(int count) {
 
 int SoundManager::getConfiguredDeckCount() const {
     return m_config.getDeckCount();
+}
+
+void SoundManager::logUnderflows() {
+    // Two separate lines on purpose. A sound-card underrun is something the
+    // listener heard; a network-stream underrun is a broadcast worker not
+    // keeping up with the FIFO and is inaudible. Reporting them under one
+    // heading made every diagnosis of "crackling" start from a wrong number.
+    logUnderflowGroup(&m_underflowCount,
+            &m_underflowCodes,
+            &m_underflowTotalCount,
+            "Audio buffer underruns (sound device)");
+    logUnderflowGroup(&m_networkUnderflowCount,
+            &m_networkUnderflowCodes,
+            &m_networkUnderflowTotalCount,
+            "Network stream underruns (not audible)");
 }
 
 void SoundManager::processUnderflowHappened(SINT framesPerBuffer) {

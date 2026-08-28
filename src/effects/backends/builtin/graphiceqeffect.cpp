@@ -2,11 +2,36 @@
 
 #include "audio/types.h"
 #include "effects/backends/effectmanifest.h"
+#include "effects/eqmode.h"
 #include "engine/effects/engineeffectparameter.h"
 #include "engine/filters/enginefilterbiquad1.h"
 
 namespace {
 constexpr double kQ = 1.2247449;
+
+// The band parameters are a dB gain, so the bottom of a band's travel is the
+// bottom of its range.
+constexpr double kMaxCutDb = -12.0;
+
+// Band gain in dB for the current knob position, honouring [BiteDJ],eq_mode so
+// the master bands respond like the deck EQs do.
+//
+// In EQ mode this returns the parameter untouched — the curve is already
+// linear in dB, which is what a graphic EQ is. Isolator mode bends the cut
+// half so the band is gone at the stop, and crosses the EQ curve at half
+// travel just as it does on the decks.
+//
+// Caveat worth knowing: these eight bands are overlapping peaking/shelving
+// biquads, not a band-split. "Gone" here is EqCurve::kMinCutDb of notch at the
+// band centre with the neighbours still bleeding through, not the true kill
+// the 3-band deck EQ gets from its crossover. Eight bands cannot be isolated
+// from each other; only cut hard.
+double bandGainDb(double parameterDb, EqMode mode) {
+    if (parameterDb >= 0.0) {
+        return parameterDb;
+    }
+    return EqCurve::cutGainDb(mode, parameterDb / kMaxCutDb, kMaxCutDb);
+}
 } // namespace
 
 // static
@@ -134,6 +159,10 @@ void GraphicEQEffectGroupState::setFilters(mixxx::audio::SampleRate sampleRate) 
     }
 }
 
+GraphicEQEffect::GraphicEQEffect()
+        : m_pEqMode(EqCurve::kModeGroup, EqCurve::kModeKey) {
+}
+
 void GraphicEQEffect::loadEngineEffectParameters(
         const QMap<QString, EngineEffectParameterPointer>& parameters) {
     m_pPotLow = parameters.value("low");
@@ -172,10 +201,11 @@ void GraphicEQEffect::processChannel(
             fMid[i] = 1.0;
         }
     } else {
-        fLow = static_cast<float>(m_pPotLow->value());
-        fHigh = static_cast<float>(m_pPotHigh->value());
+        const EqMode mode = EqCurve::modeFromControlValue(m_pEqMode.get());
+        fLow = static_cast<float>(bandGainDb(m_pPotLow->value(), mode));
+        fHigh = static_cast<float>(bandGainDb(m_pPotHigh->value(), mode));
         for (int i = 0; i < 6; i++) {
-            fMid[i] = static_cast<float>(m_pPotMid[i]->value());
+            fMid[i] = static_cast<float>(bandGainDb(m_pPotMid[i]->value(), mode));
         }
     }
 

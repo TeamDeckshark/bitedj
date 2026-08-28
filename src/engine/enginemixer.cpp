@@ -66,6 +66,8 @@ EngineMixer::EngineMixer(
     m_bBusOutputConnected[EngineChannel::RIGHT] = false;
     m_bExternalRecordBroadcastInputConnected = false;
     m_pWorkerScheduler = new EngineWorkerScheduler(this);
+    // Must not be InheritPriority (see the caution in main()); the scheduler
+    // promotes itself to its real rung in run().
     m_pWorkerScheduler->start(QThread::HighPriority);
 
     // Main sample rate

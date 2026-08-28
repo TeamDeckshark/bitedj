@@ -1,5 +1,6 @@
 #include "preferences/audiodevicesettings.h"
 
+#include <QSet>
 #include <QTimer>
 #include <QtGlobal>
 
@@ -17,7 +18,24 @@ const QString kGroup = QStringLiteral("[AudioDevices]");
 const QString kAppGroup = QStringLiteral("[App]");
 const QString kSoundManagerGroup = QStringLiteral("[SoundManager]");
 constexpr int kFallbackSampleRate = 48000;
+
+// The two latency/quality preset points. Both resolve to a 64-frame base
+// period (see AudioDeviceSettings::LatencyMode), so the buffer-size index is
+// what actually picks the frame count:
+//   Latency: 44100 Hz, index 3 ->  256 frames -> 5.8 ms
+//   Quality: 48000 Hz, index 5 -> 1024 frames -> 21.3 ms
+constexpr int kLatencySampleRate = 44100;
+constexpr int kQualitySampleRate = 48000;
+constexpr unsigned int kLatencyBufferSizeIndex = static_cast<unsigned int>(
+        SoundManagerConfig::AudioBufferSizeIndex::Size5xms);
+constexpr unsigned int kQualityBufferSizeIndex = static_cast<unsigned int>(
+        SoundManagerConfig::AudioBufferSizeIndex::Size20xms);
 constexpr int kApplyPaintDelayMs = 300;
+// How often to re-enumerate while waiting for a lost output device to come
+// back. Re-enumeration means Pa_Terminate() + Pa_Initialize() plus a full ALSA
+// device walk, which is slow on a Pi, so this is deliberately unhurried: the
+// device is physically absent and nothing we do speeds up its return.
+constexpr int kRecoveryIntervalMs = 3000;
 } // namespace
 
 QAtomicPointer<AudioDeviceSettings> AudioDeviceSettings::s_pInstance = nullptr;
@@ -27,9 +45,12 @@ AudioDeviceSettings::AudioDeviceSettings(UserSettingsPointer pConfig,
         : m_pConfig(pConfig),
           m_pSoundManager(std::move(pSoundManager)),
           m_liveSampleRate(kFallbackSampleRate),
+          m_bufferSizeIndex(kQualityBufferSizeIndex),
+          m_liveBufferSizeIndex(kQualityBufferSizeIndex),
           m_applyPending(false),
           m_pNumDecks(nullptr),
-          m_pSoundStatus(nullptr) {
+          m_pSoundStatus(nullptr),
+          m_recovering(false) {
     for (int b = 0; b < BusCount; ++b) {
         m_busDeviceIndex[b] = -1;
         m_busChannelBase[b] = 0;
@@ -51,6 +72,16 @@ AudioDeviceSettings::AudioDeviceSettings(UserSettingsPointer pConfig,
     const auto currentRate = m_pSoundManager->getConfig().getSampleRate();
     m_pCoSampleRate->forceSet(static_cast<double>(
             currentRate.isValid() ? currentRate.value() : kFallbackSampleRate));
+
+    // Latency-vs-quality preset. Writable (the segmented buttons poke it);
+    // refreshDeviceList/updateLatencyMode keep it in sync with the staged
+    // rate + buffer-size pair, so it is derived state everywhere else.
+    m_bufferSizeIndex = m_pSoundManager->getConfig().getAudioBufferSizeIndex();
+    m_liveBufferSizeIndex = m_bufferSizeIndex;
+    m_pCoLatencyMode = std::make_unique<ControlObject>(
+            ConfigKey(kGroup, "latency_mode"));
+    m_pCoLatencyMode->forceSet(static_cast<double>(modeForConfig(
+            static_cast<int>(m_pCoSampleRate->get()), m_bufferSizeIndex)));
 
     m_pCoRescan = std::make_unique<ControlObject>(ConfigKey(kGroup, "rescan"));
     m_pCoApply = std::make_unique<ControlObject>(ConfigKey(kGroup, "apply"));
@@ -97,10 +128,25 @@ AudioDeviceSettings::AudioDeviceSettings(UserSettingsPointer pConfig,
             &ControlObject::valueChanged,
             this,
             &AudioDeviceSettings::onSampleRateChanged);
+    connect(m_pCoLatencyMode.get(),
+            &ControlObject::valueChanged,
+            this,
+            &AudioDeviceSettings::onLatencyModeChanged);
     connect(m_pCoRescan.get(),
             &ControlObject::valueChanged,
             this,
             &AudioDeviceSettings::onRescanRequested);
+
+    m_recoveryTimer.setInterval(kRecoveryIntervalMs);
+    m_recoveryTimer.setTimerType(Qt::CoarseTimer);
+    connect(&m_recoveryTimer,
+            &QTimer::timeout,
+            this,
+            &AudioDeviceSettings::attemptRecovery);
+    connect(m_pSoundManager.get(),
+            &SoundManager::outputDeviceLost,
+            this,
+            &AudioDeviceSettings::onOutputDeviceLost);
 
     connect(m_pSoundManager.get(),
             &SoundManager::devicesUpdated,
@@ -315,6 +361,67 @@ void AudioDeviceSettings::onRevertRequested(double value) {
 }
 
 void AudioDeviceSettings::onSampleRateChanged(double /*rate*/) {
+    // The rate can also be poked directly (controller mapping, script), which
+    // may land on or off a preset point, so re-derive the mode either way.
+    updateLatencyMode();
+    updateDirty();
+}
+
+// static
+int AudioDeviceSettings::sampleRateForMode(int mode) {
+    return mode == ModeLatency ? kLatencySampleRate : kQualitySampleRate;
+}
+
+// static
+unsigned int AudioDeviceSettings::bufferSizeIndexForMode(int mode) {
+    return mode == ModeLatency ? kLatencyBufferSizeIndex : kQualityBufferSizeIndex;
+}
+
+// static
+int AudioDeviceSettings::modeForConfig(
+        int sampleRate, unsigned int bufferSizeIndex) {
+    if (sampleRate == kLatencySampleRate &&
+            bufferSizeIndex == kLatencyBufferSizeIndex) {
+        return ModeLatency;
+    }
+    if (sampleRate == kQualitySampleRate &&
+            bufferSizeIndex == kQualityBufferSizeIndex) {
+        return ModeQuality;
+    }
+    return ModeCustom;
+}
+
+void AudioDeviceSettings::updateLatencyMode() {
+    const int mode = modeForConfig(
+            static_cast<int>(m_pCoSampleRate->get()), m_bufferSizeIndex);
+    if (static_cast<int>(m_pCoLatencyMode->get()) != mode) {
+        m_pCoLatencyMode->forceSet(static_cast<double>(mode));
+    }
+}
+
+void AudioDeviceSettings::onLatencyModeChanged(double mode) {
+    const int requested = static_cast<int>(mode);
+    // ModeCustom is a readout, not a target: it exists so a soundconfig.xml
+    // holding some other rate/index pair leaves both segments unlit. Tapping
+    // it is impossible from the skin; ignore it if poked.
+    if (requested != ModeQuality && requested != ModeLatency) {
+        return;
+    }
+    const int rate = sampleRateForMode(requested);
+    const unsigned int bufferSizeIndex = bufferSizeIndexForMode(requested);
+    if (static_cast<int>(m_pCoSampleRate->get()) == rate &&
+            m_bufferSizeIndex == bufferSizeIndex) {
+        // Already there — this is the echo from updateLatencyMode's forceSet,
+        // or a re-tap of the lit segment. Bail before recursing back through
+        // onSampleRateChanged.
+        return;
+    }
+    // Staged only, like bus cycling: the segment lights and dirty flips on,
+    // but nothing reaches the hardware until Apply. Changing either half
+    // requires closing and re-opening every device, which would cut a running
+    // deck — the same reason Apply is gated on reconfigure_enabled.
+    m_bufferSizeIndex = bufferSizeIndex;
+    m_pCoSampleRate->forceSet(static_cast<double>(rate));
     updateDirty();
 }
 
@@ -327,7 +434,8 @@ void AudioDeviceSettings::updateDirty() {
             break;
         }
     }
-    if (static_cast<int>(m_pCoSampleRate->get()) != m_liveSampleRate) {
+    if (static_cast<int>(m_pCoSampleRate->get()) != m_liveSampleRate ||
+            m_bufferSizeIndex != m_liveBufferSizeIndex) {
         dirty = true;
     }
     m_pCoDirty->forceSet(dirty ? 1.0 : 0.0);
@@ -373,29 +481,33 @@ void AudioDeviceSettings::onRescanRequested(double value) {
 }
 
 void AudioDeviceSettings::rescan() {
-    // clearAndQueryDevices() *closes every open device*, destroys the
-    // SoundDevice objects and calls Pa_Terminate() before re-enumerating. It
-    // never re-opens anything: the audio callback stops, no clock reference
-    // device is left, so EngineMixer::process() is never called again —
-    // playing decks freeze and Play does nothing. Nothing else picks up the
-    // pieces either (the skin only offers Apply while dirty == 1, and the
-    // refreshDeviceList below clears dirty), so the rescan must re-open the
-    // devices itself.
-    m_pSoundManager->clearAndQueryDevices();
-
-    // Re-open against the unchanged live config. Routing is not being edited
-    // here, so this is a pure re-open; setConfig's own closeDevices() is a
-    // no-op (everything is already shut) and therefore skips the
+    // reopenDevices() calls clearAndQueryDevices(), which *closes every open
+    // device*, destroys the SoundDevice objects and calls Pa_Terminate()
+    // before re-enumerating. On its own it never re-opens anything: the audio
+    // callback stops, no clock reference device is left, so
+    // EngineMixer::process() is never called again — playing decks freeze and
+    // Play does nothing. Nothing else picks up the pieces either (the skin
+    // only offers Apply while dirty == 1, and the refreshDeviceList below
+    // clears dirty), so the rescan must re-open the devices itself.
+    //
+    // Re-open against the live config. Routing is not being edited here, so
+    // this is a pure re-open; setConfig's own closeDevices() is a no-op
+    // (everything is already shut) and therefore skips the
     // kSleepSecondsAfterClosingDevice cooldown, but it still runs checkConfig()
     // so a device or API that vanished while we were away falls back to
     // defaults instead of leaving us silent.
-    const SoundDeviceStatus status =
-            m_pSoundManager->setConfig(m_pSoundManager->getConfig());
+    const SoundDeviceStatus status = reopenDevices();
+    if (status == SoundDeviceStatus::Ok) {
+        // A manual rescan that worked supersedes any retry loop in flight; it
+        // publishes its own message below, so endRecovery() stays quiet.
+        endRecovery(false);
+    }
     if (auto* pNotifications = Notifications::tryInstance()) {
         pNotifications->setBusy(false);
         if (status == SoundDeviceStatus::Ok) {
             pNotifications->publish(tr("Audio devices rescanned"),
                     Notifications::Severity::Info);
+            logAudioPathState("after manual rescan");
         } else {
             pNotifications->publish(
                     m_pSoundManager->getLastErrorMessage(status),
@@ -407,6 +519,159 @@ void AudioDeviceSettings::rescan() {
     // staged-but-unapplied cycling. setConfig only emits devicesSetup on
     // success, so refresh explicitly to stay honest on the failure path too.
     refreshDeviceList();
+}
+
+SoundDeviceStatus AudioDeviceSettings::reopenDevices() {
+    // Re-enumerate first. PortAudio caches the device list at Pa_Initialize(),
+    // so hardware that appeared (or re-appeared on a new card number) since
+    // then is invisible until we tear the library down and bring it back up —
+    // which is exactly what clearAndQueryDevices() does.
+    m_pSoundManager->clearAndQueryDevices();
+
+    // Then re-point the live config at whatever the configured devices came
+    // back as. SoundManager::setupDevices() looks up outputs by the full
+    // SoundDeviceId, which carries the PortAudio index and the ALSA hw:X,Y —
+    // neither of which survives a device re-enumerating. Without this the
+    // controller can be plugged in, powered up and listed, and still be
+    // reported "not found" because the stale index no longer matches.
+    SoundManagerConfig config = m_pSoundManager->getConfig();
+    config.relinkDeviceIds();
+    return m_pSoundManager->setConfig(config);
+}
+
+bool AudioDeviceSettings::configuredOutputDevicesPresent() const {
+    const SoundManagerConfig config = m_pSoundManager->getConfig();
+    const auto outputs = config.getOutputs();
+    if (outputs.isEmpty()) {
+        return false;
+    }
+    const QList<SoundDevicePointer> devices =
+            m_pSoundManager->getDeviceList(config.getAPI(), true, false);
+    QSet<QString> presentNames;
+    for (const auto& pDevice : devices) {
+        presentNames.insert(pDevice->getDeviceId().name);
+    }
+    for (auto it = outputs.constBegin(); it != outputs.constEnd(); ++it) {
+        if (it.key().name == kNetworkDeviceInternalName) {
+            // Always "present"; SoundManager wires it internally.
+            continue;
+        }
+        // Name only, deliberately: the index and ALSA card number are what
+        // change when the device re-enumerates, and relinkDeviceIds() is what
+        // reconciles them once we commit to re-opening.
+        if (!presentNames.contains(it.key().name)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void AudioDeviceSettings::onOutputDeviceLost() {
+    if (m_recovering) {
+        return;
+    }
+    m_recovering = true;
+    qWarning() << "Audio output device lost; starting automatic recovery";
+    if (auto* pNotifications = Notifications::tryInstance()) {
+        // Sticky: we have no idea how long the controller stays off. Note that
+        // no busy state is raised — the user must stay able to drive the app
+        // (and reach Rescan) while this runs in the background.
+        pNotifications->publishSticky(
+                tr("Audio device disconnected — reconnecting..."),
+                Notifications::Severity::Warning);
+    }
+    m_recoveryTimer.start();
+}
+
+void AudioDeviceSettings::attemptRecovery() {
+    if (!m_recovering) {
+        m_recoveryTimer.stop();
+        return;
+    }
+    if (m_applyPending) {
+        // A user-driven Apply or Rescan is mid-flight and owns the devices.
+        // Whichever way it lands, it either fixes this or leaves us to retry
+        // on the next tick.
+        return;
+    }
+
+    m_pSoundManager->clearAndQueryDevices();
+    if (!configuredOutputDevicesPresent()) {
+        // Still gone. Deliberately do *not* go through setConfig() here: it
+        // runs checkConfig(), which falls back to default routing when the
+        // configured API or device is missing, and that would quietly throw
+        // away the user's bus assignment while the controller is merely
+        // switched off.
+        return;
+    }
+
+    const SoundDeviceStatus status = reopenDevices();
+    if (status != SoundDeviceStatus::Ok) {
+        qWarning() << "Audio device came back but re-opening it failed:"
+                   << m_pSoundManager->getLastErrorMessage(status)
+                   << "- will retry";
+        return;
+    }
+    endRecovery(true);
+}
+
+void AudioDeviceSettings::logAudioPathState(const char* context) const {
+    // One line, GUI thread, only on a (re)connect — never in the callback.
+    //
+    // A deck whose transport advances while nothing is audible has several
+    // possible causes that all look identical from the outside, and the state
+    // that separates them is not visible anywhere in the skin:
+    //   [Master],enabled == 0    -> EngineMixer::process() clears the main
+    //                               buffer outright (see the mainEnabled
+    //                               branch at the end of process()); every
+    //                               deck still runs. Only
+    //                               EngineMixer::onOutputConnected(Main) ever
+    //                               sets this back to 1, so it stays 0 if the
+    //                               Main path failed to match a device.
+    //   volume/gain at 0         -> routed and running, just turned down.
+    //   track_loaded == 0        -> the deck lost its track.
+    //   playposition not moving  -> the engine is not running at all.
+    // Capturing them at the moment audio comes back is what makes the next
+    // report of this actionable.
+    QStringList decks;
+    const int numDecks = static_cast<int>(m_pNumDecks->get());
+    for (int i = 0; i < numDecks; ++i) {
+        const QString group = PlayerManager::groupForDeck(i);
+        decks << QStringLiteral("%1 play=%2 loaded=%3 pos=%4 vol=%5")
+                         .arg(group)
+                         .arg(ControlObject::get(ConfigKey(group, "play")))
+                         .arg(ControlObject::get(ConfigKey(group, "track_loaded")))
+                         .arg(ControlObject::get(ConfigKey(group, "playposition")), 0, 'f', 4)
+                         .arg(ControlObject::get(ConfigKey(group, "volume")));
+    }
+    qInfo() << "Audio path state" << context
+            << "| sound_status="
+            << ControlObject::get(ConfigKey(kSoundManagerGroup, "status"))
+            << "main_enabled="
+            << ControlObject::get(ConfigKey(QStringLiteral("[Master]"), "enabled"))
+            << "main_gain="
+            << ControlObject::get(ConfigKey(QStringLiteral("[Master]"), "gain"))
+            << "|" << decks.join(QStringLiteral(" | "));
+}
+
+void AudioDeviceSettings::endRecovery(bool succeeded) {
+    if (!m_recovering) {
+        return;
+    }
+    m_recoveryTimer.stop();
+    m_recovering = false;
+    if (succeeded) {
+        // A non-sticky publish supersedes the sticky "reconnecting" message.
+        if (auto* pNotifications = Notifications::tryInstance()) {
+            pNotifications->publish(tr("Audio device reconnected"),
+                    Notifications::Severity::Info);
+        }
+        logAudioPathState("after automatic recovery");
+        refreshDeviceList();
+    }
+    // On the !succeeded path the caller is a manual Rescan/Apply that
+    // publishes its own outcome and refreshes the rows itself; saying anything
+    // here would just stomp on it.
 }
 
 void AudioDeviceSettings::onSoundManagerDevicesUpdated() {
@@ -475,11 +740,15 @@ void AudioDeviceSettings::refreshDeviceList() {
     m_liveSampleRate = liveRate.isValid()
             ? static_cast<int>(liveRate.value())
             : kFallbackSampleRate;
+    m_liveBufferSizeIndex =
+            m_pSoundManager->getConfig().getAudioBufferSizeIndex();
+    m_bufferSizeIndex = m_liveBufferSizeIndex;
     for (int b = 0; b < BusCount; ++b) {
         m_liveBusDeviceIndex[b] = m_busDeviceIndex[b];
         m_liveBusChannelBase[b] = m_busChannelBase[b];
     }
     m_pCoSampleRate->forceSet(static_cast<double>(m_liveSampleRate));
+    updateLatencyMode();
 
     m_pCoCount->forceSet(static_cast<double>(m_deviceIds.size()));
     m_pCoSelectedIndex->forceSet(
@@ -516,6 +785,7 @@ void AudioDeviceSettings::applyBusConfig() {
         rate = mixxx::audio::SampleRate(kFallbackSampleRate);
     }
     config.setSampleRate(rate);
+    config.setAudioBufferSizeIndex(m_bufferSizeIndex);
 
     const SoundDeviceStatus status = m_pSoundManager->setConfig(config);
     // Clear the busy state raised in onApplyRequested and replace the sticky

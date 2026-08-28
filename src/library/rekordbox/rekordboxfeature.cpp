@@ -13,6 +13,7 @@
 #include <QString>
 #include <QTextCodec>
 #include <QtDebug>
+#include <vector>
 
 #include "engine/engine.h"
 #include "library/dao/fscueoverridestore.h"
@@ -535,31 +536,22 @@ QString parseDeviceDB(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dev
     QThread* thisThread = QThread::currentThread();
     thisThread->setPriority(QThread::LowPriority);
 
-    ScopedTransaction transaction(database);
-
-    QSqlQuery query(database);
-    query.prepare("INSERT OR IGNORE INTO " + kRekordboxLibraryTable +
-            " (rb_id, artist, title, album, year,"
-            "genre,comment,tracknumber,bpm, bitrate,duration, location,"
-            "rating,source_rating,key,analyze_path,device,color) VALUES "
-            "(:rb_id, :artist, "
-            ":title, :album, :year,:genre,"
-            ":comment, :tracknumber,:bpm, :bitrate,:duration, :location,"
-            ":rating,:source_rating,:key,:analyze_path,:device,:color)");
-
-    int audioFilesCount = 0;
-
-    // Create a playlist for all the tracks on a device
-    int playlistID = createDevicePlaylist(database, devicePath);
-
-    QSqlQuery queryInsertIntoDevicePlaylistTracks(database);
-    queryInsertIntoDevicePlaylistTracks.prepare(
-            "INSERT INTO " + kRekordboxPlaylistTracksTable +
-            " (playlist_id, track_id, position) "
-            "VALUES (:playlist_id, :track_id, :position)");
-
-    queryInsertIntoDevicePlaylistTracks.bindValue(":playlist_id", playlistID);
-
+    // Bite DJ: the PDB is walked first and written second, deliberately.
+    //
+    // Reading the PDB means seeking around a file on a USB stick, which on this
+    // hardware takes seconds for a large library. Writing means holding the
+    // library database's single writer slot. Doing both at once -- as this used
+    // to, with one transaction wrapped around the whole walk -- pins the write
+    // lock for the entire duration of the USB read, and every other connection
+    // that wants to write (an eject clearing this device's rows, a rating being
+    // stored, the sidebar merging a newly found device) blocks on the GUI
+    // thread until the stick is done. So: no transaction is open below, and
+    // nothing here touches the database until the walk has finished.
+    //
+    // kaitai reads each page into memory in one go (page_ref_t::body()), so the
+    // row pointers collected here stay valid -- and the lazy string accessors
+    // insertTrack() uses read from that in-memory page, not from the device --
+    // for as long as `rekordboxDB` is alive.
     mixxx::FileInfo fileInfo(dbPath);
     if (!Sandbox::askForAccess(&fileInfo)) {
         return QString();
@@ -596,6 +588,7 @@ QString parseDeviceDB(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dev
     QMap<uint32_t, bool> playlistIsFolderMap;
     QMap<uint32_t, QMap<uint32_t, uint32_t>> playlistTreeMap;
     QMap<uint32_t, QMap<uint32_t, uint32_t>> playlistTrackMap;
+    std::vector<rekordbox_pdb_t::track_row_t*> trackRows;
 
     bool folderOrPlaylistFound = false;
 
@@ -648,21 +641,11 @@ QString parseDeviceDB(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dev
                                                                 ->track_id();
                                     } break;
                                     case rekordbox_pdb_t::PAGE_TYPE_TRACKS: {
-                                        insertTrack(database,
+                                        // Written out below, once the device
+                                        // is no longer being read from.
+                                        trackRows.push_back(
                                                 static_cast<rekordbox_pdb_t::track_row_t*>(
-                                                        rowRef->body()),
-                                                query,
-                                                queryInsertIntoDevicePlaylistTracks,
-                                                artistsMap,
-                                                albumsMap,
-                                                genresMap,
-                                                keysMap,
-                                                devicePath,
-                                                device,
-                                                storedRatings,
-                                                audioFilesCount);
-
-                                        audioFilesCount++;
+                                                        rowRef->body()));
                                     } break;
                                     case rekordbox_pdb_t::PAGE_TYPE_PLAYLIST_TREE: {
                                         auto* playlistTree =
@@ -699,6 +682,49 @@ QString parseDeviceDB(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dev
                 }
             }
         }
+    }
+
+    // The device has been read; everything below is local database work only,
+    // so the write lock is held for as short a time as the inserts take.
+    ScopedTransaction transaction(database);
+
+    QSqlQuery query(database);
+    query.prepare("INSERT OR IGNORE INTO " + kRekordboxLibraryTable +
+            " (rb_id, artist, title, album, year,"
+            "genre,comment,tracknumber,bpm, bitrate,duration, location,"
+            "rating,source_rating,key,analyze_path,device,color) VALUES "
+            "(:rb_id, :artist, "
+            ":title, :album, :year,:genre,"
+            ":comment, :tracknumber,:bpm, :bitrate,:duration, :location,"
+            ":rating,:source_rating,:key,:analyze_path,:device,:color)");
+
+    // Create a playlist for all the tracks on a device
+    int playlistID = createDevicePlaylist(database, devicePath);
+
+    QSqlQuery queryInsertIntoDevicePlaylistTracks(database);
+    queryInsertIntoDevicePlaylistTracks.prepare(
+            "INSERT INTO " + kRekordboxPlaylistTracksTable +
+            " (playlist_id, track_id, position) "
+            "VALUES (:playlist_id, :track_id, :position)");
+
+    queryInsertIntoDevicePlaylistTracks.bindValue(":playlist_id", playlistID);
+
+    int audioFilesCount = 0;
+    for (rekordbox_pdb_t::track_row_t* trackRow : trackRows) {
+        insertTrack(database,
+                trackRow,
+                query,
+                queryInsertIntoDevicePlaylistTracks,
+                artistsMap,
+                albumsMap,
+                genresMap,
+                keysMap,
+                devicePath,
+                device,
+                storedRatings,
+                audioFilesCount);
+
+        audioFilesCount++;
     }
 
     if (audioFilesCount > 0 || folderOrPlaylistFound) {

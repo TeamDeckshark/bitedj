@@ -296,8 +296,8 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
 #endif
             // This must have been the first run... right? :)
             qDebug() << "No version number in configuration file. Setting to"
-                     << VersionStore::version();
-            config->set(ConfigKey("[Config]", "Version"), ConfigValue(VersionStore::version()));
+                     << VersionStore::mixxxVersion();
+            config->set(ConfigKey("[Config]", "Version"), ConfigValue(VersionStore::mixxxVersion()));
             m_bFirstRun = true;
             return config;
 #ifdef __APPLE__
@@ -311,9 +311,12 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
             ConfigValue(upgradeDeprecatedVSyncModes(
                     config->getValue(ConfigKey("[Waveform]", "VSync"), 0))));
 
+    // Bite DJ: [Config]/Version tracks the *Mixxx base* version, not the Bite DJ
+    // product version -- every migration step below is keyed on upstream Mixxx
+    // release numbers, so it has to stay on the same scale.
     // If it's already current, stop here
-    if (configVersion == VersionStore::version()) {
-        qDebug() << "Configuration file is at the current version" << VersionStore::version();
+    if (configVersion == VersionStore::mixxxVersion()) {
+        qDebug() << "Configuration file is at the current version" << VersionStore::mixxxVersion();
         return config;
     }
 
@@ -519,7 +522,7 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
     // When upgrading from 2.3.x or older to 2.4, or when upgrading
     // from 2.4.0-beta once we are out of beta
     if (QVersionNumber::fromString(configVersion) < QVersionNumber(2, 4, 0) ||
-            (VersionStore::version() != "2.4.0-beta" &&
+            (VersionStore::mixxxVersion() != "2.4.0-beta" &&
                     configVersion.startsWith("2.4.0-"))) {
         // Proactively move users to an all-shader waveform widget type and set the
         // framerate to 60 fps
@@ -547,15 +550,15 @@ UserSettingsPointer Upgrade::versionUpgrade(const QString& settingsPath) {
     const QVersionNumber cleanVersion(2, 4, 0);
     if (QVersionNumber::fromString(configVersion) >= cleanVersion) {
         // No special upgrade required, just update the value.
-        configVersion = VersionStore::version();
-        config->set(ConfigKey("[Config]", "Version"), ConfigValue(VersionStore::version()));
+        configVersion = VersionStore::mixxxVersion();
+        config->set(ConfigKey("[Config]", "Version"), ConfigValue(VersionStore::mixxxVersion()));
     }
 
-    if (configVersion == VersionStore::version()) {
-        qDebug() << "Configuration file is now at the current version" << VersionStore::version();
+    if (configVersion == VersionStore::mixxxVersion()) {
+        qDebug() << "Configuration file is now at the current version" << VersionStore::mixxxVersion();
     } else {
         qWarning() << "Configuration file is at version" << configVersion
-                   << "instead of the current" << VersionStore::version();
+                   << "instead of the current" << VersionStore::mixxxVersion();
     }
 
     return config;

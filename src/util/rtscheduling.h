@@ -9,6 +9,23 @@ namespace mixxx {
 // (GUI) thread, which in turn sits above everything left on SCHED_OTHER
 // (analysis, library workers).
 constexpr int kRtPrioAudioEngine = 70;
+// The two hops between the audio callback and the disk. CachingReaderWorker is
+// the only EngineWorker there is, so every chunk the decks consume travels
+// callback -> EngineWorkerScheduler::runWorkers() -> the worker's decode, and
+// both hops used to be SCHED_OTHER on the housekeeping cores where the GUI
+// thread below could preempt them: waveform rendering delaying the fetch of
+// samples that are about to be played is precisely backwards. They sit above
+// controller input too, because without sample data there is nothing to
+// scratch, and both block on I/O or a wait condition constantly, so they yield
+// the CPU rather than holding it the way a GUI repaint does.
+//
+// The scheduler gets its own rung above the worker for a specific reason:
+// SCHED_FIFO only preempts *strictly* lower priorities, so at equal priority a
+// wake-up for the next chunk would have to wait out the decode of the current
+// one on the same core. The scheduler does nothing but walk the worker list
+// and wake, so letting it cut in costs a few microseconds.
+constexpr int kRtPrioEngineWorkerScheduler = 62;
+constexpr int kRtPrioTrackReader = 60;
 constexpr int kRtPrioControllerInput = 50;
 constexpr int kRtPrioMainThread = 49;
 
@@ -38,8 +55,43 @@ bool promoteCurrentThreadToRealtime(int priority, const char* threadName);
 /// and returns false when neither works. No-op returning false on non-Linux.
 bool demoteCurrentThreadToIdle(const char* threadName);
 
+/// Best-effort demotion of the calling thread to *background* work: nice 19,
+/// the weakest SCHED_OTHER weighting Linux has (roughly a sixty-eighth of the
+/// CPU share a nice-0 thread gets), under SCHED_BATCH, which additionally
+/// tells the scheduler the thread is non-interactive so it never preempts
+/// anything on wakeup.
+///
+/// This is for long CPU-bound jobs that must yield to whatever is feeding the
+/// audio device. Track analysis is the case it exists for: an analyzer worker
+/// decodes and scans a whole file flat out, and it shares the housekeeping
+/// cores with CachingReaderWorker and the engine worker pool — the threads
+/// that hand the audio callback its next chunk, and which are SCHED_OTHER at
+/// nice 0, because QThread::HighPriority maps to nothing under SCHED_OTHER
+/// (see the caution in main()). At equal weight, analyzers saturating those
+/// cores delay the reads past the buffer deadline and the decks glitch.
+///
+/// Deliberately *not* demoteCurrentThreadToIdle(): an analyzer holds the
+/// global track cache and database locks that the reader threads also take,
+/// and SCHED_IDLE only runs when nothing else on the machine wants the CPU,
+/// which makes a lock holder easy to leave sitting behind the SCHED_FIFO GUI
+/// thread — a priority inversion on the exact path this was meant to protect.
+/// nice 19 stays inside normal CFS fairness, so the thread always makes
+/// forward progress and always releases the lock. EngineSideChain can afford
+/// SCHED_IDLE because it shares no lock with the audio path.
+///
+/// Also drops the thread to the weakest best-effort I/O priority, so the
+/// analyzer reading a whole track off a USB stick does not queue in front of
+/// a deck reading the track that is playing. Honoured by BFQ and ignored by
+/// mq-deadline/none, hence best-effort like everything else here.
+///
+/// Lowering a thread's own class and nice value needs no privileges. Falls
+/// back to plain SCHED_OTHER at nice 19 when SCHED_BATCH is refused, and
+/// returns false only if the renice fails too. No-op returning false on
+/// non-Linux platforms.
+bool demoteCurrentThreadToBackground(const char* threadName);
+
 /// Pin the calling thread to the single CPU named (as a decimal core number)
-/// by the environment variable envVar, if it is set. 
+/// by the environment variable envVar, if it is set.
 bool pinCurrentThreadToCpuFromEnv(const char* envVar, const char* threadName);
 
 /// Best-effort mlockall() so no page of the process can be reclaimed once it

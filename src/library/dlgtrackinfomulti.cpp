@@ -478,15 +478,15 @@ void DlgTrackInfoMulti::updateTrackMetadataFields() {
     if (bpms.size() > 1) {
         QList<double> bpmList = bpms.values();
         std::sort(bpmList.begin(), bpmList.end());
-        txtBpm->setText(QString("%1").arg(bpmList.first(), 3, 'f', 0) +
+        txtBpm->setText(QString("%1").arg(bpmList.first(), 3, 'f', 1) +
                 QChar('-') +
-                QString("%1").arg(bpmList.last(), 3, 'f', 0));
+                QString("%1").arg(bpmList.last(), 3, 'f', 1));
     } else { // we have at least one value, might be invalid (0)
         double bpm = *bpms.constBegin();
         if (bpm == mixxx::Bpm::kValueMin) {
             txtBpm->clear();
         } else {
-            txtBpm->setText(QString::number(bpm, 'f', 0));
+            txtBpm->setText(QString::number(bpm));
         }
     }
 

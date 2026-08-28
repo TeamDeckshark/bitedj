@@ -1,5 +1,6 @@
 #include <QSqlDriver>
 #include <QSqlError>
+#include <QSqlQuery>
 
 #ifdef __SQLITE3__
 #include <sqlite3.h>
@@ -267,8 +268,40 @@ void sqliteKeyTextSortOrder(sqlite3_context* context,
 
 #endif // __SQLITE3__
 
+// Bite DJ: put the database in write-ahead-log mode.
+//
+// In the default rollback-journal mode a writer that has spilled its page
+// cache holds an EXCLUSIVE lock until it commits, and every other connection
+// -- including the GUI thread's -- blocks on SQLite's busy handler until then.
+// Background work that writes to the library database while reading from a USB
+// stick (RekordboxFeature::parseDeviceDB, SeratoFeature, the analyzers) can
+// hold that lock for seconds, so a tap that only reads (opening a playlist)
+// froze the interface for as long as the writer took.
+//
+// Under WAL readers and a writer never block each other: the reader keeps
+// seeing the snapshot it started with while the writer appends. Writers still
+// exclude each other, which is why the long-running scans additionally keep
+// their transactions short (see parseDeviceDB).
+//
+// journal_mode is persisted in the database header, so this is a no-op after
+// the first run. In-memory databases (the tests) silently stay in "memory"
+// mode, which already has no cross-connection locking.
+void enableWriteAheadLogging(const QSqlDatabase& database) {
+    QSqlQuery query(database);
+    if (!query.exec(QStringLiteral("PRAGMA journal_mode=WAL"))) {
+        kLogger.warning()
+                << "Failed to enable WAL journal mode:"
+                << query.lastError();
+        return;
+    }
+    if (query.next() && kLogger.debugEnabled()) {
+        kLogger.debug() << "SQLite journal mode:" << query.value(0).toString();
+    }
+}
+
 bool initDatabase(const QSqlDatabase& database, mixxx::StringCollator* pCollator) {
     DEBUG_ASSERT(database.isOpen());
+    enableWriteAheadLogging(database);
 #ifdef __SQLITE3__
     QVariant v = database.driver()->handle();
     VERIFY_OR_DEBUG_ASSERT(v.isValid()) {

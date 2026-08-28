@@ -866,6 +866,28 @@ WBeatSpinBox::up-button {
   text-transform: uppercase;
 }
 
+/* Audio -> the Priority + Devices line. The two #SettingsRow halves share one
+ * 56px line, so their bottom margin becomes a gutter between them instead. */
+#AudioActionRow #SettingsRow {
+  margin-bottom: 0;
+  padding: 8px 10px;
+}
+
+#AudioActionRow #SettingsRow + #SettingsRow {
+  margin-left: 8px;
+}
+
+
+/* Secondary readout sitting between a row's label and its control — the
+ * resolved numbers behind a preset (Audio -> Priority). Dim and small so the
+ * segment stays the thing the eye lands on. */
+#SettingsRowHint {
+  color: #7a7a84;
+  font-size: 12px;
+  qproperty-alignment: 'AlignRight | AlignVCenter';
+  padding-right: 10px;
+}
+
 #SettingsSegmented {
   qproperty-layoutAlignment: 'AlignRight | AlignVCenter';
 }
@@ -1430,6 +1452,32 @@ WBeatSpinBox::up-button {
 #EQBandValue {
   color: #e5e6ea;
   font-size: 12px;
+}
+
+/* Levels -> EQ vs Isolator. Same outline shape as the Flat button beside it,
+ * because it is the same 44px column, but it names a state rather than an
+ * action: the label is the mode that is live now, and ISO fills so the more
+ * aggressive curve is visible from arm's length without reading the word.
+ * 13px, not the 14px the action buttons use — ISO plus the borders has 44px
+ * to live in. */
+#EQModeButton {
+  background-color: transparent;
+  border: 2px solid #488ab3;
+  border-radius: 4px;
+  color: #a7a9ac;
+  font-size: 13px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#EQModeButton[displayValue="1"] {
+  background-color: #488ab3;
+  color: #e7e8e9;
+}
+
+#EQModeButton[pressed="true"] {
+  background-color: #2d6488;
+  color: #e7e8e9;
 }
 
 #AudioDeviceList #AudioDeviceRow {

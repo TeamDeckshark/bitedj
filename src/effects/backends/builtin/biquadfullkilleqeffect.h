@@ -93,4 +93,6 @@ class BiquadFullKillEQEffect : public EffectProcessorImpl<BiquadFullKillEQEffect
 
     PollingControlProxy m_pLoFreqCorner;
     PollingControlProxy m_pHiFreqCorner;
+    // [BiteDJ],eq_mode: EQ or Isolator response, see effects/eqmode.h.
+    PollingControlProxy m_pEqMode;
 };

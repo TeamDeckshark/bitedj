@@ -9,6 +9,8 @@
 #include <QtConcurrentRun>
 #include <QtDebug>
 #include <QtEndian>
+#include <utility>
+#include <vector>
 
 #include "library/dao/trackschema.h"
 #include "library/library.h"
@@ -371,22 +373,27 @@ inline QString parseCrateTrackPath(QIODevice* buffer) {
     return location;
 }
 
-QString parseCrate(
-        const QSqlDatabase& database,
-        const QString& databasePath,
-        const QString& crateFilePath,
-        const QMap<QString, int>& trackIdMap) {
-    QString crateName = QFileInfo(crateFilePath).baseName();
-    qDebug() << "Parsing crate"
-             << crateName
-             << "at" << crateFilePath;
+// Bite DJ: a crate read off the drive, held until the write phase. See
+// parseDatabase() for why reading and writing are kept apart.
+struct serato_crate_t {
+    QString name;
+    QString filePath;
+    // In file order, empty paths dropped. These are the paths as the crate
+    // spells them, which is the key trackIdMap is built with.
+    QStringList trackLocations;
+};
 
-    //Open the database connection in this thread.
-    VERIFY_OR_DEBUG_ASSERT(database.isOpen()) {
-        qWarning() << "Failed to open database for Serato parser."
-                   << database.lastError();
-        return QString();
-    }
+// Reads one .crate file. Touches the drive but not the database. Returns false
+// if the crate could not be read, in which case nothing about it is written --
+// unlike the old read-and-insert-at-once version, which left behind a playlist
+// row holding however many tracks it got through before the read failed, with
+// no sidebar entry pointing at it.
+bool readCrateFile(const QString& crateFilePath, serato_crate_t* pCrate) {
+    pCrate->name = QFileInfo(crateFilePath).baseName();
+    pCrate->filePath = crateFilePath;
+    qDebug() << "Parsing crate"
+             << pCrate->name
+             << "at" << crateFilePath;
 
     mixxx::FileInfo fileInfo(crateFilePath);
     QFile crateFile(crateFilePath);
@@ -395,17 +402,9 @@ QString parseCrate(
                    << crateFilePath
                    << " for reading:"
                    << crateFile.errorString();
-        return QString();
+        return false;
     }
 
-    int playlistId = createPlaylist(database, crateFilePath, databasePath);
-    if (playlistId < 0) {
-        qWarning() << "Failed to create library playlist for "
-                   << crateFilePath;
-        return QString();
-    }
-
-    int trackCount = 0;
     QByteArray headerData = crateFile.read(kHeaderSize);
     while (headerData.length() == kHeaderSize) {
         quint32 fieldId = bytesToUInt32(headerData.mid(0, sizeof(quint32)));
@@ -422,7 +421,7 @@ QString parseCrate(
                        << " field from "
                        << crateFilePath
                        << ".";
-            return QString();
+            return false;
         }
 
         // Parse field data
@@ -438,10 +437,7 @@ QString parseCrate(
             buffer.open(QIODevice::ReadOnly);
             QString location = parseCrateTrackPath(&buffer);
             if (!location.isEmpty()) {
-                int trackId = trackIdMap.value(location, -1);
-                insertTrackIntoPlaylist(database, playlistId, trackId, trackCount);
-                trackCount++;
-                break;
+                pCrate->trackLocations.append(location);
             }
             break;
         }
@@ -468,7 +464,30 @@ QString parseCrate(
                    << ".";
     }
 
-    return crateName;
+    return true;
+}
+
+// Writes an already-read crate. Database only -- no drive access.
+QString insertCrate(
+        const QSqlDatabase& database,
+        const QString& databasePath,
+        const serato_crate_t& crate,
+        const QMap<QString, int>& trackIdMap) {
+    int playlistId = createPlaylist(database, crate.filePath, databasePath);
+    if (playlistId < 0) {
+        qWarning() << "Failed to create library playlist for "
+                   << crate.filePath;
+        return QString();
+    }
+
+    int trackCount = 0;
+    for (const QString& location : crate.trackLocations) {
+        int trackId = trackIdMap.value(location, -1);
+        insertTrackIntoPlaylist(database, playlistId, trackId, trackCount);
+        trackCount++;
+    }
+
+    return crate.name;
 }
 
 QString parseDatabase(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* databaseItem) {
@@ -527,6 +546,109 @@ QString parseDatabase(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dat
     QThread* thisThread = QThread::currentThread();
     thisThread->setPriority(QThread::LowPriority);
 
+    // Bite DJ: the drive is read first and the database written second,
+    // deliberately.
+    //
+    // "database V2" and every .crate beside it live on a USB stick, and reading
+    // them takes seconds on this hardware. This used to run with one
+    // transaction wrapped around the whole thing, which pinned the library
+    // database's single writer slot for the entire duration of that read --
+    // and every other connection wanting to write (an eject clearing this
+    // device's rows, a rating being stored, the sidebar merging a newly found
+    // device) then blocked on the GUI thread until the stick was done. So
+    // nothing below touches the database until the drive has been read; see
+    // the write phase further down.
+    mixxx::FileInfo fileInfo(databaseFilePath);
+    QFile databaseFile(databaseFilePath);
+    if (!Sandbox::askForAccess(&fileInfo) || !databaseFile.open(QIODevice::ReadOnly)) {
+        qWarning() << "Failed to open file "
+                   << databaseFilePath
+                   << " for reading.";
+        return QString();
+    }
+
+    std::vector<serato_track_t> tracks;
+    QByteArray headerData = databaseFile.read(kHeaderSize);
+    while (headerData.length() == kHeaderSize) {
+        quint32 fieldId = bytesToUInt32(headerData.mid(0, sizeof(quint32)));
+        quint32 fieldSize = bytesToUInt32(headerData.mid(sizeof(quint32), kHeaderSize));
+
+        // Read field data
+        QByteArray data = databaseFile.read(fieldSize);
+        if (static_cast<quint32>(data.length()) != fieldSize) {
+            QString fieldName = QString(headerData.mid(0, sizeof(quint32)));
+            qWarning() << "Failed to read "
+                       << fieldSize
+                       << " bytes for "
+                       << fieldName
+                       << " field from "
+                       << databaseFilePath
+                       << ".";
+            return QString();
+        }
+
+        // Parse field data
+        switch (static_cast<FieldId>(fieldId)) {
+        case FieldId::Version: {
+            QString version = utf16beToQString(data, fieldSize);
+            qDebug() << "Serato Database Version: "
+                     << version;
+            break;
+        }
+        case FieldId::Track: {
+            serato_track_t track;
+            QBuffer buffer(&data);
+            buffer.open(QIODevice::ReadOnly);
+            if (parseTrack(&track, &buffer)) {
+                tracks.push_back(std::move(track));
+            }
+            break;
+        }
+        default: {
+            QString fieldName = QString(headerData.mid(0, sizeof(quint32)));
+            qDebug() << "Ignoring unknown field "
+                     << fieldName
+                     << " ("
+                     << fieldSize
+                     << " bytes) in database "
+                     << databaseFilePath
+                     << ".";
+        }
+        }
+
+        headerData = databaseFile.read(kHeaderSize);
+    }
+
+    if (headerData.length() != 0) {
+        qWarning() << "Found "
+                   << headerData.length()
+                   << " extra bytes at end of Serato database file "
+                   << databaseFilePath
+                   << ".";
+    }
+
+    // Read the crates, still without touching the database.
+    std::vector<serato_crate_t> crates;
+    QDir crateDir = QDir(databaseDir);
+    if (crateDir.cd(kCrateDirectory)) {
+        QStringList filters;
+        filters << kCrateFilter;
+        const auto entryList = crateDir.entryList(filters);
+        for (const QString& entry : entryList) {
+            serato_crate_t crate;
+            if (readCrateFile(crateDir.filePath(entry), &crate)) {
+                crates.push_back(std::move(crate));
+            }
+        }
+    } else {
+        qWarning() << "Failed to open crate directory: "
+                   << databaseDir.filePath(kCrateDirectory);
+    }
+
+    // TODO: Parse Smart Crates
+
+    // The drive has been read; everything below is local database work only, so
+    // the write lock is held for as short a time as the inserts take.
     ScopedTransaction transaction(database);
 
     clearDatabaseRows(database, databaseDir.path());
@@ -573,15 +695,6 @@ QString parseDatabase(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dat
             ":serato_db"
             ")");
 
-    mixxx::FileInfo fileInfo(databaseFilePath);
-    QFile databaseFile(databaseFilePath);
-    if (!Sandbox::askForAccess(&fileInfo) || !databaseFile.open(QIODevice::ReadOnly)) {
-        qWarning() << "Failed to open file "
-                   << databaseFilePath
-                   << " for reading.";
-        return QString();
-    }
-
     int playlistId = createPlaylist(database, databaseFilePath, databaseDir.path());
     if (playlistId < 0) {
         qWarning() << "Failed to create library playlist for "
@@ -591,118 +704,51 @@ QString parseDatabase(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dat
 
     int trackCount = 0;
     QMap<QString, int> trackIdMap;
-    QByteArray headerData = databaseFile.read(kHeaderSize);
-    while (headerData.length() == kHeaderSize) {
-        quint32 fieldId = bytesToUInt32(headerData.mid(0, sizeof(quint32)));
-        quint32 fieldSize = bytesToUInt32(headerData.mid(sizeof(quint32), kHeaderSize));
+    for (const serato_track_t& track : tracks) {
+        QString location = databaseRootDir.absoluteFilePath(track.location);
+        query.bindValue(":title", track.title);
+        query.bindValue(":artist", track.artist);
+        query.bindValue(":album", track.album);
+        query.bindValue(":genre", track.genre);
+        query.bindValue(":comment", track.comment);
+        query.bindValue(":grouping", track.grouping);
+        query.bindValue(":year", track.year);
+        query.bindValue(":duration", track.duration);
+        query.bindValue(":bitrate", track.bitrate);
+        query.bindValue(":samplerate", track.samplerate);
+        query.bindValue(":bpm", track.bpm);
+        query.bindValue(":key", track.key);
+        query.bindValue(":location", location);
+        query.bindValue(":bpm_lock", track.beatgridlocked);
+        query.bindValue(":datetime_added", track.datetimeadded);
+        query.bindValue(":label", track.label);
+        query.bindValue(":serato_db", databaseDir.path());
 
-        // Read field data
-        QByteArray data = databaseFile.read(fieldSize);
-        if (static_cast<quint32>(data.length()) != fieldSize) {
-            QString fieldName = QString(headerData.mid(0, sizeof(quint32)));
-            qWarning() << "Failed to read "
-                       << fieldSize
-                       << " bytes for "
-                       << fieldName
-                       << " field from "
-                       << databaseFilePath
-                       << ".";
-            return QString();
+        if (!query.exec()) {
+            LOG_FAILED_QUERY(query);
+        } else {
+            int trackId = query.lastInsertId().toInt();
+            insertTrackIntoPlaylist(database, playlistId, trackId, trackCount);
+            // Keyed by the path as the database spells it, which is what the
+            // crates reference -- not the absolute path bound above.
+            trackIdMap.insert(track.location, trackId);
+            trackCount++;
         }
-
-        // Parse field data
-        switch (static_cast<FieldId>(fieldId)) {
-        case FieldId::Version: {
-            QString version = utf16beToQString(data, fieldSize);
-            qDebug() << "Serato Database Version: "
-                     << version;
-            break;
-        }
-        case FieldId::Track: {
-            serato_track_t track;
-            QBuffer buffer(&data);
-            buffer.open(QIODevice::ReadOnly);
-            if (parseTrack(&track, &buffer)) {
-                QString location = databaseRootDir.absoluteFilePath(track.location);
-                query.bindValue(":title", track.title);
-                query.bindValue(":artist", track.artist);
-                query.bindValue(":album", track.album);
-                query.bindValue(":genre", track.genre);
-                query.bindValue(":comment", track.comment);
-                query.bindValue(":grouping", track.grouping);
-                query.bindValue(":year", track.year);
-                query.bindValue(":duration", track.duration);
-                query.bindValue(":bitrate", track.bitrate);
-                query.bindValue(":samplerate", track.samplerate);
-                query.bindValue(":bpm", track.bpm);
-                query.bindValue(":key", track.key);
-                query.bindValue(":location", location);
-                query.bindValue(":bpm_lock", track.beatgridlocked);
-                query.bindValue(":datetime_added", track.datetimeadded);
-                query.bindValue(":label", track.label);
-                query.bindValue(":serato_db", databaseDir.path());
-
-                if (!query.exec()) {
-                    LOG_FAILED_QUERY(query);
-                } else {
-                    int trackId = query.lastInsertId().toInt();
-                    insertTrackIntoPlaylist(database, playlistId, trackId, trackCount);
-                    trackIdMap.insert(track.location, trackId);
-                    trackCount++;
-                }
-                break;
-            }
-            break;
-        }
-        default: {
-            QString fieldName = QString(headerData.mid(0, sizeof(quint32)));
-            qDebug() << "Ignoring unknown field "
-                     << fieldName
-                     << " ("
-                     << fieldSize
-                     << " bytes) in database "
-                     << databaseFilePath
-                     << ".";
-        }
-        }
-
-        headerData = databaseFile.read(kHeaderSize);
     }
 
-    if (headerData.length() != 0) {
-        qWarning() << "Found "
-                   << headerData.length()
-                   << " extra bytes at end of Serato database file "
-                   << databaseFilePath
-                   << ".";
-    }
-
-    // Parse Crates
-    QDir crateDir = QDir(databaseDir);
-    if (crateDir.cd(kCrateDirectory)) {
-        QStringList filters;
-        filters << kCrateFilter;
-        const auto entryList = crateDir.entryList(filters);
-        for (const QString& entry : entryList) {
-            QString crateFilePath = crateDir.filePath(entry);
-            QString crateName = parseCrate(
-                    database,
-                    databaseDir.path(),
-                    crateFilePath,
-                    trackIdMap);
-            if (!crateName.isEmpty()) {
-                TreeItem* crateItem = databaseItem->appendChild(crateName,
-                        QList<QVariant>{
-                                QVariant(crateFilePath), QVariant(true)});
-                crateItem->setIcon(QIcon(":/images/library/ic_library_crates.svg"));
-            }
+    for (const serato_crate_t& crate : crates) {
+        QString crateName = insertCrate(
+                database,
+                databaseDir.path(),
+                crate,
+                trackIdMap);
+        if (!crateName.isEmpty()) {
+            TreeItem* crateItem = databaseItem->appendChild(crateName,
+                    QList<QVariant>{
+                            QVariant(crate.filePath), QVariant(true)});
+            crateItem->setIcon(QIcon(":/images/library/ic_library_crates.svg"));
         }
-    } else {
-        qWarning() << "Failed to open crate directory: "
-                   << databaseDir.filePath(kCrateDirectory);
     }
-
-    // TODO: Parse Smart Crates
 
     transaction.commit();
 

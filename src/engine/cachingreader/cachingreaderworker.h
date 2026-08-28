@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QMutex>
 #include <QString>
 
@@ -145,6 +146,29 @@ class CachingReaderWorker : public EngineWorker {
     /// Internal method to load a track. Emits trackLoaded when finished.
     void loadTrack(const TrackPointer& pTrack);
 
+    /// Bite DJ: re-open the file backing the currently loaded track after a
+    /// read came back empty, keeping the deck's position.
+    ///
+    /// A read that returns *nothing* for a range the source says is readable
+    /// means the file handle died under us, not that the track ended (see the
+    /// long note in AudioSource::readSampleFrames). On this device that is
+    /// routine: the Pi hangs every USB port off one hub, so a controller
+    /// power-cycling can re-enumerate the music drive along with the audio
+    /// interface, and every decoder FD pointing into it goes stale. Nothing
+    /// used to retry, so the deck played silence with a moving playhead until
+    /// the track was reloaded by hand.
+    ///
+    /// Returns true when the file re-opened onto identical content, in which
+    /// case playback simply carries on. The previous source is left in place
+    /// on failure so the caller never sees a null m_pAudioSource.
+    bool reopenAudioSource();
+
+    /// Bite DJ: give up on the current track and let the deck eject it.
+    /// Emits trackLoadFailed, which EngineBuffer turns into ejectTrack() and
+    /// BaseTrackPlayer surfaces to the user. The reader state machine is then
+    /// driven through its normal unload path by the resulting newTrack(null).
+    void declareTrackUnreadable();
+
     ReaderStatusUpdate processReadRequest(
             const CachingReaderChunkReadRequest& request);
 
@@ -152,6 +176,23 @@ class CachingReaderWorker : public EngineWorker {
 
     // The current audio source of the track loaded
     mixxx::AudioSourcePointer m_pAudioSource;
+
+    // Bite DJ: the track m_pAudioSource was opened from, kept so a dead file
+    // handle can be re-opened without going through a full track load (which
+    // would reset the deck to its cue point). Reset together with
+    // m_pAudioSource in closeAudioSource().
+    TrackPointer m_pTrack;
+
+    // Bite DJ: read-failure recovery state, all touched only by the reader
+    // thread. m_readFailureTimer runs from the first empty read of a burst and
+    // bounds how long a deck is allowed to sit silent while we retry;
+    // m_lastReopenAttempt rate-limits the re-open so a drive that is really
+    // gone is not re-opened once per chunk request; m_gaveUpOnTrack stops the
+    // retries once declareTrackUnreadable() has asked for the eject, which
+    // takes a few more requests to actually arrive.
+    QElapsedTimer m_readFailureTimer;
+    QElapsedTimer m_lastReopenAttempt;
+    bool m_gaveUpOnTrack;
 
     mixxx::audio::FramePos m_firstSoundFrameToVerify;
 

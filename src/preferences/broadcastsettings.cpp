@@ -12,7 +12,6 @@
 
 namespace {
 const char* kProfilesSubfolder = "broadcast_profiles";
-const char* kDefaultProfile = "Connection 1"; // Must be used only when initializing profiles
 const mixxx::Logger kLogger("BroadcastSettings");
 } // anonymous namespace
 
@@ -59,15 +58,18 @@ void BroadcastSettings::loadProfiles() {
             }
         }
     } else {
-        kLogger.info() << "No profiles found. Creating default profile.";
-
-        BroadcastProfilePtr defaultProfile(
-                    new BroadcastProfile(kDefaultProfile));
-        // Upgrade from mixxx.cfg format to XML (if required)
-        loadLegacySettings(defaultProfile);
-
-        addProfile(defaultProfile);
-        saveProfile(&*defaultProfile);
+        // Bite DJ: upstream creates a default "Connection 1" profile here so
+        // the Live Broadcasting preferences page always has a row to show.
+        // This build has no IP stack (the kernel is configured without
+        // CONFIG_INET), so a broadcast profile can never connect, and every
+        // profile that exists is a candidate for a ShoutConnection worker that
+        // runs inside the audio callback -- see connectionWanted() in
+        // BroadcastManager. Ship no profile rather than an unusable one.
+        //
+        // The mixxx.cfg -> XML upgrade of the pre-2.1 broadcast settings rode
+        // along with that default profile and goes with it; there is nothing on
+        // this appliance for it to upgrade from.
+        kLogger.info() << "No profiles found. Not creating a default profile.";
     }
 }
 

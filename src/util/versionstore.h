@@ -4,18 +4,44 @@
 #include <QString>
 #include <QVersionNumber>
 
+/// Bite DJ carries two versions:
+///
+/// * The *product* version -- version(), versionNumber(), versionSuffix() --
+///   is the Bite DJ fork version (e.g. 1.0). This is what the UI displays and
+///   what `--version` reports.
+/// * The *base* version -- mixxxVersion() and friends -- is the upstream Mixxx
+///   stable release this fork was built on (e.g. 2.5.6). It is not displayed as
+///   the product version, but it is preserved so the base can be tracked, and
+///   it still keys the config-file upgrade path (see preferences/upgrade.cpp)
+///   and the Mixxx manual URLs (see defs_urls.h).
+///
+/// Both are set in the top-level CMakeLists.txt: BITEDJ_VERSION for the
+/// product, project(mixxx VERSION ...) for the base.
 class VersionStore {
   public:
-    /// Returns the current Mixxx version string (e.g. 1.12.0-alpha)
+    /// Returns the Bite DJ version string (e.g. 1.0, or 1.0-beta)
     static QString version();
 
-    /// Returns the current Mixxx version number (e.g. 1.12.0)
+    /// Returns the Bite DJ version number (e.g. 1.0)
     static QVersionNumber versionNumber();
 
-    /// Returns the current Mixxx version suffix (e.g. "beta")
+    /// Returns the Bite DJ version suffix (e.g. "beta")
     static QString versionSuffix();
 
-    /// Returns the application name. (e.g. "Mixxx")
+    /// Returns the Mixxx version string this fork is based on (e.g. 2.5.6)
+    static QString mixxxVersion();
+
+    /// Returns the Mixxx version number this fork is based on (e.g. 2.5.6)
+    static QVersionNumber mixxxVersionNumber();
+
+    /// Returns the Mixxx version suffix this fork is based on (e.g. "beta")
+    static QString mixxxVersionSuffix();
+
+    /// Returns the product name shown to the user. (e.g. "Bite DJ")
+    static QString productName();
+
+    /// Returns the application name used for the window title, the JACK client
+    /// name and native dialog titles. (e.g. "Mixxx")
     static QString applicationName();
 
     /// Returns the last change date

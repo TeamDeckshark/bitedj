@@ -904,93 +904,187 @@
                 <SizePolicy>me,min</SizePolicy>
               </AudioDeviceList>
 
+              <!-- Paired on one line, not stacked. The Audio panel already
+                   sits at its vertical budget: the device list alone wants
+                   3x60px and the sub-page has ~266px between the sub-tab bar
+                   and the version label, so a fourth full-width row pushes the
+                   list into overlapping itself (the same squeeze the
+                   AudioDeviceList SizePolicy comment above warns about). The
+                   screen is 800px wide and this line was using half of it, so
+                   Priority takes the free half and the panel's height is
+                   unchanged. -->
               <WidgetGroup>
-                <ObjectName>SettingsRow</ObjectName>
+                <ObjectName>AudioActionRow</ObjectName>
                 <Layout>horizontal</Layout>
                 <Size>0me,56f</Size>
                 <Children>
-                  <Label>
-                    <ObjectName>SettingsRowLabel</ObjectName>
-                    <Text>Devices</Text>
-                    <Size>0me,0me</Size>
-                  </Label>
-                  <!-- Same arm pattern as System's Power button: while staged bus
-                       cycling awaits commit ([AudioDevices],dirty), Rescan
-                       swaps for Apply/Cancel. -->
-                  <WidgetStack currentpage="[AudioDevices],dirty">
-                    <Size>260f,44f</Size>
+
+                  <!-- Latency vs quality. One tap moves the sample rate and the
+                       audio buffer size together, because on this box they are not
+                       independent choices: Latency is 44.1 kHz with a 256-frame
+                       period (5.8 ms) for tight jog/scratch response, Quality is
+                       48 kHz with a 1024-frame period (21.3 ms) for headroom
+                       against underruns on a loaded Pi. Staged like bus cycling —
+                       both halves only reach the hardware on Apply below, which is
+                       also what keeps this off the reconfigure path while a deck
+                       plays. The hint mirrors [AudioDevices],latency_mode rather
+                       than restating the segment, so page 2 (Custom) stays honest
+                       about a soundconfig.xml that matches neither preset. -->
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <SizePolicy>me,me</SizePolicy>
                     <Children>
-
-                      <PushButton>
-                        <ObjectName>SettingsActionButton</ObjectName>
-                        <Size>0me,44f</Size>
-                        <NumberStates>1</NumberStates>
-                        <State>
-                          <Number>0</Number>
-                          <Text>Rescan</Text>
-                        </State>
-                        <Connection>
-                          <ConfigKey>[AudioDevices],rescan</ConfigKey>
-                          <EmitOnDownPress>true</EmitOnDownPress>
-                        </Connection>
-                        <!-- Rescan tears every device down and re-opens it, so
-                             it cuts a running deck just like Apply does. Same
-                             playback gate. -->
-                        <Connection>
-                          <ConnectValueFromWidget>false</ConnectValueFromWidget>
-                          <ConfigKey>[AudioDevices],reconfigure_enabled</ConfigKey>
-                          <BindProperty>enabled</BindProperty>
-                        </Connection>
-                      </PushButton>
-
-                      <WidgetGroup>
-                        <Layout>horizontal</Layout>
-                        <SizePolicy>me,me</SizePolicy>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Priority</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <!-- Width-flexible on purpose: this is the first thing
+                           that should give way when the shared line runs out of
+                           width. A fixed width here holds 120px at the 480px
+                           floor and the pinned segment control then overlaps it. -->
+                      <WidgetStack currentpage="[AudioDevices],latency_mode">
+                        <Size>0me,0me</Size>
                         <Children>
-                          <PushButton>
-                            <ObjectName>SettingsPrimaryButton</ObjectName>
-                            <Size>0me,44f</Size>
-                            <NumberStates>1</NumberStates>
-                            <State>
-                              <Number>0</Number>
-                              <Text>Apply</Text>
-                            </State>
-                            <Connection>
-                              <ConfigKey>[AudioDevices],apply</ConfigKey>
-                              <EmitOnDownPress>true</EmitOnDownPress>
-                            </Connection>
-                            <!-- Applying closes and re-opens every device, so
-                                 it silences a running deck for seconds. Bind
-                                 enabled to reconfigure_enabled (0 while any
-                                 deck plays): a disabled WWidget never
-                                 synthesizes touch -> mouse, so the tap is
-                                 swallowed and the button paints greyed. Cancel
-                                 stays live so the staged change can still be
-                                 discarded. -->
-                            <Connection>
-                              <ConnectValueFromWidget>false</ConnectValueFromWidget>
-                              <ConfigKey>[AudioDevices],reconfigure_enabled</ConfigKey>
-                              <BindProperty>enabled</BindProperty>
-                            </Connection>
-                          </PushButton>
+                          <Label>
+                            <ObjectName>SettingsRowHint</ObjectName>
+                            <Text>48 kHz · 21 ms</Text>
+                            <Size>0me,0me</Size>
+                          </Label>
+                          <Label>
+                            <ObjectName>SettingsRowHint</ObjectName>
+                            <Text>44.1 kHz · 6 ms</Text>
+                            <Size>0me,0me</Size>
+                          </Label>
+                          <Label>
+                            <ObjectName>SettingsRowHint</ObjectName>
+                            <Text>Custom</Text>
+                            <Size>0me,0me</Size>
+                          </Label>
+                        </Children>
+                      </WidgetStack>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>150f,40f</Size>
+                        <!-- Two rows share this line, so it can run out of width
+                             at the 480px-wide floor and Qt compresses children
+                             past their size hint to fit. Pin both controls (a QSS
+                             min-width does not constrain these layouts) so the
+                             flexible hint and row labels are what yields; without
+                             it the QUALITY segment is clipped off the panel and
+                             the preset becomes unselectable. -->
+                        <MinimumSize>150,40</MinimumSize>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">Latency</SetVariable>
+                            <SetVariable name="ConfigKey">[AudioDevices],latency_mode</SetVariable>
+                            <SetVariable name="Value">1</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">Quality</SetVariable>
+                            <SetVariable name="ConfigKey">[AudioDevices],latency_mode</SetVariable>
+                            <SetVariable name="Value">0</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <SizePolicy>me,me</SizePolicy>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Devices</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <!-- Same arm pattern as System's Power button: while staged bus
+                           cycling awaits commit ([AudioDevices],dirty), Rescan
+                           swaps for Apply/Cancel. -->
+                      <WidgetStack currentpage="[AudioDevices],dirty">
+                        <Size>220f,44f</Size>
+                        <MinimumSize>200,44</MinimumSize>
+                        <Children>
+
                           <PushButton>
                             <ObjectName>SettingsActionButton</ObjectName>
                             <Size>0me,44f</Size>
                             <NumberStates>1</NumberStates>
                             <State>
                               <Number>0</Number>
-                              <Text>Cancel</Text>
+                              <Text>Rescan</Text>
                             </State>
                             <Connection>
-                              <ConfigKey>[AudioDevices],revert</ConfigKey>
+                              <ConfigKey>[AudioDevices],rescan</ConfigKey>
                               <EmitOnDownPress>true</EmitOnDownPress>
                             </Connection>
+                            <!-- Rescan tears every device down and re-opens it, so
+                                 it cuts a running deck just like Apply does. Same
+                                 playback gate. -->
+                            <Connection>
+                              <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                              <ConfigKey>[AudioDevices],reconfigure_enabled</ConfigKey>
+                              <BindProperty>enabled</BindProperty>
+                            </Connection>
                           </PushButton>
-                        </Children>
-                      </WidgetGroup>
 
+                          <WidgetGroup>
+                            <Layout>horizontal</Layout>
+                            <SizePolicy>me,me</SizePolicy>
+                            <Children>
+                              <PushButton>
+                                <ObjectName>SettingsPrimaryButton</ObjectName>
+                                <Size>0me,44f</Size>
+                                <NumberStates>1</NumberStates>
+                                <State>
+                                  <Number>0</Number>
+                                  <Text>Apply</Text>
+                                </State>
+                                <Connection>
+                                  <ConfigKey>[AudioDevices],apply</ConfigKey>
+                                  <EmitOnDownPress>true</EmitOnDownPress>
+                                </Connection>
+                                <!-- Applying closes and re-opens every device, so
+                                     it silences a running deck for seconds. Bind
+                                     enabled to reconfigure_enabled (0 while any
+                                     deck plays): a disabled WWidget never
+                                     synthesizes touch -> mouse, so the tap is
+                                     swallowed and the button paints greyed. Cancel
+                                     stays live so the staged change can still be
+                                     discarded. -->
+                                <Connection>
+                                  <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                                  <ConfigKey>[AudioDevices],reconfigure_enabled</ConfigKey>
+                                  <BindProperty>enabled</BindProperty>
+                                </Connection>
+                              </PushButton>
+                              <PushButton>
+                                <ObjectName>SettingsActionButton</ObjectName>
+                                <Size>0me,44f</Size>
+                                <NumberStates>1</NumberStates>
+                                <State>
+                                  <Number>0</Number>
+                                  <Text>Cancel</Text>
+                                </State>
+                                <Connection>
+                                  <ConfigKey>[AudioDevices],revert</ConfigKey>
+                                  <EmitOnDownPress>true</EmitOnDownPress>
+                                </Connection>
+                              </PushButton>
+                            </Children>
+                          </WidgetGroup>
+
+                        </Children>
+                      </WidgetStack>
                     </Children>
-                  </WidgetStack>
+                  </WidgetGroup>
+
                 </Children>
               </WidgetGroup>
 

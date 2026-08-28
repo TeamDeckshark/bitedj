@@ -203,7 +203,11 @@ int main(int argc, char * argv[]) {
     // organization name blank.
     //QCoreApplication::setOrganizationName("Mixxx");
 
-    QCoreApplication::setApplicationName(VersionStore::applicationName());
+    // Bite DJ: this is the name/version pair Qt prints for `--version` and
+    // `--help`, so it carries the product branding. VersionStore::applicationName()
+    // stays "Mixxx" for the window title, the JACK client name and native dialog
+    // titles; the Mixxx base version is reported by VersionStore::mixxxVersion().
+    QCoreApplication::setApplicationName(VersionStore::productName());
     QCoreApplication::setApplicationVersion(VersionStore::version());
 
     // Construct a list of strings based on the command line arguments

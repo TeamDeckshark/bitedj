@@ -96,6 +96,22 @@ class SoundManagerConfig {
     bool hasExternalRecordBroadcast();
     void loadDefaults(SoundManager* soundManager, unsigned int flags);
 
+    /// Bite DJ: re-resolve every configured SoundDeviceId against the devices
+    /// PortAudio currently reports, matching on the device *name*.
+    ///
+    /// SoundDeviceId compares by name, ALSA hw:X,Y and PortAudio index
+    /// together, and SoundManager::setupDevices() looks the config up by that
+    /// whole tuple. Only the name survives a device re-enumerating: a USB
+    /// interface that loses power and comes back can land on a different card
+    /// number and will certainly land on a different PortAudio index, at which
+    /// point the config no longer matches the hardware and the device is
+    /// reported "not found" even though it is sitting right there.
+    ///
+    /// readFromDisk() already does this against the XML it is parsing; this is
+    /// the same rule applied to a config that is already in memory, for
+    /// re-opening after a device came back. Returns true if any id changed.
+    bool relinkDeviceIds();
+
   private:
     QFileInfo m_configFile;
     QString m_api;

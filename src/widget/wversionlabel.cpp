@@ -1,6 +1,7 @@
 #include "widget/wversionlabel.h"
 
 #include <QFile>
+#include <QStringList>
 
 #include "moc_wversionlabel.cpp"
 #include "util/versionstore.h"
@@ -33,16 +34,19 @@ WVersionLabel::WVersionLabel(QWidget* pParent)
 void WVersionLabel::setup(const QDomNode& node, const SkinContext& context) {
     WLabel::setup(node, context);
 
-    const QVersionNumber versionNumber = VersionStore::versionNumber();
-    const QString buildLine = QStringLiteral("%1.%2 · %3")
-                                      .arg(QString::number(versionNumber.majorVersion()),
-                                              QString::number(versionNumber.minorVersion()),
-                                              VersionStore::gitVersion());
-
+    // Top line: what the unit is running. Bottom line: what it was built from,
+    // i.e. the upstream Mixxx release plus the exact commit of this fork.
+    QStringList productLine;
+    productLine << VersionStore::productName() + QChar(' ') + VersionStore::version();
     const QString firmware = firmwareVersion();
-    if (firmware.isEmpty()) {
-        setText(buildLine);
-    } else {
-        setText(QStringLiteral("%1\nFirmware %2").arg(buildLine, firmware));
+    if (!firmware.isEmpty()) {
+        productLine << tr("Firmware %1").arg(firmware);
     }
+
+    const QStringList buildLine{
+            QStringLiteral("Mixxx ") + VersionStore::mixxxVersion(),
+            VersionStore::gitVersion()};
+
+    const QString separator = QStringLiteral(" · ");
+    setText(productLine.join(separator) + QChar('\n') + buildLine.join(separator));
 }
