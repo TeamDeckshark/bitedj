@@ -6,7 +6,7 @@
 #include <QMessageBox>
 
 #include "effects/backends/builtin/biquadfullkilleqeffect.h"
-#include "effects/backends/builtin/filtereffect.h"
+#include "effects/backends/builtin/cfxfiltereffect.h"
 #include "effects/backends/effectmanifest.h"
 #include "effects/effectchain.h"
 #include "effects/presets/effectchainpreset.h"
@@ -693,7 +693,7 @@ EffectManifestPointer EffectChainPresetManager::getDefaultEqEffect() {
 
 EffectChainPresetPointer EffectChainPresetManager::getDefaultQuickEffectPreset() {
     EffectManifestPointer pDefaultQuickEffectManifest = m_pBackendManager->getManifest(
-            FilterEffect::getId(), EffectBackendType::BuiltIn);
+            CFXFilterEffect::getId(), EffectBackendType::BuiltIn);
     auto defaultQuickEffectChainPreset =
             EffectChainPresetPointer(pDefaultQuickEffectManifest
                             ? new EffectChainPreset(pDefaultQuickEffectManifest)
