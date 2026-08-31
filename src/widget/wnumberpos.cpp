@@ -43,6 +43,12 @@ void WNumberPos::mousePressEvent(QMouseEvent* pEvent) {
             m_displayMode = TrackTime::DisplayMode::ELAPSED;
         }
 
+        // BiteDJ has a single track-time field, so skip Mixxx's combined
+        // elapsed-and-remaining mode without rewriting the upstream cycle.
+        if (m_displayMode == TrackTime::DisplayMode::ELAPSED_AND_REMAINING) {
+            m_displayMode = TrackTime::DisplayMode::ELAPSED;
+        }
+
         m_pShowTrackTimeRemaining->set(static_cast<double>(m_displayMode));
         slotSetTimeElapsed(m_dOldTimeElapsed);
     }

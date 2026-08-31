@@ -2,6 +2,7 @@
 
 #include <QEvent>
 #include <QFont>
+#include <QtGlobal>
 
 #include "moc_wlabel.cpp"
 #include "skin/legacy/skincontext.h"
@@ -20,6 +21,7 @@ WLabel::WLabel(QWidget* pParent)
 
 void WLabel::setup(const QDomNode& node, const SkinContext& context) {
     m_scaleFactor = context.getScaleFactor();
+    m_bTabularNumbers = context.selectBool(node, "TabularNumbers", false);
 
     // Colors
     QPalette pal = palette(); // we have to copy out the palette to edit it since it's const (probably for threadsafety)
@@ -87,6 +89,19 @@ void WLabel::setup(const QDomNode& node, const SkinContext& context) {
                     "unknown, use right, middle, left or none.";
         }
     }
+}
+
+void WLabel::applyFontFeatures() {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    if (m_bTabularNumbers) {
+        // OpenType's "tnum" feature gives every digit the same advance width,
+        // preventing changing numeric text from shifting. Apply it after skin
+        // styling so the selected font keeps this feature.
+        QFont tabularFont = font();
+        tabularFont.setFeature("tnum", 1);
+        setFont(tabularFont);
+    }
+#endif
 }
 
 QString WLabel::text() const {
