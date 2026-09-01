@@ -239,6 +239,30 @@ PioneerDDJ400.browseRotate = function(midichan, control, value, status) {
     }
 };
 
+// From Play, BROWSE press opens the browser. On the browser and other screens
+// it retains the mapping's existing focus-forward behavior.
+PioneerDDJ400.browsePress = function(_midichan, _control, value) {
+    if (value === 0) {
+        return;
+    }
+    if (engine.getValue("[Tab]", "current") === 0) {
+        engine.setValue("[Tab]", "current", 1);
+        engine.setValue("[Tab]", "library", 1);
+        return;
+    }
+    script.triggerControl("[Library]", "MoveFocusForward", 100);
+};
+
+// SHIFT + right LOAD toggles the Browser.
+PioneerDDJ400.toggleBrowser = function(_midichan, _control, value) {
+    if (value === 0) {
+        return;
+    }
+    const browserOpen = engine.getValue("[Tab]", "current") === 1;
+    engine.setValue("[Tab]", "current", browserOpen ? 0 : 1);
+    engine.setValue("[Tab]", browserOpen ? "overview" : "library", 1);
+};
+
 //
 // Channel level lights
 //
