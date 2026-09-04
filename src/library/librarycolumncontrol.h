@@ -19,11 +19,9 @@ class WTrackTableViewHeader;
 // trigger is the [Library],column_visible_<name> + column_weight_<name>
 // ControlObjects set by the skin.
 //
-// The per-model header_state_pb (which the upstream menu writes) is unreachable
-// from the touch UI. This class wins over the protobuf for visibility and
-// width — column order and sort indicator still come from the protobuf
-// restore path in WTrackTableViewHeader, so those upstream behaviors are
-// preserved.
+// WTrackTableViewHeader saves/restores column order using the upstream
+// per-model header_state_pb. This class applies visibility and weighted
+// widths after that restore, overriding the protobuf's layout dimensions.
 //
 // Width semantics: each visible column has an integer weight (1..4). On
 // every apply pass the visible weights are summed and each column is sized

@@ -1,6 +1,7 @@
 // Tests for the Bite DJ LibraryColumnControl-managed track table layout:
 // managed visibility/weights from mixxx.cfg, internal-column enforcement,
-// self-healing after model resets, and the rating column's minimum width.
+// self-healing after model resets, upstream-compatible order persistence,
+// and the rating column's minimum width.
 #include <gtest/gtest.h>
 
 #include <QApplication>
@@ -154,6 +155,8 @@ TEST_F(LibraryColumnControlTest, ManagedLayoutIsAppliedAndSelfHealing) {
             model.fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_RATING);
     const int titleCol =
             model.fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_TITLE);
+    const int artistCol =
+            model.fieldIndex(ColumnCache::COLUMN_LIBRARYTABLE_ARTIST);
 
     // Managed layout per config: '#' (position), title, rating visible;
     // preview managed-invisible; internal track_id hidden.
@@ -186,4 +189,24 @@ TEST_F(LibraryColumnControlTest, ManagedLayoutIsAppliedAndSelfHealing) {
     EXPECT_TRUE(header->isSectionHidden(previewCol));
     EXPECT_FALSE(header->isSectionHidden(positionCol));
     EXPECT_GE(header->sectionSize(ratingCol), StarRating().sizeHint().width());
+
+    // Column order uses the upstream per-model header state, while a restored
+    // pixel width is replaced by BiteDJ's configured weight.
+    const int artistVisualIndex = header->visualIndex(artistCol);
+    header->moveSection(header->visualIndex(titleCol), artistVisualIndex);
+    header->resizeSection(titleCol, 37);
+
+    QTableView restoredView;
+    restoredView.resize(800, 480);
+    auto* restoredHeader =
+            new WTrackTableViewHeader(Qt::Horizontal, &restoredView);
+    restoredView.setModel(&model);
+    restoredView.setHorizontalHeader(restoredHeader);
+    restoredView.show();
+    QApplication::processEvents();
+
+    EXPECT_EQ(artistVisualIndex, restoredHeader->visualIndex(titleCol));
+    EXPECT_NE(37, restoredHeader->sectionSize(titleCol));
+    EXPECT_TRUE(restoredHeader->isSectionHidden(trackIdCol));
+    EXPECT_TRUE(restoredHeader->isSectionHidden(previewCol));
 }
