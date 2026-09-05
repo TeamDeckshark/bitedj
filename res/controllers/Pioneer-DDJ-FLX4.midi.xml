@@ -36,13 +36,13 @@
                 </options>
             </control>
             <control>
-                <description>BROWSE - press - Move cursor between track list and tree view</description>
+                <description>BROWSE - press - Open Browse from Play, otherwise move focus forward</description>
                 <group>[Library]</group>
-                <key>MoveFocusForward</key> <!-- missing function to open Folder -->
+                <key>PioneerDDJFLX4.browsePress</key>
                 <status>0x96</status>
                 <midino>0x41</midino>
                 <options>
-                    <Normal/>
+                    <Script-Binding/>
                 </options>
             </control>
             <control>
@@ -75,6 +75,17 @@
                 <midino>0x47</midino>
                 <options>
                     <Normal/>
+                </options>
+            </control>
+
+            <control>
+                <description>LOAD (DECK2) +SHIFT - press - Toggle Browser</description>
+                <group>[Library]</group>
+                <key>PioneerDDJFLX4.toggleBrowser</key>
+                <status>0x96</status>
+                <midino>0x7A</midino>
+                <options>
+                    <Script-Binding/>
                 </options>
             </control>
             <!-- BROWSER Section END -->
