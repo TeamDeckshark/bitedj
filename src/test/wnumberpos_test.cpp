@@ -28,14 +28,20 @@ constexpr double kElapsed = 0;
 constexpr double kRemaining = 1;
 constexpr double kElapsedAndRemaining = 2;
 
-// Controls a player normally publishes, one set per deck.
+// Controls a player normally publishes, one set per deck. show_duration_remaining
+// is persistent here exactly as BaseTrackPlayerImpl creates it, so the tests can
+// follow a tap all the way into mixxx.cfg.
 struct DeckControls {
     explicit DeckControls(const QString& group)
             : timeElapsed(ConfigKey(group, QStringLiteral("time_elapsed"))),
               timeRemaining(ConfigKey(group, QStringLiteral("time_remaining"))),
               trackLoaded(ConfigKey(group, QStringLiteral("track_loaded"))),
               showDurationRemaining(
-                      ConfigKey(group, QStringLiteral("show_duration_remaining"))) {
+                      ConfigKey(group, QStringLiteral("show_duration_remaining")),
+                      /* bIgnoreNops */ true,
+                      /* bTrack */ false,
+                      /* bPersist */ true,
+                      kRemaining) {
         trackLoaded.set(1);
     }
 
@@ -153,6 +159,40 @@ TEST_F(WNumberPosTest, UnloadedDeckReadsZero) {
 
     m_pDeck1Controls->trackLoaded.set(1);
     EXPECT_EQ(QStringLiteral("-0:34.00"), m_pDeck1->text());
+}
+
+// A tap has to survive a power cut, which on this appliance can come at any
+// moment: the display mode reaches mixxx.cfg when it changes, not at shutdown.
+TEST_F(WNumberPosTest, TappedModeSurvivesARestart) {
+    m_pDeck1Controls->showDurationRemaining.set(kElapsed);
+    m_pDeck2Controls->showDurationRemaining.set(kElapsed);
+
+    tap(m_pDeck1.get());
+
+    const ConfigKey deck1Key(kDeck1, QStringLiteral("show_duration_remaining"));
+    const ConfigKey deck2Key(kDeck2, QStringLiteral("show_duration_remaining"));
+    EXPECT_DOUBLE_EQ(kRemaining, config()->getValue(deck1Key, kElapsed));
+    EXPECT_DOUBLE_EQ(kElapsed, config()->getValue(deck2Key, kRemaining));
+
+    // Tear the widgets and controls down and bring them back up around a save
+    // and reload of the settings, the way a restart would.
+    m_pDeck1.reset();
+    m_pDeck2.reset();
+    m_pDeck1Controls.reset();
+    m_pDeck2Controls.reset();
+    saveAndReloadConfig();
+    m_pDeck1Controls = std::make_unique<DeckControls>(kDeck1);
+    m_pDeck2Controls = std::make_unique<DeckControls>(kDeck2);
+    m_pDeck1 = std::make_unique<WNumberPos>(kDeck1);
+    m_pDeck2 = std::make_unique<WNumberPos>(kDeck2);
+
+    EXPECT_DOUBLE_EQ(kRemaining, m_pDeck1Controls->showDurationRemaining.get());
+    EXPECT_DOUBLE_EQ(kElapsed, m_pDeck2Controls->showDurationRemaining.get());
+
+    m_pDeck1Controls->setPosition(12.0, 34.0);
+    m_pDeck2Controls->setPosition(12.0, 34.0);
+    EXPECT_EQ(QStringLiteral("-0:34.00"), m_pDeck1->text());
+    EXPECT_EQ(QStringLiteral("0:12.00"), m_pDeck2->text());
 }
 
 } // namespace

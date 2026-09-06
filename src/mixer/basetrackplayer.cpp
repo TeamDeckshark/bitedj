@@ -41,9 +41,11 @@ const ConfigKey kPositionDisplayConfigKey =
 constexpr double kShowDurationRemaining =
         static_cast<double>(TrackTime::DisplayMode::REMAINING);
 
-// Players are built before SystemSettings gets to normalize PositionDisplay, so
-// apply the same rule here: BiteDJ has one visible time field, in which Mixxx's
-// combined mode renders blank, so seed it as remaining. See
+// Normalizes a stored or inherited display mode before the player's persistent
+// CO reads it back. Players are built before SystemSettings gets to normalize
+// PositionDisplay, and a mode applied from the deck preferences lands here
+// verbatim, so apply the same rule in both cases: BiteDJ has one visible time
+// field, in which Mixxx's combined mode renders blank. See
 // preferences/systemsettings.cpp.
 double seedShowDurationRemaining(double value) {
     return value == static_cast<double>(TrackTime::DisplayMode::ELAPSED_AND_REMAINING)
@@ -288,19 +290,21 @@ BaseTrackPlayerImpl::BaseTrackPlayerImpl(
     m_pTimeRemaining = std::make_unique<ControlObject>(ConfigKey(getGroup(), "time_remaining"));
     m_pEndOfTrack = std::make_unique<ControlObject>(ConfigKey(getGroup(), "end_of_track"));
 
+    // A persistent CO loads its own value from mixxx.cfg in its ctor and mirrors
+    // every later change back, so this player keeps its own display mode across
+    // restarts. The default only applies to a player with nothing stored yet.
     const ConfigKey showDurationRemainingConfigKey(getGroup(), kShowDurationRemainingKey);
+    m_pConfig->setValue(showDurationRemainingConfigKey,
+            seedShowDurationRemaining(
+                    m_pConfig->getValue(showDurationRemainingConfigKey,
+                            m_pConfig->getValue(kPositionDisplayConfigKey,
+                                    kShowDurationRemaining))));
     m_pShowDurationRemaining = std::make_unique<ControlObject>(
-            showDurationRemainingConfigKey);
-    m_pShowDurationRemaining->set(
-            seedShowDurationRemaining(m_pConfig->getValue(showDurationRemainingConfigKey,
-                    m_pConfig->getValue(
-                            kPositionDisplayConfigKey, kShowDurationRemaining))));
-    connect(m_pShowDurationRemaining.get(),
-            &ControlObject::valueChanged,
-            this,
-            [this, showDurationRemainingConfigKey](double value) {
-                m_pConfig->setValue(showDurationRemainingConfigKey, value);
-            });
+            showDurationRemainingConfigKey,
+            /* bIgnoreNops */ true,
+            /* bTrack */ false,
+            /* bPersist */ true,
+            kShowDurationRemaining);
 
     m_pReplayGain = make_parented<ControlProxy>(getGroup(), "replaygain", this);
     m_pPlay = make_parented<ControlProxy>(getGroup(), "play", this);
