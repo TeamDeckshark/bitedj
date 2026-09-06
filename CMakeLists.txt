@@ -1649,6 +1649,7 @@ if(BUILD_TESTING)
     src/test/waveformmarkset_test.cpp
     src/test/wbatterytest.cpp
     src/test/wcontrollerlist_test.cpp
+    src/test/wnumberpos_test.cpp
     src/test/wpushbutton_test.cpp
     src/test/wusblist_test.cpp
     src/test/wwidgetstack_test.cpp

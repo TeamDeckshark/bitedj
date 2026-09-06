@@ -16,6 +16,7 @@
 #include "mixer/samplerdrive.h"
 #include "moc_basetrackplayer.cpp"
 #include "notifications/notifications.h"
+#include "preferences/tracktime.h"
 #include "track/track.h"
 #include "util/sandbox.h"
 #include "vinylcontrol/defs_vinylcontrol.h"
@@ -27,6 +28,28 @@ constexpr double kNoTrackColor = -1;
 constexpr double kShiftCuesOffsetMillis = 10;
 constexpr double kShiftCuesOffsetSmallMillis = 1;
 const QString kEffectGroupFormat = QStringLiteral("[EqualizerRack1_%1_Effect1]");
+
+// Track time display mode, formerly the global [Controls],ShowDurationRemaining.
+// It is now per player so each deck can be flipped between elapsed and
+// remaining on its own, by tapping its time readout. [Controls],PositionDisplay
+// stays the seed for players that have no stored choice of their own. Values are
+// TrackTime::DisplayMode.
+const QString kShowDurationRemainingKey =
+        QStringLiteral("show_duration_remaining");
+const ConfigKey kPositionDisplayConfigKey =
+        ConfigKey(QStringLiteral("[Controls]"), QStringLiteral("PositionDisplay"));
+constexpr double kShowDurationRemaining =
+        static_cast<double>(TrackTime::DisplayMode::REMAINING);
+
+// Players are built before SystemSettings gets to normalize PositionDisplay, so
+// apply the same rule here: BiteDJ has one visible time field, in which Mixxx's
+// combined mode renders blank, so seed it as remaining. See
+// preferences/systemsettings.cpp.
+double seedShowDurationRemaining(double value) {
+    return value == static_cast<double>(TrackTime::DisplayMode::ELAPSED_AND_REMAINING)
+            ? kShowDurationRemaining
+            : value;
+}
 
 inline double trackColorToDouble(mixxx::RgbColor::optional_t color) {
     return (color ? static_cast<double>(*color) : kNoTrackColor);
@@ -264,6 +287,20 @@ BaseTrackPlayerImpl::BaseTrackPlayerImpl(
     m_pTimeElapsed = std::make_unique<ControlObject>(ConfigKey(getGroup(), "time_elapsed"));
     m_pTimeRemaining = std::make_unique<ControlObject>(ConfigKey(getGroup(), "time_remaining"));
     m_pEndOfTrack = std::make_unique<ControlObject>(ConfigKey(getGroup(), "end_of_track"));
+
+    const ConfigKey showDurationRemainingConfigKey(getGroup(), kShowDurationRemainingKey);
+    m_pShowDurationRemaining = std::make_unique<ControlObject>(
+            showDurationRemainingConfigKey);
+    m_pShowDurationRemaining->set(
+            seedShowDurationRemaining(m_pConfig->getValue(showDurationRemainingConfigKey,
+                    m_pConfig->getValue(
+                            kPositionDisplayConfigKey, kShowDurationRemaining))));
+    connect(m_pShowDurationRemaining.get(),
+            &ControlObject::valueChanged,
+            this,
+            [this, showDurationRemainingConfigKey](double value) {
+                m_pConfig->setValue(showDurationRemainingConfigKey, value);
+            });
 
     m_pReplayGain = make_parented<ControlProxy>(getGroup(), "replaygain", this);
     m_pPlay = make_parented<ControlProxy>(getGroup(), "play", this);

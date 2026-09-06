@@ -1,8 +1,8 @@
 #pragma once
 
 
+#include "preferences/tracktime.h"
 #include "wnumber.h"
-#include "preferences/dialog/dlgprefdeck.h"
 
 class ControlProxy;
 
@@ -19,6 +19,7 @@ class WNumberPos : public WNumber {
     void setValue(double dValue) override;
     void slotSetTimeElapsed(double);
     void slotTimeRemainingUpdated(double);
+    void slotTrackLoadedChanged(double);
     void slotSetDisplayMode(double);
     void slotSetTimeFormat(double);
 
@@ -29,6 +30,7 @@ class WNumberPos : public WNumber {
     double m_dOldTimeElapsed;
     ControlProxy* m_pTimeElapsed;
     ControlProxy* m_pTimeRemaining;
+    ControlProxy* m_pTrackLoaded;
     ControlProxy* m_pShowTrackTimeRemaining;
     ControlProxy* m_pTimeFormat;
 };

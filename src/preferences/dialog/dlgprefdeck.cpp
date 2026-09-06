@@ -102,6 +102,15 @@ DlgPrefDeck::DlgPrefDeck(QWidget* parent, UserSettingsPointer pConfig)
         m_pControlTrackTimeDisplay->set(
             static_cast<double>(TrackTime::DisplayMode::ELAPSED));
     }
+    // The display mode now lives per deck, tappable on the deck's time readout.
+    // [Controls],ShowDurationRemaining stays the "set every deck" entry point.
+    // Connect the fan-out only after the initial value has been pushed into the
+    // control above, so that merely opening the preferences does not overwrite
+    // the per-deck choices.
+    connect(m_pControlTrackTimeDisplay.get(),
+            &ControlObject::valueChanged,
+            this,
+            &DlgPrefDeck::setTrackTimeDisplayForAllDecks);
     connect(buttonGroupTrackTime,
             QOverload<QAbstractButton*>::of(&QButtonGroup::buttonClicked),
             this,
@@ -437,6 +446,7 @@ DlgPrefDeck::~DlgPrefDeck() {
     qDeleteAll(m_rateDirectionControls);
     qDeleteAll(m_cueControls);
     qDeleteAll(m_rateRangeControls);
+    qDeleteAll(m_trackTimeDisplayControls);
     qDeleteAll(m_keylockModeControls);
     qDeleteAll(m_keyunlockModeControls);
 }
@@ -627,6 +637,12 @@ void DlgPrefDeck::slotCloneDeckOnLoadDoubleTapCheckbox(bool checked) {
     m_bCloneDeckOnLoadDoubleTap = checked;
 }
 
+void DlgPrefDeck::setTrackTimeDisplayForAllDecks(double displayMode) {
+    for (ControlProxy* pControl : std::as_const(m_trackTimeDisplayControls)) {
+        pControl->set(displayMode);
+    }
+}
+
 void DlgPrefDeck::slotSetTrackTimeDisplay(QAbstractButton* b) {
     if (b == radioButtonRemaining) {
         m_timeDisplayMode = TrackTime::DisplayMode::REMAINING;
@@ -702,6 +718,9 @@ void DlgPrefDeck::slotApply() {
     m_pConfig->set(ConfigKey(kControlsGroup, QStringLiteral("PositionDisplay")),
             ConfigValue(timeDisplay));
     m_pControlTrackTimeDisplay->set(timeDisplay);
+    // Applying the preference is an explicit "all decks" action, so push it
+    // even when the global control itself did not change.
+    setTrackTimeDisplayForAllDecks(timeDisplay);
 
     // time format
     double timeFormat = comboBoxTimeFormat->itemData(comboBoxTimeFormat->currentIndex()).toDouble();
@@ -811,6 +830,8 @@ void DlgPrefDeck::slotNumDecksChanged(double new_count, bool initializing) {
                 group, "rate_dir"));
         m_cueControls.push_back(new ControlProxy(
                 group, "cue_mode"));
+        m_trackTimeDisplayControls.push_back(new ControlProxy(
+                group, "show_duration_remaining"));
         m_keylockModeControls.push_back(new ControlProxy(
                 group, "keylockMode"));
         m_keylockModeControls.last()->set(static_cast<double>(m_keylockMode));
@@ -844,6 +865,8 @@ void DlgPrefDeck::slotNumSamplersChanged(double new_count, bool initializing) {
                 group, "rate_dir"));
         m_cueControls.push_back(new ControlProxy(
                 group, "cue_mode"));
+        m_trackTimeDisplayControls.push_back(new ControlProxy(
+                group, "show_duration_remaining"));
         m_keylockModeControls.push_back(new ControlProxy(
                 group, "keylockMode"));
         m_keylockModeControls.last()->set(static_cast<double>(m_keylockMode));
