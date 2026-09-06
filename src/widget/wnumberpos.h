@@ -12,6 +12,9 @@ class WNumberPos : public WNumber {
   public:
     explicit WNumberPos(const QString& group, QWidget* parent = nullptr);
 
+  protected:
+    void mousePressEvent(QMouseEvent* pEvent) override;
+
   private slots:
     void setValue(double dValue) override;
     void slotSetTimeElapsed(double);
