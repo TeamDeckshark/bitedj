@@ -24,7 +24,6 @@
 #include "waveform/waveform.h"
 #include "waveform/waveformwidgetfactory.h"
 #include "widget/controlwidgetconnection.h"
-#include "widget/timeremainingoverlay.h"
 #include "wskincolor.h"
 
 namespace {
@@ -74,18 +73,7 @@ WOverview::WOverview(
                   QStringLiteral("track_samples")),
           m_playpositionControl(
                   m_group,
-                  QStringLiteral("playposition")),
-          m_timeRemainingControl(
-                  m_group,
-                  QStringLiteral("time_remaining")),
-          m_timeRemainingColor(Qt::white),
-          m_timeRemainingBackgroundColor(
-                  0, 0, 0, TimeRemainingOverlay::kDefaultBackgroundAlpha),
-          m_timeRemainingOpacity(TimeRemainingOverlay::kDefaultOpacity),
-          m_timeRemainingScale(TimeRemainingOverlay::kDefaultScale),
-          m_timeRemainingAlign(Qt::AlignHCenter | Qt::AlignVCenter),
-          m_bTimeRemainingVisible(true),
-          m_iTimeRemainingSeconds(0) {
+                  QStringLiteral("playposition")) {
     m_endOfTrackControl = make_parented<ControlProxy>(
             m_group, QStringLiteral("end_of_track"), this, ControlFlag::NoAssertIfMissing);
     m_endOfTrackControl->connectValueChanged(this, &WOverview::onEndOfTrackChange);
@@ -167,36 +155,6 @@ void WOverview::setup(const QDomNode& node, const SkinContext& context) {
                 context.makeSkinPath(m_backgroundPixmapPath),
                 m_scaleFactor);
     }
-
-    // Time-remaining watermark. Defaults are in timeremainingoverlay.h; a skin
-    // only needs these nodes to deviate from them.
-    const QString timeRemainingColorName =
-            context.selectString(node, "TimeRemainingColor");
-    if (!timeRemainingColorName.isEmpty()) {
-        m_timeRemainingColor =
-                WSkinColor::getCorrectColor(QColor(timeRemainingColorName));
-    }
-    const QString timeRemainingBgColorName =
-            context.selectString(node, "TimeRemainingBgColor");
-    if (!timeRemainingBgColorName.isEmpty()) {
-        // Keep the alpha the skin asked for; getCorrectColor() would drop it.
-        m_timeRemainingBackgroundColor = QColor(timeRemainingBgColorName);
-    }
-    m_timeRemainingOpacity = math_clamp(
-            context.selectDouble(node,
-                    "TimeRemainingOpacity",
-                    TimeRemainingOverlay::kDefaultOpacity),
-            0.0,
-            1.0);
-    const double timeRemainingScale = context.selectDouble(node,
-            "TimeRemainingScale",
-            TimeRemainingOverlay::kDefaultScale);
-    if (timeRemainingScale > 0.0) {
-        m_timeRemainingScale = timeRemainingScale;
-    }
-    m_timeRemainingAlign = TimeRemainingOverlay::decodeAlign(
-            context.selectString(node, "TimeRemainingAlign"),
-            Qt::AlignHCenter | Qt::AlignVCenter);
 
     m_endOfTrackColor = QColor(200, 25, 20);
     const QString endOfTrackColorName = context.selectString(node, "EndOfTrackColor");
@@ -326,15 +284,6 @@ void WOverview::onConnectedControlChanged(double dParameter, double dValue) {
     int oldPositionSeconds = m_iPosSeconds;
     m_iPosSeconds = static_cast<int>(dParameter * getTrackSamples());
     if ((m_bTimeRulerActive || m_pHoveredMark != nullptr) && oldPositionSeconds != m_iPosSeconds) {
-        redraw = true;
-    }
-
-    // The time-remaining watermark shows whole seconds, and on a short overview
-    // one pixel of play marker can span several of them. Redraw on the digits
-    // changing too, or the countdown would visibly skip.
-    const int oldTimeRemainingSeconds = m_iTimeRemainingSeconds;
-    m_iTimeRemainingSeconds = static_cast<int>(std::ceil(m_timeRemainingControl.get()));
-    if (m_bTimeRemainingVisible && oldTimeRemainingSeconds != m_iTimeRemainingSeconds) {
         redraw = true;
     }
 
@@ -736,8 +685,6 @@ void WOverview::paintEvent(QPaintEvent* pEvent) {
             drawTimeRuler(&painter);
             drawMarkLabels(&painter, offset, gain);
         }
-        // Last, so the watermark sits over every other layer.
-        drawTimeRemaining(&painter);
     }
 
     if (m_bPassthroughEnabled) {
@@ -1332,96 +1279,6 @@ void WOverview::drawMarkLabels(QPainter* pPainter, const float offset, const flo
             }
         }
     }
-}
-
-void WOverview::setTimeRemainingVisible(bool visible) {
-    if (m_bTimeRemainingVisible == visible) {
-        return;
-    }
-    m_bTimeRemainingVisible = visible;
-    update();
-}
-
-/// The part of the widget an ancestor doesn't cut off, in widget coordinates.
-/// A skin may hand the overview a widget taller than the room its container
-/// leaves it — deck.xml lays the summary out at double height and shows the
-/// top half of it — so the widget's own rect is not what the DJ can see. Only
-/// ancestor geometry is taken into account, not overlapping siblings: this
-/// decides where text is laid out, and that must not move when something else
-/// happens to be drawn over the strip.
-QRect WOverview::visibleStripRect() const {
-    QRect visible = rect();
-    for (const QWidget* pAncestor = parentWidget(); pAncestor != nullptr;
-            pAncestor = pAncestor->parentWidget()) {
-        visible &= pAncestor->rect().translated(-mapTo(pAncestor, QPoint(0, 0)));
-        if (pAncestor->isWindow()) {
-            break;
-        }
-    }
-    return visible;
-}
-
-void WOverview::drawTimeRemaining(QPainter* pPainter) {
-    if (!m_bTimeRemainingVisible) {
-        return;
-    }
-
-    const double remainingSeconds = m_timeRemainingControl.get();
-    if (remainingSeconds < 0.0) {
-        return;
-    }
-
-    const QRect visible = visibleStripRect();
-    if (visible.isEmpty()) {
-        return;
-    }
-    // Sized and placed against what is on screen rather than against the whole
-    // widget, so a clipped overview keeps the digits inside the strip instead
-    // of centring them on an edge.
-    const bool horizontal = m_orientation == Qt::Horizontal;
-    const qreal visibleLength = horizontal ? visible.width() : visible.height();
-    const qreal visibleBreadth = horizontal ? visible.height() : visible.width();
-
-    const QString text = TimeRemainingOverlay::remainingTimeToString(remainingSeconds);
-    const TimeRemainingOverlay::TextLayout layout = TimeRemainingOverlay::layoutFor(
-            text, visibleBreadth, visibleLength, m_timeRemainingScale);
-    if (!layout.valid) {
-        return;
-    }
-
-    float x, y;
-    TimeRemainingOverlay::alignedPosition(m_timeRemainingAlign,
-            static_cast<float>(visibleLength),
-            static_cast<float>(visibleBreadth),
-            static_cast<float>(layout.boxWidth()),
-            static_cast<float>(layout.boxHeight()),
-            &x,
-            &y);
-
-    PainterScope painterScope(pPainter);
-    if (m_orientation == Qt::Vertical) {
-        // length()/breadth() run along the overview, not the widget. This is
-        // the same rotation the mark labels use to follow it.
-        pPainter->translate(width(), 0);
-        pPainter->rotate(90.0);
-        // In that frame the axes run from the widget's top edge and its right
-        // edge, which is where the visible strip has to be measured from too.
-        x += static_cast<float>(visible.top());
-        y += static_cast<float>(width() - visible.right() - 1);
-    } else {
-        x += static_cast<float>(visible.left());
-        y += static_cast<float>(visible.top());
-    }
-    pPainter->translate(x, y);
-    // The whole overlay is drawn at this opacity so the summary stays visible
-    // through it.
-    pPainter->setOpacity(m_timeRemainingOpacity);
-
-    TimeRemainingOverlay::paintOverlay(pPainter,
-            layout,
-            text,
-            m_timeRemainingColor,
-            m_timeRemainingBackgroundColor);
 }
 
 void WOverview::drawPassthroughOverlay(QPainter* pPainter) {
