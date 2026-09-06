@@ -38,15 +38,17 @@ static constexpr int kFirstHotCueIndex = 0;
 /// `hotcue_N_*` controls, so the engine treats them identically; only the
 /// importer and the skin care which bank a cue lives in.
 ///
-/// Hot cue bank: rekordbox pads A-H, and the eight pads a controller maps.
+/// Hot cue bank: rekordbox pads A-P. Controllers with eight physical pads
+/// address A-H directly while the remaining slots stay available to the
+/// library, waveform and mappings that provide a second page.
 static constexpr int kHotCueBankStart = kFirstHotCueIndex;
-static constexpr int kHotCueBankSize = 8;
+static constexpr int kHotCueBankSize = 16;
 
 /// Memory cue bank: chronological, the first of which also becomes the main
 /// cue. Starts clear of the hot cue bank so that growing one never shifts the
 /// other.
 static constexpr int kMemoryCueBankStart = 16;
-static constexpr int kMemoryCueBankSize = 8;
+static constexpr int kMemoryCueBankSize = 10;
 
 // DTO for Cue information without dependencies on the actual Track object
 class CueInfo {

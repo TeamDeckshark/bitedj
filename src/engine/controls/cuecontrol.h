@@ -241,6 +241,11 @@ class CueControl : public EngineControl {
     void hotcueFocusColorNext(double v);
     void hotcueFocusColorPrev(double v);
 
+    void memoryCueSet(double v);
+    void memoryCueDelete(double v);
+    void memoryCuePrev(double v);
+    void memoryCueNext(double v);
+
     void passthroughChanged(double v);
 
     void cueSet(double v);
@@ -298,6 +303,13 @@ class CueControl : public EngineControl {
     void seekOnLoad(mixxx::audio::FramePos seekOnLoadPosition);
     void setHotcueFocusIndex(int hotcueIndex);
     int getHotcueFocusIndex() const;
+    QList<HotcueControl *> memoryCueControlsInPositionOrder() const;
+    HotcueControl *memoryCueAtPosition(mixxx::audio::FramePos position) const;
+    void setMemoryCueAtMainCue(HotcueControl *pControl, double value,
+                               mixxx::audio::FramePos position);
+    void callAdjacentMemoryCue(int direction);
+    void setSelectedMemoryCue(HotcueControl *pControl);
+    void updateMemoryCueState();
     mixxx::RgbColor colorFromConfig(const ConfigKey& configKey);
 
     UserSettingsPointer m_pConfig;
@@ -372,6 +384,16 @@ class CueControl : public EngineControl {
     std::unique_ptr<ControlObject> m_pHotcueFocus;
     std::unique_ptr<ControlPushButton> m_pHotcueFocusColorNext;
     std::unique_ptr<ControlPushButton> m_pHotcueFocusColorPrev;
+
+    // Pioneer-style navigation over the reserved hotcue_17..26 storage bank.
+    // Keeping the storage compatible with Mixxx avoids a CueType/DB fork.
+    std::unique_ptr<ControlPushButton> m_pMemoryCueSet;
+    std::unique_ptr<ControlPushButton> m_pMemoryCueDelete;
+    std::unique_ptr<ControlPushButton> m_pMemoryCuePrev;
+    std::unique_ptr<ControlPushButton> m_pMemoryCueNext;
+    std::unique_ptr<ControlObject> m_pMemoryCueSelected;
+    std::unique_ptr<ControlObject> m_pMemoryCueCount;
+    int m_selectedMemoryCueIndex{Cue::kNoHotCue};
 
     parented_ptr<ControlProxy> m_pPassthrough;
 
