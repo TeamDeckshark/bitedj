@@ -19,7 +19,7 @@
   Variables:
     channel: deck number.
     hotcue:  hotcue slot, 1-based.
-    label:   what the pad is called (A-H, M1-M8).
+    label:   what the pad is called (A-H, M1-M10).
 -->
 <Template>
   <HotcueButton>
