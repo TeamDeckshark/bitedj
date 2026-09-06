@@ -461,12 +461,14 @@ void WOverview::updateCues(const QList<CuePointer> &loadedCues) {
             if ((currentCue->getType() == mixxx::CueType::HotCue ||
                         currentCue->getType() == mixxx::CueType::Loop) &&
                     hotcueNumber != Cue::kNoHotCue) {
-                // Prepend the hotcue number to hotcues' labels
+                // Prepend the skin-defined hotcue prefix to hotcues' labels.
+                // This falls back to the hotcue number when no prefix is set.
                 QString newLabel = currentCue->getLabel();
                 if (newLabel.isEmpty()) {
-                    newLabel = QString::number(hotcueNumber + 1);
+                    newLabel = pMark->hotcueLabelPrefix();
                 } else {
-                    newLabel = QString("%1: %2").arg(hotcueNumber + 1).arg(newLabel);
+                    newLabel = QString("%1: %2")
+                                       .arg(pMark->hotcueLabelPrefix(), newLabel);
                 }
 
                 if (pMark->m_text != newLabel) {
