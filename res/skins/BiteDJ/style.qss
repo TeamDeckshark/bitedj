@@ -161,10 +161,36 @@ WPushButton[value="1"]:hover {
   background-color: rgba(241, 89, 33, 0.12);
 }
 
-#DeckChannelTitle, #DeckTrackTimeTitle, #DeckTempoTitle {
+#DeckChannelTitle, #DeckTempoTitle,
+#DeckTrackTimeRemainLabel, #DeckTrackTimeSlashLabel, #DeckTrackTimeTimeLabel {
   font-size: 14px;
   font-weight: bold;
   text-transform: uppercase;
+}
+
+#DeckTrackTimeRemainLabel, #DeckTrackTimeTimeLabel {
+  color: #4a4a4a;
+}
+
+#DeckTrackTimeRemainLabel[highlight="1"],
+#DeckTrackTimeTimeLabel[highlight="1"] {
+  color: #e5e6ea;
+}
+
+#DeckTrackTimeSlashLabel {
+  color: #98989a;
+  padding: 0 1px;
+}
+
+#DeckHeaderTime {
+  qproperty-layoutAlignment: 'AlignRight | AlignVCenter';
+}
+
+#DeckHeaderTimeValue {
+  font-size: 18px;
+  font-weight: bold;
+  qproperty-alignment: 'AlignRight | AlignVCenter';
+  padding-right: 1px;
 }
 
 #DeckPlayingLeft, #DeckPlayingRight {
