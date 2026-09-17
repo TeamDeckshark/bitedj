@@ -696,6 +696,13 @@ void AudioDeviceSettings::refreshDeviceList() {
         if (pDevice->getDeviceId().name == kNetworkDeviceInternalName) {
             continue;
         }
+        // The appliance UI only supports direct ALSA hardware devices. Hide
+        // logical PCMs such as default, pulse, dmix, and surround aliases;
+        // SoundDevicePortAudio leaves alsaHwDevice empty for all of them.
+        if (pDevice->getHostAPI() == MIXXX_PORTAUDIO_ALSA_STRING &&
+                pDevice->getDeviceId().alsaHwDevice.isEmpty()) {
+            continue;
+        }
         const int channels = static_cast<int>(pDevice->getNumOutputChannels());
         if (channels < 2) {
             continue; // need at least stereo for a bus
