@@ -17,8 +17,16 @@ WNumberPos::WNumberPos(const QString& group, QWidget* parent)
     m_pTimeRemaining->connectValueChanged(
             this, &WNumberPos::slotTimeRemainingUpdated);
 
+    // time_elapsed/time_remaining hold the last position of an ejected track,
+    // so read the zeroed time straight off track_loaded instead.
+    m_pTrackLoaded = new ControlProxy(
+            group, "track_loaded", this, ControlFlag::NoAssertIfMissing);
+    m_pTrackLoaded->connectValueChanged(this, &WNumberPos::slotTrackLoadedChanged);
+
+    // The display mode is per player, so every time readout of a deck flips
+    // together and the two decks stay independent.
     m_pShowTrackTimeRemaining = new ControlProxy(
-            "[Controls]", "ShowDurationRemaining", this);
+            group, "show_duration_remaining", this, ControlFlag::NoAssertIfMissing);
     m_pShowTrackTimeRemaining->connectValueChanged(
             this, &WNumberPos::slotSetDisplayMode);
     slotSetDisplayMode(m_pShowTrackTimeRemaining->get());
@@ -31,7 +39,10 @@ WNumberPos::WNumberPos(const QString& group, QWidget* parent)
 }
 
 void WNumberPos::mousePressEvent(QMouseEvent* pEvent) {
-    bool leftClick = pEvent->buttons() & Qt::LeftButton;
+    // A tap synthesized from a touch point carries the button in button() but
+    // leaves buttons() empty, so check both.
+    const bool leftClick = pEvent->button() == Qt::LeftButton ||
+            pEvent->buttons().testFlag(Qt::LeftButton);
 
     if (leftClick) {
         // Cycle through display modes
@@ -64,6 +75,10 @@ void WNumberPos::setValue(double dValue) {
 
 void WNumberPos::slotSetTimeElapsed(double dTimeElapsed) {
     double dTimeRemaining = m_pTimeRemaining->get();
+    if (m_pTrackLoaded->valid() && !m_pTrackLoaded->toBool()) {
+        dTimeElapsed = 0.0;
+        dTimeRemaining = 0.0;
+    }
     QString (*timeFormat)(double dSeconds, mixxx::Duration::Precision precision);
 
     if (m_displayFormat == TrackTime::DisplayFormat::KILO_SECONDS) {
@@ -112,6 +127,11 @@ void WNumberPos::slotTimeRemainingUpdated(double dTimeRemaining) {
     if (dTimeElapsed == 0.0) {
         slotSetTimeElapsed(dTimeElapsed);
     }
+}
+
+void WNumberPos::slotTrackLoadedChanged(double loaded) {
+    Q_UNUSED(loaded);
+    slotSetTimeElapsed(m_pTimeElapsed->get());
 }
 
 void WNumberPos::slotSetDisplayMode(double remain) {

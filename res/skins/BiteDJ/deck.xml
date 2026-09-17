@@ -265,7 +265,7 @@
                     <ObjectName>DeckTrackTimeRemainLabel</ObjectName>
                     <Text>REMAIN</Text>
                     <Connection>
-                      <ConfigKey>[Controls],ShowDurationRemaining</ConfigKey>
+                      <ConfigKey>[Channel<Variable name="channel"/>],show_duration_remaining</ConfigKey>
                       <Transform>
                         <IsEqual>0</IsEqual>
                         <Not/>
@@ -281,7 +281,7 @@
                     <ObjectName>DeckTrackTimeTimeLabel</ObjectName>
                     <Text>TIME</Text>
                     <Connection>
-                      <ConfigKey>[Controls],ShowDurationRemaining</ConfigKey>
+                      <ConfigKey>[Channel<Variable name="channel"/>],show_duration_remaining</ConfigKey>
                       <Transform>
                         <IsEqual>1</IsEqual>
                         <Not/>
@@ -300,36 +300,9 @@
                 <Size>0me,0me</Size>
                 <Align>left</Align>
                 <Children>
-                  <!-- WNumberPos keeps the last time_elapsed/time_remaining
-                       on eject, so toggle a static 0:00.00 layer via
-                       track_loaded for a clean reset. -->
-                  <WidgetGroup>
-                    <Layout>horizontal</Layout>
-                    <Size>0me,0me</Size>
-                    <Children>
-                      <SizeAwareStack>
-                        <Children>
-                          <Label>
-                            <ObjectName>DeckTrackTimeMini</ObjectName>
-                            <MaximumSize>150,-1</MaximumSize>
-                            <Text>0:00.00</Text>
-                            <TabularNumbers>true</TabularNumbers>
-                          </Label>
-                          <Label>
-                            <ObjectName>DeckTrackTime</ObjectName>
-                            <MinimumSize>150,-1</MinimumSize>
-                            <Text>0:00.00</Text>
-                            <TabularNumbers>true</TabularNumbers>
-                          </Label>
-                        </Children>
-                      </SizeAwareStack>
-                    </Children>
-                    <Connection>
-                      <ConfigKey>[Channel<Variable name="channel"/>],track_loaded</ConfigKey>
-                      <BindProperty>visible</BindProperty>
-                      <Transform><Not/></Transform>
-                    </Connection>
-                  </WidgetGroup>
+                  <!-- Tapping a time readout toggles this deck's
+                       show_duration_remaining, which is what the REMAIN / TIME
+                       indicators above key off. -->
                   <WidgetGroup>
                     <Layout>horizontal</Layout>
                     <Size>0me,0me</Size>
@@ -344,7 +317,7 @@
                             <TabularNumbers>true</TabularNumbers>
                             <Channel><Variable name="channel"/></Channel>
                             <Connection>
-                              <ConfigKey>[Controls],ShowDurationRemaining</ConfigKey>
+                              <ConfigKey>[Channel<Variable name="channel"/>],show_duration_remaining</ConfigKey>
                               <Transform>
                                 <IsEqual>2</IsEqual>
                               </Transform>
@@ -359,7 +332,7 @@
                             <TabularNumbers>true</TabularNumbers>
                             <Channel><Variable name="channel"/></Channel>
                             <Connection>
-                              <ConfigKey>[Controls],ShowDurationRemaining</ConfigKey>
+                              <ConfigKey>[Channel<Variable name="channel"/>],show_duration_remaining</ConfigKey>
                               <Transform>
                                 <IsEqual>2</IsEqual>
                               </Transform>
@@ -369,10 +342,6 @@
                         </Children>
                       </SizeAwareStack>
                     </Children>
-                    <Connection>
-                      <ConfigKey>[Channel<Variable name="channel"/>],track_loaded</ConfigKey>
-                      <BindProperty>visible</BindProperty>
-                    </Connection>
                   </WidgetGroup>
                 </Children>
               </WidgetGroup>

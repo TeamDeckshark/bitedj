@@ -188,6 +188,7 @@ class BaseTrackPlayerImpl : public BaseTrackPlayer {
 
     std::unique_ptr<ControlObject> m_pTimeElapsed;
     std::unique_ptr<ControlObject> m_pTimeRemaining;
+    std::unique_ptr<ControlObject> m_pShowDurationRemaining;
     std::unique_ptr<ControlObject> m_pEndOfTrack;
 
     std::unique_ptr<ControlPushButton> m_pShiftCuesEarlier;

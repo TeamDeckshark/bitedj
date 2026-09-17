@@ -6,6 +6,7 @@
 #include "engine/controls/ratecontrol.h"
 #include "preferences/dialog/dlgpreferencepage.h"
 #include "preferences/dialog/ui_dlgprefdeckdlg.h"
+#include "preferences/tracktime.h"
 #include "preferences/usersettings.h"
 #include "util/parented_ptr.h"
 
@@ -15,23 +16,6 @@ class QWidget;
 
 namespace {
 constexpr bool kDefaultCloneDeckOnLoad = true;
-}
-
-namespace TrackTime {
-    enum class DisplayMode {
-        ELAPSED,
-        REMAINING,
-        ELAPSED_AND_REMAINING,
-    };
-
-    enum class DisplayFormat {
-        TRADITIONAL,
-        TRADITIONAL_COARSE,
-        SECONDS,
-        SECONDS_LONG,
-        KILO_SECONDS,
-        HECTO_SECONDS,
-    };
 }
 
 enum class KeylockMode {
@@ -104,6 +88,7 @@ class DlgPrefDeck : public DlgPreferencePage, public Ui::DlgPrefDeckDlg  {
 
     void setRateRangeForAllDecks(int rangePercent);
     void setRateDirectionForAllDecks(bool inverted);
+    void setTrackTimeDisplayForAllDecks(double displayMode);
 
     const UserSettingsPointer m_pConfig;
 
@@ -114,6 +99,7 @@ class DlgPrefDeck : public DlgPreferencePage, public Ui::DlgPrefDeckDlg  {
     const parented_ptr<ControlProxy> m_pNumSamplers;
 
     QList<ControlProxy*> m_cueControls;
+    QList<ControlProxy*> m_trackTimeDisplayControls;
     QList<ControlProxy*> m_rateControls;
     QList<ControlProxy*> m_rateDirectionControls;
     QList<ControlProxy*> m_rateRangeControls;
