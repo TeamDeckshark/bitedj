@@ -662,6 +662,90 @@
                     <SetVariable name="VisibleConfigKey">[Library],column_visible_comment</SetVariable>
                     <SetVariable name="WeightConfigKey">[Library],column_weight_comment</SetVariable>
                   </Template>
+
+                  <!-- Character priority: which regional glyph forms Han
+                       characters are drawn with (and, on a unit whose image has
+                       no CJK font, whether they are drawn at all). Japanese,
+                       Chinese and Korean share most of their code points but
+                       not their preferred shapes, so nothing in the text says
+                       which cut of Noto Sans CJK a track title wants — it has
+                       to be asked. Same control the CDJs call CHARACTER
+                       PRIORITY.
+
+                       Here rather than on General or System because both of
+                       those are at their row budget at the 420px floor, and
+                       this column is the one place with a free row: the left
+                       column carries seven and this one six, so the page is no
+                       taller than it already was. It earns the place on
+                       meaning too — every row on this page is about what the
+                       track list shows, and this is the one that decides
+                       whether it can be read at all.
+
+                       Deliberately independent of the UI language: an English
+                       UI over a Japanese collection is an ordinary setup, and
+                       AUTO alone (which follows [Config],Locale) would render
+                       it with whatever forms the menu language implies. AUTO is
+                       the default and resolves ja/zh_CN/zh_TW/zh_HK/ko; it
+                       falls back to Japanese anywhere else, which is what this
+                       image was already showing via fontconfig.
+
+                       200f of segments is 24f narrower than the 56f + 160f the
+                       column rows above it carry, so it fits wherever they do;
+                       five of them land on the same 40px pitch as their
+                       XS/S/M/L. The change is applied by re-parsing the skin
+                       (the family is spliced into the stylesheet at parse
+                       time), so the panel goes busy for a moment on each tap —
+                       same handshake as Day/Night. -->
+                  <WidgetGroup>
+                    <ObjectName>CharPriorityRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,48f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>LibraryColumnRowLabel</ObjectName>
+                        <Text>Chars</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>CharPrioritySegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>200f,40f</Size>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">Auto</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],character_priority</SetVariable>
+                            <SetVariable name="Value">0</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
+                            <SetVariable name="Text">JP</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],character_priority</SetVariable>
+                            <SetVariable name="Value">1</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
+                            <SetVariable name="Text">SC</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],character_priority</SetVariable>
+                            <SetVariable name="Value">2</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
+                            <SetVariable name="Text">TC</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],character_priority</SetVariable>
+                            <SetVariable name="Value">3</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">KR</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],character_priority</SetVariable>
+                            <SetVariable name="Value">4</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
                   <WidgetGroup>
                     <ObjectName>SettingsSpacer</ObjectName>
                     <Size>0me,0me</Size>

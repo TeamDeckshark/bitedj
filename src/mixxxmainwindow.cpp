@@ -38,6 +38,9 @@
 #include "mixer/playermanager.h"
 #include "notifications/notifications.h"
 #include "recording/recordingmanager.h"
+#include <functional>
+
+#include "skin/characterpriority.h"
 #include "skin/highcontrast.h"
 #include "skin/legacy/launchimage.h"
 #include "skin/skinloader.h"
@@ -83,10 +86,10 @@ inline bool supportsGlobalMenu() {
 
 const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
 
-// Bite DJ: how long the daylight-mode switch waits before rebuilding the skin,
-// so the sticky "Switching display mode..." paints before the GUI thread goes
-// away for the duration of the rebuild. Same value as the audio Apply's delay.
-constexpr int kHighContrastPaintDelayMs = 300;
+// Bite DJ: how long a setting that can only be applied by rebuilding the skin
+// waits first, so its sticky message paints before the GUI thread goes away for
+// the duration of the rebuild. Same value as the audio Apply's delay.
+constexpr int kSkinRebootPaintDelayMs = 300;
 } // namespace
 
 MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServices)
@@ -315,6 +318,14 @@ void MixxxMainWindow::initialize() {
                 &HighContrast::enabledChanged,
                 this,
                 &MixxxMainWindow::slotHighContrastChanged);
+    }
+    // Bite DJ: same story for the CJK font — it is spliced into each stylesheet
+    // as the skin is parsed, so changing which one is used is a skin reload.
+    if (CharacterPriority* pCharacterPriority = CharacterPriority::tryInstance()) {
+        connect(pCharacterPriority,
+                &CharacterPriority::priorityChanged,
+                this,
+                &MixxxMainWindow::slotCharacterPriorityChanged);
     }
 #ifndef __APPLE__
     connect(m_pPrefDlg,
@@ -1116,6 +1127,18 @@ void MixxxMainWindow::slotTooltipModeChanged(mixxx::preferences::Tooltips tt) {
 
 void MixxxMainWindow::slotHighContrastChanged(bool enabled) {
     Q_UNUSED(enabled);
+    rebootMixxxViewDeferred(tr("Switching display mode..."), tr("Display mode applied"));
+}
+
+void MixxxMainWindow::slotCharacterPriorityChanged() {
+    // The strip elides right, so the informative words go first; "applied" is
+    // spelled "set" to stay in the same width band as "Display mode applied".
+    rebootMixxxViewDeferred(tr("Switching character priority..."),
+            tr("Character priority set"));
+}
+
+void MixxxMainWindow::rebootMixxxViewDeferred(
+        const QString& startedMessage, const QString& finishedMessage) {
     // Never reboot from inside the toggle's own event handling: the tap is
     // still being delivered to a WPushButton that rebootMixxxView() is about
     // to delete. Deferring also lets the sticky message paint first — the
@@ -1124,16 +1147,14 @@ void MixxxMainWindow::slotHighContrastChanged(bool enabled) {
     // the audio Apply uses; busy additionally swallows taps queued during the
     // rebuild instead of replaying them into the new widget tree.
     if (auto* pNotifications = Notifications::tryInstance()) {
-        pNotifications->publishSticky(tr("Switching display mode..."),
-                Notifications::Severity::Info);
+        pNotifications->publishSticky(startedMessage, Notifications::Severity::Info);
         pNotifications->setBusy(true);
     }
-    QTimer::singleShot(kHighContrastPaintDelayMs, this, [this]() {
+    QTimer::singleShot(kSkinRebootPaintDelayMs, this, [this, finishedMessage]() {
         rebootMixxxView();
         if (auto* pNotifications = Notifications::tryInstance()) {
             pNotifications->setBusy(false);
-            pNotifications->publish(tr("Display mode applied"),
-                    Notifications::Severity::Info);
+            pNotifications->publish(finishedMessage, Notifications::Severity::Info);
         }
     });
 }
@@ -1216,6 +1237,45 @@ bool MixxxMainWindow::loadConfiguredSkin() {
         initializationProgressUpdate(100, "");
     }
     emit skinLoaded();
+    // TEMP MEASURE HOOK
+    if (qEnvironmentVariableIsSet("BITEDJ_MEASURE")) {
+        QTimer::singleShot(6000, this, [this]() {
+            resize(qEnvironmentVariableIntValue("BITEDJ_W"),
+                    qEnvironmentVariableIntValue("BITEDJ_H"));
+            ControlObject::set(ConfigKey("[Tab]", "current"), 4);
+            ControlObject::set(ConfigKey("[SettingsTab]", "current"), 2);
+            QTimer::singleShot(2000, this, [this]() {
+                std::function<void(QWidget*, int)> walk = [&](QWidget* w, int depth) {
+                    const QString name = w->objectName();
+                    if (!name.isEmpty()) {
+                        qWarning().noquote()
+                                << QString(depth * 2, ' ') + name
+                                << "geo" << w->geometry() << "minSH"
+                                << w->minimumSizeHint() << "SH" << w->sizeHint()
+                                << "cls" << w->metaObject()->className()
+                                << "txt"
+                                << w->property("text").toString();
+                    }
+                    if (depth > 8) {
+                        return;
+                    }
+                    for (QObject* c : w->children()) {
+                        if (auto* cw = qobject_cast<QWidget*>(c)) {
+                            walk(cw, depth + 1);
+                        }
+                    }
+                };
+                for (QWidget* w : m_pCentralWidget->findChildren<QWidget*>()) {
+                    if (w->objectName() == QLatin1String("LibraryColumnsCol")) {
+                        qWarning() << "==== COLUMN ====";
+                        walk(w, 0);
+                    }
+                }
+                qWarning() << "central" << m_pCentralWidget->geometry();
+                QApplication::quit();
+            });
+        });
+    }
     return m_pCentralWidget != nullptr;
 }
 

@@ -1196,6 +1196,29 @@ WBeatSpinBox::up-button {
   min-width: 32px;
 }
 
+/* Character priority sits at the foot of the second column and borrows the
+ * column rows' chrome, one step lighter so it does not read as another column
+ * toggle — it has no ON/OFF button and its segments are not sizes. */
+#CharPriorityRow {
+  background-color: #1d2229;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  padding: 2px 12px;
+  qproperty-layoutAlignment: 'AlignVCenter';
+}
+
+#CharPrioritySegmented {
+  qproperty-layoutAlignment: 'AlignRight | AlignVCenter';
+}
+
+/* Five segments in the 200px the four-segment rows above spend 160px on, so
+ * each lands on the same 40px pitch. 36px of content plus the 2px borders is
+ * exactly that, and AUTO — the longest label, four 12px bold caps — clears it. */
+#CharPrioritySegmented WPushButton {
+  font-size: 12px;
+  min-width: 36px;
+}
+
 /************************************************************************/
 /*     Samplers                                                         */
 /************************************************************************/
