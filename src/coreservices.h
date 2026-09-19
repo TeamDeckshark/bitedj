@@ -28,6 +28,7 @@ class Notifications;
 class AudioDeviceSettings;
 class ControllerSettings;
 class SystemSettings;
+class CharacterPriority;
 class HighContrast;
 
 namespace mixxx {
@@ -161,6 +162,7 @@ class CoreServices : public QObject {
     // removable drives through.
     std::unique_ptr<SamplerDrive> m_pSamplerDrive;
     std::unique_ptr<HighContrast> m_pHighContrast;
+    std::unique_ptr<CharacterPriority> m_pCharacterPriority;
 
     Timer m_runtime_timer;
     const CmdlineArgs& m_cmdlineArgs;

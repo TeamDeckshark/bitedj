@@ -50,6 +50,7 @@ class LibraryColumnControl : public QObject {
   private slots:
     void slotVisibilityChanged(double v);
     void slotWeightChanged(double v);
+    void slotSizeChanged(double v);
 
   private:
     struct ManagedColumn {
@@ -65,13 +66,44 @@ class LibraryColumnControl : public QObject {
         // release-side write so the value gets stuck at 1.0.
         std::unique_ptr<ControlPushButton> pVisibleCO;
         std::unique_ptr<ControlObject> pWeightCO;
+        // The two above, folded into the one control the settings page shows:
+        // 0 = hidden, 1..4 = visible at that weight. A ControlPushButton in
+        // TOGGLE mode with five states, so a skin <PushButton> bound to it
+        // cycles OFF -> XS -> S -> M -> L -> OFF on each tap (WPushButton takes
+        // its cycling behaviour from the CO's button mode) and reads its label
+        // straight off the state.
+        //
+        // It exists because the page has to fit 480x420: a label plus a 56px
+        // toggle plus a 160px four-segment strip is ~300px per column, and two
+        // of those do not fit in 480, let alone the three columns the 240px
+        // panel height forces. One 56px button per row does.
+        //
+        // Not the source of truth — the pair above still is, and still owns the
+        // cfg keys. This mirrors them in both directions, so a value written
+        // from anywhere (mixxx.cfg, a controller mapping, the hide-the-last-
+        // column refusal below) still lands on the button.
+        std::unique_ptr<ControlPushButton> pSizeCO;
     };
 
     void applyAllToHeader(WTrackTableViewHeader* pHeader);
+    // The bodies of the two slots above, callable directly. A ControlObject
+    // does not emit valueChanged for its own set(), so the size CO cannot make
+    // a column visible by writing the visibility CO and expecting that slot to
+    // do the cfg write — it has to come in here.
+    void applyVisibility(ManagedColumn& col, bool wantVisible);
+    void applyWeight(ManagedColumn& col, int weight);
+    // Pushes `col`'s current visible+weight onto its size CO. No-op while a
+    // size-CO change is the thing driving those two.
+    void syncSizeCO(const ManagedColumn& col);
     int findLogicalIndexForColumn(WTrackTableViewHeader* pHeader,
             const QString& name);
     int countVisibleManaged() const;
     static int clampWeight(int w);
+
+    // Guards the size CO <-> visible/weight CO mirroring against re-entering
+    // itself: slotSizeChanged writes the pair, each of which would otherwise
+    // write the size CO back from a half-updated state.
+    bool m_syncingSize = false;
 
     const UserSettingsPointer m_pConfig;
     std::vector<ManagedColumn> m_columns;

@@ -574,6 +574,18 @@
             </Children>
           </WidgetGroup>
 
+          <!-- Three columns of five rows, not two of seven. The panel is
+               480x240 inside the tab bars at the 480x420 floor; fourteen rows
+               at the 48f that keeps a 40px control off the touch floor is five
+               per column, and five per column is three columns. Two columns of
+               the old label + toggle + XS/S/M/L strip needed 633px of width and
+               336px of height and got 480x240, which is why every row was
+               clipped on the right and squeezed to 34px tall.
+               Each column sizes to its widest label plus 24px of row padding
+               plus the 56f button: 144 + 142 + 169 = 455, leaving ~25px of
+               slack at the floor. COMMENT is the widest label on the page and
+               is what sets the third column — move it and the arithmetic
+               changes. Rows stay in the reading order they had. -->
           <WidgetGroup trigger="[SettingsTab],columns">
             <ObjectName>SettingsPanel</ObjectName>
             <Layout>horizontal</Layout>
@@ -587,43 +599,24 @@
                 <Children>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">#</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_position</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_position</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_position</SetVariable>
                   </Template>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">Title</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_title</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_title</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_title</SetVariable>
                   </Template>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">Artist</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_artist</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_artist</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_artist</SetVariable>
                   </Template>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">Album</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_album</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_album</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_album</SetVariable>
                   </Template>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">BPM</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_bpm</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_bpm</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_bpm</SetVariable>
                   </Template>
-                  <Template src="skin:templates/library_column_row.xml">
-                    <SetVariable name="Label">Key</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_key</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_key</SetVariable>
-                  </Template>
-                  <Template src="skin:templates/library_column_row.xml">
-                    <SetVariable name="Label">Time</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_duration</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_duration</SetVariable>
-                  </Template>
-                  <WidgetGroup>
-                    <ObjectName>SettingsSpacer</ObjectName>
-                    <Size>0me,0me</Size>
-                  </WidgetGroup>
                 </Children>
               </WidgetGroup>
 
@@ -633,39 +626,121 @@
                 <SizePolicy>me,me</SizePolicy>
                 <Children>
                   <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Key</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_key</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
+                    <SetVariable name="Label">Time</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_duration</SetVariable>
+                  </Template>
+                  <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">Genre</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_genre</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_genre</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_genre</SetVariable>
                   </Template>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">Year</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_year</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_year</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_year</SetVariable>
                   </Template>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">Color</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_color</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_color</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_color</SetVariable>
                   </Template>
+                </Children>
+              </WidgetGroup>
+
+              <WidgetGroup>
+                <ObjectName>LibraryColumnsCol</ObjectName>
+                <Layout>vertical</Layout>
+                <SizePolicy>me,me</SizePolicy>
+                <Children>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">Rating</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_rating</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_rating</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_rating</SetVariable>
                   </Template>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">Played</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_timesplayed</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_timesplayed</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_timesplayed</SetVariable>
                   </Template>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">Comment</SetVariable>
-                    <SetVariable name="VisibleConfigKey">[Library],column_visible_comment</SetVariable>
-                    <SetVariable name="WeightConfigKey">[Library],column_weight_comment</SetVariable>
+                    <SetVariable name="SizeConfigKey">[Library],column_size_comment</SetVariable>
                   </Template>
+
+                  <!-- Character priority: which regional glyph forms Han
+                       characters are drawn with (and, on a unit whose image has
+                       no CJK font, whether they are drawn at all). Japanese,
+                       Chinese and Korean share most of their code points but
+                       not their preferred shapes, so nothing in the text says
+                       which cut of Noto Sans CJK a track title wants — it has
+                       to be asked. Same control the CDJs call CHARACTER
+                       PRIORITY.
+
+                       On this page rather than General or System because both
+                       of those are at their row budget at the 420px floor, and
+                       it earns the place on meaning too: every row here is
+                       about what the track list shows, and this is the one that
+                       decides whether it can be read at all. It rides in the
+                       third column, which carries four columns to the other
+                       two's five.
+
+                       Deliberately independent of the UI language: an English
+                       UI over a Japanese collection is an ordinary setup, and
+                       AUTO alone (which follows [Config],Locale) would render
+                       it with whatever forms the menu language implies. AUTO is
+                       the default and resolves ja/zh_CN/zh_TW/zh_HK/ko; it
+                       falls back to Japanese anywhere else, which is what this
+                       image was already showing via fontconfig.
+
+                       Cycles like the size buttons above it, and for the same
+                       geometry reason — five segments do not fit a 150px
+                       column. Applying it re-parses the skin (the font family
+                       is spliced into the stylesheet at parse time), so
+                       MixxxMainWindow waits for the taps to stop before it
+                       rebuilds: walking AUTO -> KR costs one rebuild, not
+                       four. -->
                   <WidgetGroup>
-                    <ObjectName>SettingsSpacer</ObjectName>
-                    <Size>0me,0me</Size>
+                    <ObjectName>CharPriorityRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,48f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>LibraryColumnRowLabel</ObjectName>
+                        <Text>Chars</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <PushButton>
+                        <ObjectName>CharPriorityButton</ObjectName>
+                        <Size>56f,40f</Size>
+                        <NumberStates>5</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>Auto</Text>
+                        </State>
+                        <State>
+                          <Number>1</Number>
+                          <Text>JP</Text>
+                        </State>
+                        <State>
+                          <Number>2</Number>
+                          <Text>SC</Text>
+                        </State>
+                        <State>
+                          <Number>3</Number>
+                          <Text>TC</Text>
+                        </State>
+                        <State>
+                          <Number>4</Number>
+                          <Text>KR</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[BiteDJ],character_priority</ConfigKey>
+                          <EmitOnDownPress>true</EmitOnDownPress>
+                          <ButtonState>LeftButton</ButtonState>
+                        </Connection>
+                      </PushButton>
+                    </Children>
                   </WidgetGroup>
+
                 </Children>
               </WidgetGroup>
 

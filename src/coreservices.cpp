@@ -34,6 +34,7 @@
 #ifdef __MODPLUG__
 #include "preferences/dialog/dlgprefmodplug.h"
 #endif
+#include "skin/characterpriority.h"
 #include "skin/highcontrast.h"
 #include "skin/skincontrols.h"
 #include "soundio/soundmanager.h"
@@ -533,6 +534,13 @@ void CoreServices::initialize(QApplication* pApp) {
     // mode is already on and records the widget so a later toggle can
     // re-apply without rebooting the skin view.
     m_pHighContrast = std::make_unique<HighContrast>(pConfig);
+
+    // Bite DJ: CJK character priority. Same timing requirement as HighContrast
+    // and for the same reason — LegacySkinParser splices the chosen font family
+    // into every stylesheet it applies, so this has to exist before the skin
+    // parses. It also sets the application font, which the launch image and any
+    // error dialog shown from here on inherit.
+    m_pCharacterPriority = std::make_unique<CharacterPriority>(pConfig);
 
     // Bite DJ: in-skin audio device picker singleton. Constructed after
     // Notifications (it publishes status via Notifications::publish) and

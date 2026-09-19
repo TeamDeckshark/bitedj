@@ -210,3 +210,119 @@ TEST_F(LibraryColumnControlTest, ManagedLayoutIsAppliedAndSelfHealing) {
     EXPECT_TRUE(restoredHeader->isSectionHidden(trackIdCol));
     EXPECT_TRUE(restoredHeader->isSectionHidden(previewCol));
 }
+
+// The settings page shows one control per column — [Library],column_size_<name>
+// — because a label plus an ON/OFF toggle plus a four-segment width strip does
+// not fit three columns into a 480px panel. It is a mirror of the
+// visible+weight pair, not a third source of truth, so what matters is that the
+// mirror holds in both directions.
+namespace {
+constexpr double kHidden = 0.0;
+
+double co(const char* item) {
+    return ControlObject::get(ConfigKey("[Library]", item));
+}
+
+void setCo(const char* item, double value) {
+    ControlObject::set(ConfigKey("[Library]", item), value);
+}
+} // namespace
+
+TEST_F(LibraryColumnControlTest, SizeCoStartsFromTheStoredVisibilityAndWeight) {
+    setLibraryConfig("ColumnVisible_artist", 1);
+    setLibraryConfig("ColumnWeight_artist", 3);
+    setLibraryConfig("ColumnVisible_genre", 0);
+    setLibraryConfig("ColumnWeight_genre", 2);
+
+    LibraryColumnControl columnControl(config());
+
+    EXPECT_EQ(3.0, co("column_size_artist"));
+    // Hidden reads as 0 whatever width it would have had.
+    EXPECT_EQ(kHidden, co("column_size_genre"));
+}
+
+TEST_F(LibraryColumnControlTest, SizeCoDrivesVisibilityAndWeight) {
+    setLibraryConfig("ColumnVisible_genre", 0);
+    setLibraryConfig("ColumnWeight_genre", 1);
+
+    LibraryColumnControl columnControl(config());
+    ASSERT_EQ(kHidden, co("column_size_genre"));
+
+    // One tap past OFF: the column comes back on, at that width.
+    setCo("column_size_genre", 3.0);
+
+    EXPECT_EQ(1.0, co("column_visible_genre"));
+    EXPECT_EQ(3.0, co("column_weight_genre"));
+    EXPECT_EQ(1, config()->getValue(ConfigKey("[Library]", "ColumnVisible_genre"), 0));
+    EXPECT_EQ(3, config()->getValue(ConfigKey("[Library]", "ColumnWeight_genre"), 0));
+}
+
+TEST_F(LibraryColumnControlTest, SizeZeroHidesButKeepsTheWidth) {
+    setLibraryConfig("ColumnVisible_genre", 1);
+    setLibraryConfig("ColumnWeight_genre", 4);
+
+    LibraryColumnControl columnControl(config());
+    ASSERT_EQ(4.0, co("column_size_genre"));
+
+    setCo("column_size_genre", kHidden);
+
+    EXPECT_EQ(kHidden, co("column_visible_genre"));
+    // Turning a column back on should bring back the width it had, so hiding
+    // must not touch the weight.
+    EXPECT_EQ(4.0, co("column_weight_genre"));
+    EXPECT_EQ(4, config()->getValue(ConfigKey("[Library]", "ColumnWeight_genre"), 0));
+}
+
+TEST_F(LibraryColumnControlTest, SizeCoFollowsVisibilityAndWeightWrittenElsewhere) {
+    setLibraryConfig("ColumnVisible_genre", 1);
+    setLibraryConfig("ColumnWeight_genre", 1);
+
+    LibraryColumnControl columnControl(config());
+
+    setCo("column_weight_genre", 4.0);
+    EXPECT_EQ(4.0, co("column_size_genre"));
+
+    setCo("column_visible_genre", 0.0);
+    EXPECT_EQ(kHidden, co("column_size_genre"));
+
+    setCo("column_visible_genre", 1.0);
+    EXPECT_EQ(4.0, co("column_size_genre"));
+}
+
+TEST_F(LibraryColumnControlTest, SizeCoClampsToARealSize) {
+    setLibraryConfig("ColumnVisible_genre", 1);
+    setLibraryConfig("ColumnWeight_genre", 2);
+
+    LibraryColumnControl columnControl(config());
+
+    setCo("column_size_genre", 9.0);
+    EXPECT_EQ(4.0, co("column_size_genre"));
+    EXPECT_EQ(4.0, co("column_weight_genre"));
+
+    // Nothing is narrower than hidden.
+    setCo("column_size_genre", -1.0);
+    EXPECT_EQ(kHidden, co("column_size_genre"));
+    EXPECT_EQ(kHidden, co("column_visible_genre"));
+}
+
+TEST_F(LibraryColumnControlTest, SizeCoSnapsBackWhenHidingTheLastColumn) {
+    // The table would render blank, so LibraryColumnControl refuses. The button
+    // has to come back off OFF or it would lie about the column's state.
+    for (const char* key : {"ColumnVisible_title",
+                 "ColumnVisible_artist",
+                 "ColumnVisible_bpm",
+                 "ColumnVisible_key",
+                 "ColumnVisible_duration"}) {
+        setLibraryConfig(key, 0);
+    }
+    setLibraryConfig("ColumnVisible_genre", 1);
+    setLibraryConfig("ColumnWeight_genre", 2);
+
+    LibraryColumnControl columnControl(config());
+    ASSERT_EQ(2.0, co("column_size_genre"));
+
+    setCo("column_size_genre", kHidden);
+
+    EXPECT_EQ(1.0, co("column_visible_genre"));
+    EXPECT_EQ(2.0, co("column_size_genre"));
+}

@@ -19,6 +19,7 @@
 #include "mixer/basetrackplayer.h"
 #include "mixer/playermanager.h"
 #include "moc_legacyskinparser.cpp"
+#include "skin/characterpriority.h"
 #include "skin/highcontrast.h"
 #include "skin/legacy/colorschemeparser.h"
 #include "skin/legacy/launchimage.h"
@@ -2278,7 +2279,12 @@ QString LegacySkinParser::getStyleFromNode(const QDomNode& node) {
     // legacy colour hack, which composes onto this string with colours that
     // have already been through WSkinColor (and so are already inverted) —
     // inverting the composed result would undo them.
-    return HighContrast::mapStyleSheet(style);
+    //
+    // It is also where the CJK font joins each font-family list. Outside the
+    // inversion rather than inside it, so daylight mode keeps transforming
+    // exactly the sheet the skin author wrote; the family it splices in is
+    // quoted, which the inverter passes through untouched either way.
+    return CharacterPriority::mapStyleSheet(HighContrast::mapStyleSheet(style));
 }
 
 void LegacySkinParser::commonWidgetSetup(const QDomNode& node,

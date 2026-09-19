@@ -38,6 +38,7 @@
 #include "mixer/playermanager.h"
 #include "notifications/notifications.h"
 #include "recording/recordingmanager.h"
+#include "skin/characterpriority.h"
 #include "skin/highcontrast.h"
 #include "skin/legacy/launchimage.h"
 #include "skin/skinloader.h"
@@ -83,10 +84,20 @@ inline bool supportsGlobalMenu() {
 
 const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
 
-// Bite DJ: how long the daylight-mode switch waits before rebuilding the skin,
-// so the sticky "Switching display mode..." paints before the GUI thread goes
-// away for the duration of the rebuild. Same value as the audio Apply's delay.
-constexpr int kHighContrastPaintDelayMs = 300;
+// Bite DJ: how long a setting that can only be applied by rebuilding the skin
+// waits first, so its sticky message paints before the GUI thread goes away for
+// the duration of the rebuild. Same value as the audio Apply's delay.
+constexpr int kSkinRebootPaintDelayMs = 300;
+
+// Bite DJ: how long character priority waits for the taps to stop before it
+// spends a skin rebuild. The control is a five-state cycle button, so walking
+// AUTO -> KR emits four changes in as many taps; without this the DJ would be
+// locked out by the busy flag after the first one and have to wait out a
+// rebuild between each of the rest. Comfortably longer than a deliberate
+// double-tap, short enough that the change still feels like it lands on its
+// own. The button's own label updates on every tap, so the wait is never
+// silent.
+constexpr int kCharacterPriorityDebounceMs = 700;
 } // namespace
 
 MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServices)
@@ -315,6 +326,19 @@ void MixxxMainWindow::initialize() {
                 &HighContrast::enabledChanged,
                 this,
                 &MixxxMainWindow::slotHighContrastChanged);
+    }
+    // Bite DJ: same story for the CJK font — it is spliced into each stylesheet
+    // as the skin is parsed, so changing which one is used is a skin reload.
+    if (CharacterPriority* pCharacterPriority = CharacterPriority::tryInstance()) {
+        m_characterPriorityDebounce.setSingleShot(true);
+        connect(&m_characterPriorityDebounce,
+                &QTimer::timeout,
+                this,
+                &MixxxMainWindow::slotApplyCharacterPriority);
+        connect(pCharacterPriority,
+                &CharacterPriority::priorityChanged,
+                this,
+                &MixxxMainWindow::slotCharacterPriorityChanged);
     }
 #ifndef __APPLE__
     connect(m_pPrefDlg,
@@ -1116,6 +1140,26 @@ void MixxxMainWindow::slotTooltipModeChanged(mixxx::preferences::Tooltips tt) {
 
 void MixxxMainWindow::slotHighContrastChanged(bool enabled) {
     Q_UNUSED(enabled);
+    rebootMixxxViewDeferred(tr("Switching display mode..."), tr("Display mode applied"));
+}
+
+void MixxxMainWindow::slotCharacterPriorityChanged() {
+    // Coalesce a walk through the cycle button into one rebuild. Restarting a
+    // single-shot timer is the whole mechanism; the rebuild reads the settled
+    // value out of CharacterPriority when it finally parses the skin, so no
+    // intermediate state has to be carried across.
+    m_characterPriorityDebounce.start(kCharacterPriorityDebounceMs);
+}
+
+void MixxxMainWindow::slotApplyCharacterPriority() {
+    // The strip elides right, so the informative words go first; "applied" is
+    // spelled "set" to stay in the same width band as "Display mode applied".
+    rebootMixxxViewDeferred(tr("Switching character priority..."),
+            tr("Character priority set"));
+}
+
+void MixxxMainWindow::rebootMixxxViewDeferred(
+        const QString& startedMessage, const QString& finishedMessage) {
     // Never reboot from inside the toggle's own event handling: the tap is
     // still being delivered to a WPushButton that rebootMixxxView() is about
     // to delete. Deferring also lets the sticky message paint first — the
@@ -1124,16 +1168,14 @@ void MixxxMainWindow::slotHighContrastChanged(bool enabled) {
     // the audio Apply uses; busy additionally swallows taps queued during the
     // rebuild instead of replaying them into the new widget tree.
     if (auto* pNotifications = Notifications::tryInstance()) {
-        pNotifications->publishSticky(tr("Switching display mode..."),
-                Notifications::Severity::Info);
+        pNotifications->publishSticky(startedMessage, Notifications::Severity::Info);
         pNotifications->setBusy(true);
     }
-    QTimer::singleShot(kHighContrastPaintDelayMs, this, [this]() {
+    QTimer::singleShot(kSkinRebootPaintDelayMs, this, [this, finishedMessage]() {
         rebootMixxxView();
         if (auto* pNotifications = Notifications::tryInstance()) {
             pNotifications->setBusy(false);
-            pNotifications->publish(tr("Display mode applied"),
-                    Notifications::Severity::Info);
+            pNotifications->publish(finishedMessage, Notifications::Severity::Info);
         }
     });
 }

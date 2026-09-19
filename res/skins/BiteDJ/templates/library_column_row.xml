@@ -1,4 +1,22 @@
 <Template>
+  <!-- One library column: its name, and one button carrying both whether the
+       column is shown and how wide it is. OFF -> XS -> S -> M -> L -> OFF on
+       each tap, straight off [Library],column_size_<name> (a five-state
+       ControlPushButton, so WPushButton cycles it and reads the label from the
+       state).
+
+       This used to be a 56f ON/OFF toggle plus a 160f XS/S/M/L strip. That is
+       ~300px with the label, and the page has to hold fourteen of these rows
+       in a 480x420 panel that measures 480x240 inside its chrome: 240px of
+       height is five 48f rows, so fourteen rows means three columns, and three
+       columns means ~150px each. One button fits; a toggle plus a strip never
+       could. Folding them also buys back the touch floor twice over — the
+       strip's segments were 40x40 and squeezed to 34px tall at the 420 floor,
+       this is 56x40 and not squeezed at all.
+
+       What it costs: the four widths are no longer all on screen at once, and
+       going L -> XS is four taps. Acceptable for a page a DJ visits once, and
+       the same tap-to-cycle idiom the Audio page's device rows already use. -->
   <WidgetGroup>
     <ObjectName>LibraryColumnRow</ObjectName>
     <Layout>horizontal</Layout>
@@ -10,54 +28,35 @@
         <Size>0me,0me</Size>
       </Label>
       <PushButton>
-        <ObjectName>LibraryColumnVisibleButton</ObjectName>
+        <ObjectName>LibraryColumnSizeButton</ObjectName>
         <Size>56f,40f</Size>
-        <NumberStates>2</NumberStates>
+        <NumberStates>5</NumberStates>
         <State>
           <Number>0</Number>
           <Text>OFF</Text>
         </State>
         <State>
           <Number>1</Number>
-          <Text>ON</Text>
+          <Text>XS</Text>
+        </State>
+        <State>
+          <Number>2</Number>
+          <Text>S</Text>
+        </State>
+        <State>
+          <Number>3</Number>
+          <Text>M</Text>
+        </State>
+        <State>
+          <Number>4</Number>
+          <Text>L</Text>
         </State>
         <Connection>
-          <ConfigKey><Variable name="VisibleConfigKey"/></ConfigKey>
+          <ConfigKey><Variable name="SizeConfigKey"/></ConfigKey>
           <EmitOnDownPress>true</EmitOnDownPress>
           <ButtonState>LeftButton</ButtonState>
         </Connection>
       </PushButton>
-      <WidgetGroup>
-        <ObjectName>LibraryColumnSegmented</ObjectName>
-        <Layout>horizontal</Layout>
-        <Size>160f,40f</Size>
-        <Children>
-          <Template src="skin:templates/setting_segment_button.xml">
-            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
-            <SetVariable name="Text">XS</SetVariable>
-            <SetVariable name="ConfigKey"><Variable name="WeightConfigKey"/></SetVariable>
-            <SetVariable name="Value">1</SetVariable>
-          </Template>
-          <Template src="skin:templates/setting_segment_button.xml">
-            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
-            <SetVariable name="Text">S</SetVariable>
-            <SetVariable name="ConfigKey"><Variable name="WeightConfigKey"/></SetVariable>
-            <SetVariable name="Value">2</SetVariable>
-          </Template>
-          <Template src="skin:templates/setting_segment_button.xml">
-            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
-            <SetVariable name="Text">M</SetVariable>
-            <SetVariable name="ConfigKey"><Variable name="WeightConfigKey"/></SetVariable>
-            <SetVariable name="Value">3</SetVariable>
-          </Template>
-          <Template src="skin:templates/setting_segment_button.xml">
-            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
-            <SetVariable name="Text">L</SetVariable>
-            <SetVariable name="ConfigKey"><Variable name="WeightConfigKey"/></SetVariable>
-            <SetVariable name="Value">4</SetVariable>
-          </Template>
-        </Children>
-      </WidgetGroup>
     </Children>
   </WidgetGroup>
 </Template>
