@@ -1167,56 +1167,59 @@ WBeatSpinBox::up-button {
   text-transform: uppercase;
 }
 
-#LibraryColumnVisibleButton {
+/* The one control on a column row: OFF plus the four widths, cycled in place.
+ * Outlined while the column is hidden and filled once it is showing, so the
+ * page still reads as a list of on/off decisions at a glance and the width is
+ * the detail you look at second. The `displayValue` property is the state
+ * index (0-4), which is why this is four selectors and not `[value="1"]`. */
+#LibraryColumnSizeButton,
+#CharPriorityButton {
   background-color: transparent;
   border: 2px solid #855ea7;
   border-radius: 4px;
-  color: #a7a9ac;
+  color: #5c707d;
   font-size: 12px;
   font-weight: bold;
-  margin-right: 8px;
+  text-transform: uppercase;
+  /* The gap between the label and the button. On the button rather than the
+   * label because the layout pins the button to a fixed 56f: the margin insets
+   * what is painted without touching the widget's geometry, so the row's
+   * minimum width does not move (the third column is already the widest and
+   * gets no share of the panel's spare width) and the tap target stays the full
+   * 56x40. Padding the label instead costs ~19px of column width. */
+  margin-left: 8px;
 }
 
-#LibraryColumnVisibleButton[value="1"] {
-  background-color: #855ea7;
+#LibraryColumnSizeButton[displayValue="1"],
+#LibraryColumnSizeButton[displayValue="2"],
+#LibraryColumnSizeButton[displayValue="3"],
+#LibraryColumnSizeButton[displayValue="4"],
+#CharPriorityButton[displayValue="1"],
+#CharPriorityButton[displayValue="2"],
+#CharPriorityButton[displayValue="3"],
+#CharPriorityButton[displayValue="4"] {
+  background-color: #488ab3;
+  border-color: #488ab3;
   color: #e7e8e9;
 }
 
-#LibraryColumnVisibleButton[pressed="true"] {
+#LibraryColumnSizeButton[pressed="true"],
+#CharPriorityButton[pressed="true"] {
   background-color: #2d6488;
+  border-color: #2d6488;
   color: #e7e8e9;
 }
 
-#LibraryColumnSegmented {
-  qproperty-layoutAlignment: 'AlignRight | AlignVCenter';
-}
-
-#LibraryColumnSegmented WPushButton {
-  font-size: 12px;
-  min-width: 32px;
-}
-
-/* Character priority sits at the foot of the second column and borrows the
- * column rows' chrome, one step lighter so it does not read as another column
- * toggle — it has no ON/OFF button and its segments are not sizes. */
+/* Character priority rides at the foot of the third column and borrows the
+ * column rows' chrome, one step lighter so it does not read as a fourteenth
+ * library column. Its button follows the same outlined/filled rule for a
+ * reason that happens to line up: AUTO is the un-overridden state. */
 #CharPriorityRow {
   background-color: #1d2229;
   border-radius: 4px;
   margin-bottom: 2px;
   padding: 2px 12px;
   qproperty-layoutAlignment: 'AlignVCenter';
-}
-
-#CharPrioritySegmented {
-  qproperty-layoutAlignment: 'AlignRight | AlignVCenter';
-}
-
-/* Five segments in the 200px the four-segment rows above spend 160px on, so
- * each lands on the same 40px pitch. 36px of content plus the 2px borders is
- * exactly that, and AUTO — the longest label, four 12px bold caps — clears it. */
-#CharPrioritySegmented WPushButton {
-  font-size: 12px;
-  min-width: 36px;
 }
 
 /************************************************************************/

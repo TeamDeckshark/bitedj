@@ -8,12 +8,15 @@
 #include <optional>
 
 #include "control/controlobject.h"
+#include "control/controlpushbutton.h"
 #include "moc_characterpriority.cpp"
 
 namespace {
 const QString kGroup = QStringLiteral("[BiteDJ]");
 const QString kItem = QStringLiteral("character_priority");
 constexpr double kDefault = 0.0; // Priority::Auto
+// Auto plus the four regions the DJ can name.
+constexpr int kPriorityCount = 5;
 
 // Where the UI language lives. Empty means "follow the system", which is what
 // the appliance ships as.
@@ -153,7 +156,14 @@ CharacterPriority::CharacterPriority(UserSettingsPointer pConfig)
     const ConfigKey key(kGroup, kItem);
     const double value = m_pConfig->getValue(key, kDefault);
     m_priority = priorityFromValue(value);
-    m_pCoPriority = std::make_unique<ControlObject>(key);
+    // A five-state ControlPushButton in TOGGLE mode rather than a plain
+    // ControlObject: the settings row is one button that cycles
+    // AUTO -> JP -> SC -> TC -> KR, and WPushButton only cycles when the CO it
+    // is bound to says it is a toggle. Same pattern, same reason, as
+    // LibraryColumnControl's size CO next to it on that page.
+    m_pCoPriority = std::make_unique<ControlPushButton>(key);
+    m_pCoPriority->setButtonMode(ControlPushButton::TOGGLE);
+    m_pCoPriority->setStates(kPriorityCount);
     m_pCoPriority->set(static_cast<double>(m_priority));
     connect(m_pCoPriority.get(),
             &ControlObject::valueChanged,

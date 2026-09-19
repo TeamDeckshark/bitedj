@@ -17,6 +17,7 @@ namespace {
 const QString kLibraryGroup = QStringLiteral("[Library]");
 const QString kVisCOPrefix = QStringLiteral("column_visible_");
 const QString kWeightCOPrefix = QStringLiteral("column_weight_");
+const QString kSizeCOPrefix = QStringLiteral("column_size_");
 const QString kVisCfgPrefix = QStringLiteral("ColumnVisible_");
 const QString kWeightCfgPrefix = QStringLiteral("ColumnWeight_");
 
@@ -131,6 +132,19 @@ LibraryColumnControl::LibraryColumnControl(
                 this,
                 &LibraryColumnControl::slotWeightChanged);
 
+        // kMaxWeight sizes plus the hidden state. TOGGLE, like pVisibleCO and
+        // for the same reason: a plain ControlObject leaves WPushButton in PUSH
+        // mode, where it never cycles.
+        col.pSizeCO = std::make_unique<ControlPushButton>(
+                ConfigKey(kLibraryGroup, kSizeCOPrefix + col.name));
+        col.pSizeCO->setButtonMode(ControlPushButton::TOGGLE);
+        col.pSizeCO->setStates(kMaxWeight + 1);
+        col.pSizeCO->set(visible ? static_cast<double>(weight) : 0.0);
+        connect(col.pSizeCO.get(),
+                &ControlObject::valueChanged,
+                this,
+                &LibraryColumnControl::slotSizeChanged);
+
         m_columns.push_back(std::move(col));
     }
 
@@ -180,23 +194,34 @@ void LibraryColumnControl::slotVisibilityChanged(double v) {
         return;
     }
 
-    const bool wantVisible = v != 0.0;
+    applyVisibility(*it, v != 0.0);
+}
+
+void LibraryColumnControl::applyVisibility(ManagedColumn& col, bool wantVisible) {
+    // A ControlObject does not emit valueChanged for its own set() — see
+    // ControlObject::privateValueChanged — so this cannot lean on the slot
+    // above running again when the change came from elsewhere (the size CO).
+    // Set the CO, then do the work, in that order: the refusal below reads the
+    // post-toggle state.
+    const double target = wantVisible ? 1.0 : 0.0;
+    if (col.pVisibleCO->get() != target) {
+        col.pVisibleCO->set(target);
+    }
 
     // Refuse to hide if this would leave zero managed columns visible
     // (the table would render blank). Mirrors the upstream safeguard in
-    // WTrackTableViewHeader::showOrHideColumn. The CO has already been
-    // updated to 0 by the time this slot fires, so countVisibleManaged()
-    // reflects the post-toggle state.
+    // WTrackTableViewHeader::showOrHideColumn.
     if (!wantVisible && countVisibleManaged() == 0) {
-        // Snap the CO back. The set will re-fire valueChanged with v=1.0;
-        // that re-entry takes the normal write-cfg-and-apply path,
-        // idempotent against the current visible state.
-        it->pVisibleCO->set(1.0);
+        // Snap the CO back and leave the cfg alone — it still says visible,
+        // which is what the column in fact still is.
+        col.pVisibleCO->set(1.0);
+        syncSizeCO(col);
         return;
     }
 
-    m_pConfig->set(ConfigKey(kLibraryGroup, it->visCfgKey),
+    m_pConfig->set(ConfigKey(kLibraryGroup, col.visCfgKey),
             ConfigValue{wantVisible ? 1 : 0});
+    syncSizeCO(col);
 
     for (auto* pHeader : std::as_const(m_headers)) {
         applyAllToHeader(pHeader);
@@ -220,17 +245,80 @@ void LibraryColumnControl::slotWeightChanged(double v) {
         return;
     }
 
-    const int clamped = clampWeight(static_cast<int>(v));
-    if (static_cast<double>(clamped) != v) {
-        it->pWeightCO->set(static_cast<double>(clamped));
-        return;
+    applyWeight(*it, static_cast<int>(v));
+}
+
+void LibraryColumnControl::applyWeight(ManagedColumn& col, int weight) {
+    const int clamped = clampWeight(weight);
+    if (col.pWeightCO->get() != static_cast<double>(clamped)) {
+        col.pWeightCO->set(static_cast<double>(clamped));
     }
 
-    m_pConfig->set(ConfigKey(kLibraryGroup, it->weightCfgKey),
+    m_pConfig->set(ConfigKey(kLibraryGroup, col.weightCfgKey),
             ConfigValue{clamped});
+    syncSizeCO(col);
 
     for (auto* pHeader : std::as_const(m_headers)) {
         applyAllToHeader(pHeader);
+    }
+}
+
+void LibraryColumnControl::slotSizeChanged(double v) {
+    auto* pSender = qobject_cast<ControlObject*>(sender());
+    if (!pSender) {
+        return;
+    }
+    const QString senderKey = pSender->getKey().item;
+    if (!senderKey.startsWith(kSizeCOPrefix)) {
+        return;
+    }
+    const QString name = senderKey.mid(kSizeCOPrefix.size());
+
+    auto it = std::find_if(m_columns.begin(), m_columns.end(),
+            [&name](const ManagedColumn& c) { return c.name == name; });
+    if (it == m_columns.end()) {
+        return;
+    }
+
+    // 0 is the hidden state and 1..kMaxWeight are the widths, so a stray write
+    // — a controller mapping, a hand-edited mixxx.cfg — lands on a real size
+    // rather than silently meaning nothing. Clamped rather than wrapped: there
+    // is nothing below hidden. The button itself only ever sends 0..kMaxWeight.
+    // Snapped here and then applied anyway, not applied on a later re-entry:
+    // this set is our own, and a ControlObject does not emit valueChanged for
+    // its own set().
+    const int size = std::clamp(static_cast<int>(v), 0, kMaxWeight);
+    if (it->pSizeCO->get() != static_cast<double>(size)) {
+        it->pSizeCO->set(static_cast<double>(size));
+    }
+
+    // The pair below is the source of truth; drive it through the same code the
+    // slots do, so a size change writes the same cfg and applies the same
+    // headers a direct visible/weight change would. The guard stops those from
+    // pushing a half-updated pair back onto the size CO mid-flight.
+    m_syncingSize = true;
+    if (size == 0) {
+        // Weight deliberately untouched: turning a column back on should bring
+        // back the width it had, not a default.
+        applyVisibility(*it, false);
+    } else {
+        applyWeight(*it, size);
+        applyVisibility(*it, true);
+    }
+    m_syncingSize = false;
+
+    // Unguarded, and from the settled state: this is what puts the button back
+    // on OFF->ON when hiding was refused for being the last visible column.
+    syncSizeCO(*it);
+}
+
+void LibraryColumnControl::syncSizeCO(const ManagedColumn& col) {
+    if (m_syncingSize || !col.pSizeCO) {
+        return;
+    }
+    const double desired = col.pVisibleCO->get() != 0.0 ? col.pWeightCO->get() : 0.0;
+    if (col.pSizeCO->get() != desired) {
+        col.pSizeCO->set(desired);
     }
 }
 

@@ -38,8 +38,6 @@
 #include "mixer/playermanager.h"
 #include "notifications/notifications.h"
 #include "recording/recordingmanager.h"
-#include <functional>
-
 #include "skin/characterpriority.h"
 #include "skin/highcontrast.h"
 #include "skin/legacy/launchimage.h"
@@ -90,6 +88,16 @@ const ConfigKey kHideMenuBarConfigKey = ConfigKey("[Config]", "hide_menubar");
 // waits first, so its sticky message paints before the GUI thread goes away for
 // the duration of the rebuild. Same value as the audio Apply's delay.
 constexpr int kSkinRebootPaintDelayMs = 300;
+
+// Bite DJ: how long character priority waits for the taps to stop before it
+// spends a skin rebuild. The control is a five-state cycle button, so walking
+// AUTO -> KR emits four changes in as many taps; without this the DJ would be
+// locked out by the busy flag after the first one and have to wait out a
+// rebuild between each of the rest. Comfortably longer than a deliberate
+// double-tap, short enough that the change still feels like it lands on its
+// own. The button's own label updates on every tap, so the wait is never
+// silent.
+constexpr int kCharacterPriorityDebounceMs = 700;
 } // namespace
 
 MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServices)
@@ -322,6 +330,11 @@ void MixxxMainWindow::initialize() {
     // Bite DJ: same story for the CJK font — it is spliced into each stylesheet
     // as the skin is parsed, so changing which one is used is a skin reload.
     if (CharacterPriority* pCharacterPriority = CharacterPriority::tryInstance()) {
+        m_characterPriorityDebounce.setSingleShot(true);
+        connect(&m_characterPriorityDebounce,
+                &QTimer::timeout,
+                this,
+                &MixxxMainWindow::slotApplyCharacterPriority);
         connect(pCharacterPriority,
                 &CharacterPriority::priorityChanged,
                 this,
@@ -1131,6 +1144,14 @@ void MixxxMainWindow::slotHighContrastChanged(bool enabled) {
 }
 
 void MixxxMainWindow::slotCharacterPriorityChanged() {
+    // Coalesce a walk through the cycle button into one rebuild. Restarting a
+    // single-shot timer is the whole mechanism; the rebuild reads the settled
+    // value out of CharacterPriority when it finally parses the skin, so no
+    // intermediate state has to be carried across.
+    m_characterPriorityDebounce.start(kCharacterPriorityDebounceMs);
+}
+
+void MixxxMainWindow::slotApplyCharacterPriority() {
     // The strip elides right, so the informative words go first; "applied" is
     // spelled "set" to stay in the same width band as "Display mode applied".
     rebootMixxxViewDeferred(tr("Switching character priority..."),
@@ -1237,45 +1258,6 @@ bool MixxxMainWindow::loadConfiguredSkin() {
         initializationProgressUpdate(100, "");
     }
     emit skinLoaded();
-    // TEMP MEASURE HOOK
-    if (qEnvironmentVariableIsSet("BITEDJ_MEASURE")) {
-        QTimer::singleShot(6000, this, [this]() {
-            resize(qEnvironmentVariableIntValue("BITEDJ_W"),
-                    qEnvironmentVariableIntValue("BITEDJ_H"));
-            ControlObject::set(ConfigKey("[Tab]", "current"), 4);
-            ControlObject::set(ConfigKey("[SettingsTab]", "current"), 2);
-            QTimer::singleShot(2000, this, [this]() {
-                std::function<void(QWidget*, int)> walk = [&](QWidget* w, int depth) {
-                    const QString name = w->objectName();
-                    if (!name.isEmpty()) {
-                        qWarning().noquote()
-                                << QString(depth * 2, ' ') + name
-                                << "geo" << w->geometry() << "minSH"
-                                << w->minimumSizeHint() << "SH" << w->sizeHint()
-                                << "cls" << w->metaObject()->className()
-                                << "txt"
-                                << w->property("text").toString();
-                    }
-                    if (depth > 8) {
-                        return;
-                    }
-                    for (QObject* c : w->children()) {
-                        if (auto* cw = qobject_cast<QWidget*>(c)) {
-                            walk(cw, depth + 1);
-                        }
-                    }
-                };
-                for (QWidget* w : m_pCentralWidget->findChildren<QWidget*>()) {
-                    if (w->objectName() == QLatin1String("LibraryColumnsCol")) {
-                        qWarning() << "==== COLUMN ====";
-                        walk(w, 0);
-                    }
-                }
-                qWarning() << "central" << m_pCentralWidget->geometry();
-                QApplication::quit();
-            });
-        });
-    }
     return m_pCentralWidget != nullptr;
 }
 

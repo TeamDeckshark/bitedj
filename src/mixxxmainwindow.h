@@ -2,6 +2,7 @@
 
 #include <QMainWindow>
 #include <QString>
+#include <QTimer>
 #include <memory>
 
 #include "preferences/constants.h"
@@ -90,9 +91,11 @@ class MixxxMainWindow : public QMainWindow {
     void slotTooltipModeChanged(mixxx::preferences::Tooltips tt);
     /// Bite DJ: daylight mode changed — rebuild the skin with the new palette.
     void slotHighContrastChanged(bool enabled);
-    /// Bite DJ: CJK character priority changed — rebuild the skin with the new
-    /// font family spliced into its stylesheets.
+    /// Bite DJ: CJK character priority changed — arm the debounce below.
     void slotCharacterPriorityChanged();
+    /// Bite DJ: the taps have stopped — rebuild the skin with the new font
+    /// family spliced into its stylesheets.
+    void slotApplyCharacterPriority();
 
   private:
     /// Bite DJ: rebuild the skin out of line, behind a sticky message and the
@@ -100,6 +103,10 @@ class MixxxMainWindow : public QMainWindow {
     /// skin, which is every setting the parser reads as it builds widgets.
     void rebootMixxxViewDeferred(
             const QString& startedMessage, const QString& finishedMessage);
+
+    /// Bite DJ: collapses a walk through the character-priority cycle button
+    /// into a single skin rebuild.
+    QTimer m_characterPriorityDebounce;
 
   signals:
     void skinLoaded();

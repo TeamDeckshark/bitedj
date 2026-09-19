@@ -9,7 +9,7 @@
 
 #include "preferences/usersettings.h"
 
-class ControlObject;
+class ControlPushButton;
 
 /// Bite DJ: CJK character priority — which regional glyph forms Han characters
 /// are drawn with, and the font that draws them.
@@ -60,9 +60,10 @@ class ControlObject;
 class CharacterPriority : public QObject {
     Q_OBJECT
   public:
-    /// The setting as the DJ picks it. Values are the ones the skin's segment
-    /// buttons write and `[BiteDJ],character_priority` persists; keep them
-    /// stable.
+    /// The setting as the DJ picks it. Values are the states the skin's
+    /// tap-to-cycle button walks and `[BiteDJ],character_priority` persists;
+    /// keep them stable, and keep them contiguous from zero — the button cycles
+    /// modulo the state count.
     enum class Priority {
         Auto = 0,
         Japanese = 1,
@@ -132,7 +133,9 @@ class CharacterPriority : public QObject {
   signals:
     /// Emitted after the new value is persisted. MixxxMainWindow reboots the
     /// skin view on this: the family is spliced in as the skin is parsed, so
-    /// there is nothing to re-apply in place.
+    /// there is nothing to re-apply in place. It debounces first — the control
+    /// is a cycle button, so reaching KR from AUTO emits this four times and
+    /// only the last one is worth a rebuild.
     void priorityChanged();
 
   private slots:
@@ -150,7 +153,7 @@ class CharacterPriority : public QObject {
     static QAtomicPointer<CharacterPriority> s_pInstance;
 
     UserSettingsPointer m_pConfig;
-    std::unique_ptr<ControlObject> m_pCoPriority;
+    std::unique_ptr<ControlPushButton> m_pCoPriority;
     Priority m_priority;
     /// Resolved family name, or empty when this unit has no CJK font at all.
     QString m_family;
