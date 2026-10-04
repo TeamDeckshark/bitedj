@@ -100,6 +100,14 @@ class BaseSqlTableModel : public BaseTrackTableModel {
 
     virtual void initSortColumnMapping();
 
+    // Rebuild derived row lookups after select() or an in-place row removal.
+    // External-library models use this because their table IDs are not Mixxx
+    // library IDs and must not be recovered from display data.
+    virtual void updateTrackIdLookup() {
+    }
+
+    TrackId rowIdentityTrackId(const QModelIndex& index) const;
+
     TrackCollectionManager* const m_pTrackCollectionManager;
 
     QList<TrackRef> getTrackRefs(const QModelIndexList& indices) const;

@@ -10,6 +10,7 @@
 #include <QMouseEvent>
 #include <QPointingDevice>
 #include <QScrollBar>
+#include <QSignalSpy>
 #include <QStandardItemModel>
 #include <QTableView>
 
@@ -49,6 +50,8 @@ class TouchScrollFilterTest : public testing::Test {
 
         m_view.setModel(&m_model);
         m_view.setSelectionBehavior(QAbstractItemView::SelectRows);
+        // Like WLibraryTableView, where a drag would otherwise select rows
+        m_view.setSelectionMode(QAbstractItemView::ExtendedSelection);
         m_view.verticalHeader()->setDefaultSectionSize(kRowHeight);
         m_view.verticalHeader()->hide();
         m_view.horizontalHeader()->hide();
@@ -62,6 +65,14 @@ class TouchScrollFilterTest : public testing::Test {
     void press(int y) {
         sendMouse(m_view.viewport(),
                 QEvent::MouseButtonPress,
+                QPointF(10, y),
+                Qt::LeftButton,
+                Qt::LeftButton);
+    }
+
+    void doubleClick(int y) {
+        sendMouse(m_view.viewport(),
+                QEvent::MouseButtonDblClick,
                 QPointF(10, y),
                 Qt::LeftButton,
                 Qt::LeftButton);
@@ -201,6 +212,39 @@ TEST_F(TouchScrollFilterTest, RightPressIsNotHeldBack) {
             Qt::RightButton);
 
     EXPECT_EQ(0, scrollPosition());
+}
+
+TEST_F(TouchScrollFilterTest, DoubleTapStillDoubleClicks) {
+    // Views other than the track table (e.g. the sidebar) act on it.
+    QSignalSpy doubleClicked(&m_view, &QAbstractItemView::doubleClicked);
+    const int row = 3;
+    const int y = row * kRowHeight + kRowHeight / 2;
+    press(y);
+    release(y);
+    doubleClick(y);
+    release(y);
+
+    ASSERT_EQ(1, doubleClicked.count());
+    EXPECT_EQ(row, doubleClicked.first().first().toModelIndex().row());
+    ASSERT_EQ(1, selectedRows().size());
+    EXPECT_EQ(row, selectedRows().first().row());
+}
+
+TEST_F(TouchScrollFilterTest, DragAfterDoubleTapScrollsAndDoesNotSelect) {
+    QSignalSpy doubleClicked(&m_view, &QAbstractItemView::doubleClicked);
+    const int y = 80;
+    press(y);
+    release(y);
+    m_view.clearSelection();
+    // The finger stays down on the second tap and starts dragging.
+    doubleClick(y);
+    moveTo(y - kDragDistance / 2);
+    moveTo(y - kDragDistance);
+    release(y - kDragDistance);
+
+    EXPECT_EQ(kDragDistance, scrollPosition());
+    EXPECT_TRUE(selectedRows().isEmpty());
+    EXPECT_EQ(0, doubleClicked.count());
 }
 
 } // anonymous namespace

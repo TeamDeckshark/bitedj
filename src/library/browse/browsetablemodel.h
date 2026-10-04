@@ -56,6 +56,9 @@ class BrowseTableModel final : public QStandardItemModel, public virtual TrackMo
 
     // initiate table population, store path
     void setPath(mixxx::FileAccess path);
+    // Like setPath(), but the FileAccess for `location` is acquired on the
+    // BrowseThread, so a slow or failing drive cannot stall the caller.
+    void setPathLocation(const QString& location);
 
     /// Stop the BrowseThread, potentially still running and population
     /// the model, by setting an empty path in order to avoid its update
@@ -113,8 +116,8 @@ class BrowseTableModel final : public QStandardItemModel, public virtual TrackMo
     void restoreModelState();
 
   public slots:
-    void slotClear(BrowseTableModel*);
-    void slotInsert(const QList<QList<QStandardItem*>>&, BrowseTableModel*);
+    void slotClear(BrowseTableModel*, quint64 generation);
+    void slotInsert(BrowseRowBatchPointer, BrowseTableModel*, quint64 generation);
 
   private slots:
     /// Repaint the rows after the set of tracks played this session changed
@@ -129,6 +132,8 @@ class BrowseTableModel final : public QStandardItemModel, public virtual TrackMo
     RecordingManager* m_pRecordingManager;
     BrowseThreadPointer m_pBrowseThread;
     QString m_currentDirectory;
+    // Generation of the last population request; see BrowseThread.
+    quint64 m_browseGeneration = 0;
     QString m_previewDeckGroup;
     // Locations whose file was found to be missing when the DJ tried to load
     // them. Drives the red row colour (see data()) and blocks re-loading.

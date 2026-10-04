@@ -588,13 +588,18 @@ void CachingReader::hintAndMaybeWake(const HintVector& hintList) {
                             << request.chunk;
                 }
                 if (m_chunkReadRequestFIFO.write(&request, 1) != 1) {
-                    kLogger.warning()
-                            << m_group
-                            << "Failed to submit read request for chunk"
-                            << chunkIndex;
                     // Revoke the chunk from the worker and free it
                     pChunk->takeFromWorker();
                     freeChunk(pChunk);
+                    // The worker is behind (typically a stalled USB read) and
+                    // its queue is full. Every remaining chunk of every
+                    // remaining hint would fail the same way, and logging each
+                    // one allocates in the audio callback, once per callback
+                    // for as long as the stall lasts. Hints are ordered by
+                    // urgency, so stop here: the next callback re-hints
+                    // whatever is still missing once the worker has drained.
+                    m_worker.workReady();
+                    return;
                 }
             } else if (pChunk->getState() == CachingReaderChunkForOwner::READY) {
                 // This will cause the chunk to be 'freshened' in the cache. The

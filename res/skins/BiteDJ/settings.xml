@@ -81,6 +81,15 @@
                     </Children>
                   </WidgetGroup>
 
+                  <!-- Crossfader assignment for both decks on one row: a
+                       tap-to-cycle button per deck, A -> Thru -> B -> A, off
+                       [ChannelN],orientation (a three-state TOGGLE
+                       ControlPushButton, so WPushButton cycles it and reads its
+                       label off the state). These were two rows of A|None|B
+                       segments; folding them freed the left column's fifth
+                       slot for On Air below, at the cost of no longer seeing
+                       the three choices at once. "Thru" is the DJ's word for
+                       Mixxx's None: the deck bypasses the crossfader. -->
                   <WidgetGroup>
                     <ObjectName>SettingsRow</ObjectName>
                     <Layout>horizontal</Layout>
@@ -88,72 +97,56 @@
                     <Children>
                       <Label>
                         <ObjectName>SettingsRowLabel</ObjectName>
-                        <Text>Deck 1</Text>
+                        <Text>Xfader</Text>
                         <Size>0me,0me</Size>
                       </Label>
+                      <PushButton>
+                        <ObjectName>SettingsActionButton</ObjectName>
+                        <Size>64f,40f</Size>
+                        <NumberStates>3</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>1: A</Text>
+                        </State>
+                        <State>
+                          <Number>1</Number>
+                          <Text>1: Thru</Text>
+                        </State>
+                        <State>
+                          <Number>2</Number>
+                          <Text>1: B</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[Channel1],orientation</ConfigKey>
+                          <EmitOnDownPress>true</EmitOnDownPress>
+                          <ButtonState>LeftButton</ButtonState>
+                        </Connection>
+                      </PushButton>
                       <WidgetGroup>
-                        <ObjectName>SettingsSegmented</ObjectName>
-                        <Layout>horizontal</Layout>
-                        <Size>138f,40f</Size>
-                        <Children>
-                          <Template src="skin:templates/setting_segment_button.xml">
-                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
-                            <SetVariable name="Text">A</SetVariable>
-                            <SetVariable name="ConfigKey">[Channel1],orientation</SetVariable>
-                            <SetVariable name="Value">0</SetVariable>
-                          </Template>
-                          <Template src="skin:templates/setting_segment_button.xml">
-                            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
-                            <SetVariable name="Text">None</SetVariable>
-                            <SetVariable name="ConfigKey">[Channel1],orientation</SetVariable>
-                            <SetVariable name="Value">1</SetVariable>
-                          </Template>
-                          <Template src="skin:templates/setting_segment_button.xml">
-                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
-                            <SetVariable name="Text">B</SetVariable>
-                            <SetVariable name="ConfigKey">[Channel1],orientation</SetVariable>
-                            <SetVariable name="Value">2</SetVariable>
-                          </Template>
-                        </Children>
+                        <Size>8f,0me</Size>
                       </WidgetGroup>
-                    </Children>
-                  </WidgetGroup>
-
-                  <WidgetGroup>
-                    <ObjectName>SettingsRow</ObjectName>
-                    <Layout>horizontal</Layout>
-                    <Size>0me,52f</Size>
-                    <Children>
-                      <Label>
-                        <ObjectName>SettingsRowLabel</ObjectName>
-                        <Text>Deck 2</Text>
-                        <Size>0me,0me</Size>
-                      </Label>
-                      <WidgetGroup>
-                        <ObjectName>SettingsSegmented</ObjectName>
-                        <Layout>horizontal</Layout>
-                        <Size>138f,40f</Size>
-                        <Children>
-                          <Template src="skin:templates/setting_segment_button.xml">
-                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
-                            <SetVariable name="Text">A</SetVariable>
-                            <SetVariable name="ConfigKey">[Channel2],orientation</SetVariable>
-                            <SetVariable name="Value">0</SetVariable>
-                          </Template>
-                          <Template src="skin:templates/setting_segment_button.xml">
-                            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
-                            <SetVariable name="Text">None</SetVariable>
-                            <SetVariable name="ConfigKey">[Channel2],orientation</SetVariable>
-                            <SetVariable name="Value">1</SetVariable>
-                          </Template>
-                          <Template src="skin:templates/setting_segment_button.xml">
-                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
-                            <SetVariable name="Text">B</SetVariable>
-                            <SetVariable name="ConfigKey">[Channel2],orientation</SetVariable>
-                            <SetVariable name="Value">2</SetVariable>
-                          </Template>
-                        </Children>
-                      </WidgetGroup>
+                      <PushButton>
+                        <ObjectName>SettingsActionButton</ObjectName>
+                        <Size>64f,40f</Size>
+                        <NumberStates>3</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>2: A</Text>
+                        </State>
+                        <State>
+                          <Number>1</Number>
+                          <Text>2: Thru</Text>
+                        </State>
+                        <State>
+                          <Number>2</Number>
+                          <Text>2: B</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[Channel2],orientation</ConfigKey>
+                          <EmitOnDownPress>true</EmitOnDownPress>
+                          <ButtonState>LeftButton</ButtonState>
+                        </Connection>
+                      </PushButton>
                     </Children>
                   </WidgetGroup>
 
@@ -220,6 +213,55 @@
                             <SetVariable name="Text">Gated</SetVariable>
                             <SetVariable name="ConfigKey">[Controls],HotcueActivatePlays</SetVariable>
                             <SetVariable name="Value">0</SetVariable>
+                          </Template>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
+                  <!-- What loading a track into a deck that is playing does
+                       ([BiteDJ],load_into_playing, owned by SystemSettings,
+                       read by BaseTrackPlayerImpl on every load). Allow is
+                       stock Mixxx: the deck stops and the new track loads.
+                       Warn holds the load on the notification strip with a
+                       LOAD action; it goes ahead only on that tap, and a tap
+                       elsewhere on the strip or the strip's 5 s timeout drops
+                       it. Block refuses and says so on the strip. Decks only:
+                       samplers and the preview deck load as before. "Block"
+                       rather than "Prevent" because seven 12px caps do not
+                       clear a 50px segment. -->
+                  <WidgetGroup>
+                    <ObjectName>SettingsRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,52f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>SettingsRowLabel</ObjectName>
+                        <Text>Load Gate</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <WidgetGroup>
+                        <ObjectName>SettingsSegmented</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>150f,40f</Size>
+                        <Children>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
+                            <SetVariable name="Text">Allow</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],load_into_playing</SetVariable>
+                            <SetVariable name="Value">0</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentMid</SetVariable>
+                            <SetVariable name="Text">Warn</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],load_into_playing</SetVariable>
+                            <SetVariable name="Value">1</SetVariable>
+                          </Template>
+                          <Template src="skin:templates/setting_segment_button.xml">
+                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
+                            <SetVariable name="Text">Block</SetVariable>
+                            <SetVariable name="ConfigKey">[BiteDJ],load_into_playing</SetVariable>
+                            <SetVariable name="Value">2</SetVariable>
                           </Template>
                         </Children>
                       </WidgetGroup>

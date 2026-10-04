@@ -317,6 +317,13 @@ void BrowseFeature::activateChild(const QModelIndex& index) {
         // Clear the tracks view
         m_browseModel.setPath({});
     } else {
+#if defined(__LINUX__)
+        // No sandbox to ask for access here, so the readability check below
+        // would only be a stat on the GUI thread, against a drive that may
+        // take seconds to answer. The BrowseThread resolves the path instead.
+        emit saveModelState();
+        m_browseModel.setPathLocation(path);
+#else
         // Open a security token for this path and if we do not have access, ask
         // for it.
         auto dirInfo = mixxx::FileInfo(path);
@@ -332,6 +339,7 @@ void BrowseFeature::activateChild(const QModelIndex& index) {
         }
         emit saveModelState();
         m_browseModel.setPath(std::move(dirAccess));
+#endif
     }
     emit showTrackModel(&m_proxyModel);
     // Search is restored in Library::slotShowTrackModel, disable it where it's useless

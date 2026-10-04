@@ -56,8 +56,30 @@ void Notifications::publish(const QString& message, Severity severity) {
     // flips on so the strip's QSS picks the right tint on the same frame.
     m_pCoSeverity->forceSet(static_cast<double>(severity));
     m_pCoVisible->forceSet(1.0);
+    m_action = nullptr;
     emit messagePosted(message, static_cast<int>(severity));
+    emit actionPosted(QString());
     m_idleTimer.start();
+}
+
+void Notifications::publishWithAction(const QString& message,
+        Severity severity,
+        const QString& actionLabel,
+        std::function<void()> action) {
+    publish(message, severity);
+    m_action = std::move(action);
+    emit actionPosted(actionLabel);
+}
+
+void Notifications::triggerAction() {
+    // Move it out first: the action may well publish a notification of its
+    // own (a load that fails, say), which must not be cleared behind it.
+    auto action = std::move(m_action);
+    m_action = nullptr;
+    clear();
+    if (action) {
+        action();
+    }
 }
 
 void Notifications::publishSticky(const QString& message, Severity severity) {
@@ -68,11 +90,14 @@ void Notifications::publishSticky(const QString& message, Severity severity) {
     m_idleTimer.stop();
     m_pCoSeverity->forceSet(static_cast<double>(severity));
     m_pCoVisible->forceSet(1.0);
+    m_action = nullptr;
     emit messagePosted(message, static_cast<int>(severity));
+    emit actionPosted(QString());
 }
 
 void Notifications::clear() {
     m_idleTimer.stop();
+    m_action = nullptr;
     m_pCoVisible->forceSet(0.0);
     m_pCoSeverity->forceSet(0.0);
     emit cleared();

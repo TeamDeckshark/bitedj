@@ -24,6 +24,7 @@
 #include "library/library.h"
 #include "library/queryutil.h"
 #include "library/rekordbox/rekordboxconstants.h"
+#include "library/rekordbox/rekordboxpagechain.h"
 #include "library/starrating.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
@@ -132,12 +133,23 @@ bool createLibraryTable(QSqlDatabase& database, const QString& tableName) {
             // device's own database said, so Settings -> Clear -> Meta can put
             // it back without re-parsing the PDB.
             "    source_rating INTEGER,"
-            "    analyze_path TEXT UNIQUE,"
+            // Different tracks may legitimately refer to the same analysis
+            // file. The audio location is the unique identity of a track.
+            "    analyze_path TEXT,"
             "    device TEXT,"
             "    color INTEGER"
             ");");
 
     if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return false;
+    }
+
+    // Import and playlist construction look up every exported track by this
+    // pair. Without an index a large export is quadratic, all of it inside
+    // the library database's write transaction.
+    if (!query.exec("CREATE INDEX IF NOT EXISTS " + tableName +
+                "_rb_device ON " + tableName + " (rb_id, device)")) {
         LOG_FAILED_QUERY(query);
         return false;
     }
@@ -178,6 +190,12 @@ bool createPlaylistTracksTable(QSqlDatabase& database, const QString& tableName)
             ");");
 
     if (!query.exec()) {
+        LOG_FAILED_QUERY(query);
+        return false;
+    }
+
+    if (!query.exec("CREATE INDEX IF NOT EXISTS " + tableName +
+                "_playlist ON " + tableName + " (playlist_id, position)")) {
         LOG_FAILED_QUERY(query);
         return false;
     }
@@ -417,7 +435,28 @@ mixxx::RgbColor colorFromID(int colorID) {
     return kColorForIDNoColor;
 }
 
-void insertTrack(
+int findTrackId(QSqlDatabase& database, int rbID, const QString& device) {
+    QSqlQuery finderQuery(database);
+    finderQuery.prepare("select id from " + kRekordboxLibraryTable +
+            " where rb_id=:rb_id and device=:device");
+    finderQuery.bindValue(":rb_id", rbID);
+    finderQuery.bindValue(":device", device);
+
+    if (!finderQuery.exec()) {
+        LOG_FAILED_QUERY(finderQuery)
+                << "rbID:" << rbID
+                << "device:" << device;
+        return -1;
+    }
+
+    if (!finderQuery.next()) {
+        return -1;
+    }
+
+    return finderQuery.value(finderQuery.record().indexOf("id")).toInt();
+}
+
+bool insertTrack(
         QSqlDatabase& database,
         rekordbox_pdb_t::track_row_t* track,
         QSqlQuery& query,
@@ -473,22 +512,16 @@ void insertTrack(
 
     if (!query.exec()) {
         LOG_FAILED_QUERY(query);
+        return false;
     }
 
-    int trackID = -1;
-    QSqlQuery finderQuery(database);
-    finderQuery.prepare("select id from " + kRekordboxLibraryTable +
-            " where rb_id=:rb_id and device=:device");
-    finderQuery.bindValue(":rb_id", rbID);
-    finderQuery.bindValue(":device", device);
-
-    if (!finderQuery.exec()) {
-        LOG_FAILED_QUERY(finderQuery)
-                << "rbID:" << rbID;
-    }
-
-    if (finderQuery.next()) {
-        trackID = finderQuery.value(finderQuery.record().indexOf("id")).toInt();
+    const int trackID = findTrackId(database, rbID, device);
+    if (trackID < 0) {
+        qWarning() << "Skipping Rekordbox track without a valid local row"
+                   << "rbID:" << rbID
+                   << "device:" << device
+                   << "location:" << location;
+        return false;
     }
 
     // Insert into device all tracks playlist
@@ -499,7 +532,10 @@ void insertTrack(
         LOG_FAILED_QUERY(queryInsertIntoDevicePlaylistTracks)
                 << "trackID:" << trackID
                 << "position:" << audioFilesCount;
+        return false;
     }
+
+    return true;
 }
 
 void buildPlaylistTree(
@@ -511,7 +547,8 @@ void buildPlaylistTree(
         QMap<uint32_t, QMap<uint32_t, uint32_t>>& playlistTreeMap,
         QMap<uint32_t, QMap<uint32_t, uint32_t>>& playlistTrackMap,
         const QString& playlistPath,
-        const QString& device);
+        const QString& device,
+        QSet<uint32_t> ancestors = {});
 
 QString parseDeviceDB(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* deviceItem) {
     QString device = deviceItem->getLabel();
@@ -607,10 +644,17 @@ QString parseDeviceDB(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dev
     for (int tableOrderIndex = 0; tableOrderIndex < totalTables; tableOrderIndex++) {
         for (const auto& table : *rekordboxDB.tables()) {
             if (table->type() == tableOrder[tableOrderIndex]) {
-                uint16_t lastIndex = table->last_page()->index();
+                // Page indices are 32-bit: truncating them meant a table
+                // past page 65535 never matched its last page. A corrupt
+                // export can also chain pages into a cycle, which would spin
+                // this worker forever, so every page is checked first.
+                const uint32_t lastIndex = table->last_page()->index();
+                mixxx::rekordbox::PageChainGuard pageChain(
+                        rekordboxDB.len_page(), ks.size());
                 rekordbox_pdb_t::page_ref_t* currentRef = table->first_page();
 
                 while (true) {
+                    pageChain.visit(currentRef->index());
                     rekordbox_pdb_t::page_t* page = currentRef->body();
 
                     if (page->is_data_page()) {
@@ -723,20 +767,20 @@ QString parseDeviceDB(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dev
 
     int audioFilesCount = 0;
     for (rekordbox_pdb_t::track_row_t* trackRow : trackRows) {
-        insertTrack(database,
-                trackRow,
-                query,
-                queryInsertIntoDevicePlaylistTracks,
-                artistsMap,
-                albumsMap,
-                genresMap,
-                keysMap,
-                devicePath,
-                device,
-                storedRatings,
-                audioFilesCount);
-
-        audioFilesCount++;
+        if (insertTrack(database,
+                    trackRow,
+                    query,
+                    queryInsertIntoDevicePlaylistTracks,
+                    artistsMap,
+                    albumsMap,
+                    genresMap,
+                    keysMap,
+                    devicePath,
+                    device,
+                    storedRatings,
+                    audioFilesCount)) {
+            audioFilesCount++;
+        }
     }
 
     if (audioFilesCount > 0 || folderOrPlaylistFound) {
@@ -769,11 +813,21 @@ void buildPlaylistTree(
         QMap<uint32_t, QMap<uint32_t, uint32_t>>& playlistTreeMap,
         QMap<uint32_t, QMap<uint32_t, uint32_t>>& playlistTrackMap,
         const QString& playlistPath,
-        const QString& device) {
-    for (uint32_t childIndex = 0;
-            childIndex < (uint32_t)playlistTreeMap[parentID].size();
-            childIndex++) {
-        uint32_t childID = playlistTreeMap[parentID][childIndex];
+        const QString& device,
+        QSet<uint32_t> ancestors) {
+    // A corrupt export can make a folder its own ancestor, which would recurse
+    // until the stack ran out.
+    if (ancestors.contains(parentID) || ancestors.size() >= 128) {
+        qWarning() << "Skipping cyclic or excessively nested Rekordbox playlist folder"
+                   << parentID;
+        return;
+    }
+    ancestors.insert(parentID);
+    // Sort orders are map keys, not dense indices. Walking 0..size() with
+    // operator[] inserted an entry for every gap, growing the bound as it
+    // went: billions of iterations for one bogus sort order.
+    const auto children = playlistTreeMap.value(parentID);
+    for (const uint32_t childID : children) {
         if (childID == 0) {
             continue;
         }
@@ -838,38 +892,32 @@ void buildPlaylistTree(
 
         if (playlistID != kInvalidPlaylistId && playlistTrackMap.contains(childID)) {
             // Add playlist tracks for children
-            for (uint32_t trackIndex = 1; trackIndex <=
-                    static_cast<uint32_t>(playlistTrackMap[childID].size());
-                    trackIndex++) {
-                uint32_t rbTrackID = playlistTrackMap[childID][trackIndex];
+            // Entry indices can have gaps too; keep their order, and number
+            // the positions densely.
+            const auto entries = playlistTrackMap.value(childID);
+            int position = 0;
+            for (const uint32_t rbTrackID : entries) {
+                ++position;
 
-                int trackID = -1;
-                QSqlQuery finderQuery(database);
-                finderQuery.prepare("select id from " + kRekordboxLibraryTable +
-                        " where rb_id=:rb_id and device=:device");
-                finderQuery.bindValue(":rb_id", rbTrackID);
-                finderQuery.bindValue(":device", device);
-
-                if (!finderQuery.exec()) {
-                    LOG_FAILED_QUERY(finderQuery)
-                            << "rbTrackID:" << rbTrackID
-                            << "device:" << device;
+                const int trackID = findTrackId(
+                        database, static_cast<int>(rbTrackID), device);
+                if (trackID < 0) {
+                    qWarning() << "Skipping Rekordbox playlist entry without a valid track"
+                               << "rbTrackID:" << rbTrackID
+                               << "device:" << device
+                               << "playlistID:" << playlistID;
                     continue;
-                }
-
-                if (finderQuery.next()) {
-                    trackID = finderQuery.value(finderQuery.record().indexOf("id")).toInt();
                 }
 
                 queryInsertIntoPlaylistTracks.bindValue(":playlist_id", playlistID);
                 queryInsertIntoPlaylistTracks.bindValue(":track_id", trackID);
-                queryInsertIntoPlaylistTracks.bindValue(":position", static_cast<int>(trackIndex));
+                queryInsertIntoPlaylistTracks.bindValue(":position", position);
 
                 if (!queryInsertIntoPlaylistTracks.exec()) {
                     LOG_FAILED_QUERY(queryInsertIntoPlaylistTracks)
                             << "playlistID:" << playlistID
                             << "trackID:" << trackID
-                            << "trackIndex:" << trackIndex;
+                            << "position:" << position;
                 }
             }
         }
@@ -884,7 +932,8 @@ void buildPlaylistTree(
                     playlistTreeMap,
                     playlistTrackMap,
                     currentPath,
-                    device);
+                    device,
+                    ancestors);
         }
     }
 }
@@ -995,6 +1044,35 @@ void setHotCue(TrackPointer track,
 
 namespace mixxx {
 namespace rekordbox {
+
+QStringList readAnalyzeFiles(TrackPointer track,
+        mixxx::audio::SampleRate sampleRate,
+        int timingOffset,
+        const QString& anlzPath) {
+    QStringList failedPaths;
+    const auto importFile = [&](const QString& filePath, bool beatsOnly) {
+        // isFile(), not exists(): a track rekordbox never analysed has an
+        // empty analyze path, which resolves to the device directory.
+        if (!QFileInfo(filePath).isFile()) {
+            return;
+        }
+        try {
+            readAnalyze(track, sampleRate, timingOffset, beatsOnly, filePath);
+        } catch (const std::exception& error) {
+            // kaitai parses every section before readAnalyze touches the
+            // track, so a truncated file leaves the earlier grid and cues.
+            qWarning() << "Could not import Rekordbox analysis:" << filePath << error.what();
+            failedPaths.append(filePath);
+        }
+    };
+    // The grid is only correct in the legacy .DAT. An export without an .EXT
+    // still needs both passes over the .DAT, or it loads with no grid.
+    importFile(anlzPath, true);
+    const QString extPath = anlzPath.left(anlzPath.length() - 3) + "EXT";
+    importFile(QFileInfo(extPath).isFile() ? extPath : anlzPath, false);
+    failedPaths.removeDuplicates();
+    return failedPaths;
+}
 
 void readAnalyze(TrackPointer track,
         mixxx::audio::SampleRate sampleRate,
@@ -1475,14 +1553,17 @@ TrackPointer RekordboxPlaylistModel::getTrack(const QModelIndex& index) const {
     QString anlzPath =
             getFieldVariant(index, ColumnCache::COLUMN_REKORDBOX_ANALYZE_PATH)
                     .toString();
-    QString anlzPathExt = anlzPath.left(anlzPath.length() - 3) + "EXT";
-
-    if (QFile(anlzPathExt).exists()) {
-        // Beatgrids appear to be only correct in legacy ANLZ file
-        mixxx::rekordbox::readAnalyze(track, sampleRate, timingOffset, true, anlzPath);
-        mixxx::rekordbox::readAnalyze(track, sampleRate, timingOffset, false, anlzPathExt);
-    } else {
-        mixxx::rekordbox::readAnalyze(track, sampleRate, timingOffset, false, anlzPath);
+    // A corrupt or half-copied ANLZ file must not take the load down with it:
+    // the audio is fine, it just arrives without that part of the analysis.
+    if (!mixxx::rekordbox::readAnalyzeFiles(
+                track, sampleRate, timingOffset, anlzPath)
+                    .isEmpty()) {
+        if (Notifications* pNotifications = Notifications::tryInstance()) {
+            pNotifications->publish(
+                    tr("Some Rekordbox analysis could not be read. "
+                       "Audio is still available; check the USB export."),
+                    Notifications::Severity::Warning);
+        }
     }
 
     // Cues stored on the drive by this unit are the DJ's own and outrank the

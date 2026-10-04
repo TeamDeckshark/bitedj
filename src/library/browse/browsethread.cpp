@@ -1,6 +1,7 @@
 #include "library/browse/browsethread.h"
 
 #include <QDirIterator>
+#include <QElapsedTimer>
 #include <QStringList>
 #include <QtDebug>
 
@@ -11,7 +12,12 @@
 #include "util/trace.h"
 
 namespace {
-constexpr int kRowBatchSize = 10;
+// Rows are handed to the GUI thread when a batch is full or when the oldest
+// row in it has waited this long, whichever comes first. Tag reads from a slow
+// stick can take tens of milliseconds per file, and a size-only threshold
+// would leave a fresh listing blank until a hundred of them had completed.
+constexpr int kRowBatchSize = 100;
+constexpr qint64 kRowBatchMaxAgeMs = 100;
 } // namespace
 
 QWeakPointer<BrowseThread> BrowseThread::m_weakInstanceRef;
@@ -41,7 +47,10 @@ BrowseThread::~BrowseThread() {
     qDebug() << "Wait to finish browser background thread";
     m_bStopThread = true;
     //wake up thread since it might wait for user input
-    m_locationUpdated.wakeAll();
+    {
+        QMutexLocker lock(&m_path_mutex);
+        m_locationUpdated.wakeAll();
+    }
     //Wait until thread terminated
     //terminate();
     wait();
@@ -63,21 +72,30 @@ BrowseThreadPointer BrowseThread::getInstanceRef() {
     return strong;
 }
 
-void BrowseThread::executePopulation(mixxx::FileAccess path, BrowseTableModel* client) {
-    m_path_mutex.lock();
+quint64 BrowseThread::executePopulation(mixxx::FileAccess path,
+        BrowseTableModel* client,
+        const QString& deferredLocation) {
+    QMutexLocker lock(&m_path_mutex);
     m_path = std::move(path);
     m_model_observer = client;
-    m_path_mutex.unlock();
+    m_deferredLocation = deferredLocation;
+    const quint64 generation = ++m_generation;
+    m_requestPending = true;
     m_locationUpdated.wakeAll();
+    return generation;
 }
 
 void BrowseThread::run() {
     QThread::currentThread()->setObjectName("BrowseThread");
-    m_mutex.lock();
-
     while (!m_bStopThread) {
-        //Wait until the user has selected a folder
-        m_locationUpdated.wait(&m_mutex);
+        {
+            QMutexLocker lock(&m_path_mutex);
+            // A request may arrive before the worker starts or while it is
+            // scanning. Keep a predicate so neither wakeup can be lost.
+            while (!m_requestPending && !m_bStopThread) {
+                m_locationUpdated.wait(&m_path_mutex);
+            }
+        }
         Trace trace("BrowseThread");
 
         //Terminate thread if Mixxx closes
@@ -87,7 +105,6 @@ void BrowseThread::run() {
         // Populate the model
         populateModel();
     }
-    m_mutex.unlock();
 }
 
 namespace {
@@ -116,8 +133,17 @@ void BrowseThread::populateModel() {
     m_path_mutex.lock();
     auto thisPath = m_path;
     BrowseTableModel* thisModelObserver = m_model_observer;
+    const quint64 generation = m_generation.load();
+    const QString deferredLocation = m_deferredLocation;
+    m_requestPending = false;
     m_path_mutex.unlock();
 
+    emit clearModel(thisModelObserver, generation);
+    // Acquiring FileAccess canonicalizes/stats its path, even on Linux without
+    // sandboxing. Defer that work too, not just the directory enumeration.
+    if (!deferredLocation.isEmpty()) {
+        thisPath = mixxx::FileAccess(mixxx::FileInfo(deferredLocation));
+    }
     if (!thisPath.info().hasLocation()) {
         // Abort if the location is inaccessible or does not exist
         qWarning() << "Skipping" << thisPath.info();
@@ -131,13 +157,26 @@ void BrowseThread::populateModel() {
             nameFilters,
             QDir::Files | QDir::NoDotAndDotDot);
 
-    // remove all rows
-    // This is a blocking operation
-    // see signal/slot connection in BrowseTableModel
-    emit clearModel(thisModelObserver);
-
-    QList<QList<QStandardItem*>> rows;
-    rows.reserve(kRowBatchSize);
+    auto batch = std::make_shared<BrowseRowBatch>();
+    batch->rows.reserve(kRowBatchSize);
+    QElapsedTimer batchAge;
+    batchAge.start();
+    const auto sendBatch = [&]() {
+        if (batch->rows.isEmpty()) {
+            return true;
+        }
+        // Bound queued work without blocking the GUI on worker shutdown.
+        while (!m_bStopThread && generation == m_generation.load()) {
+            if (m_batchBudget->tryAcquire(1, 20)) {
+                batch->budget = m_batchBudget;
+                emit rowsAppended(batch, thisModelObserver, generation);
+                batch = std::make_shared<BrowseRowBatch>();
+                batchAge.restart();
+                return true;
+            }
+        }
+        return false;
+    };
     QList<QStandardItem*> row_data;
     row_data.reserve(NUM_COLUMNS);
 
@@ -146,13 +185,8 @@ void BrowseThread::populateModel() {
     while (!m_bStopThread && fileIt.hasNext()) {
         // If a user quickly jumps through the folders
         // the current task becomes "dirty"
-        m_path_mutex.lock();
-        auto newPath = m_path;
-        m_path_mutex.unlock();
-
-        if (thisPath.info() != newPath.info()) {
+        if (generation != m_generation.load()) {
             qDebug() << "Abort populateModel()";
-            populateModel();
             return;
         }
 
@@ -305,21 +339,15 @@ void BrowseThread::populateModel() {
             row_data.insert(COLUMN_REPLAYGAIN, item);
         }
 
-        rows.append(row_data);
+        batch->rows.append(row_data);
         row_data.clear();
         ++row;
-        // If 10 tracks have been analyzed, send it to GUI
-        // Will limit GUI freezing
-        if (row % kRowBatchSize == 0) {
-            // this is a blocking operation
-            emit rowsAppended(rows, thisModelObserver);
-            qDebug() << "Append" << rows.count() << "tracks from "
-                     << thisPath.info().locationPath();
-            rows.clear();
+        if (batch->rows.size() >= kRowBatchSize || batchAge.elapsed() >= kRowBatchMaxAgeMs) {
+            if (!sendBatch()) {
+                return;
+            }
         }
-        // Sleep additionally for 20ms which prevents us from GUI freezes
-        msleep(20);
     }
-    emit rowsAppended(rows, thisModelObserver);
-    qDebug() << "Append last" << rows.count() << "tracks from" << thisPath.info().locationPath();
+    sendBatch();
+    qDebug() << "Finished browsing" << row << "tracks from" << thisPath.info().locationPath();
 }

@@ -130,7 +130,9 @@ void EngineRecord::process(const CSAMPLE* pBuffer, const int iBufferSize) {
             if (m_bCueIsEnabled) {
                 closeCueFile();
             }
-            emit isRecording(false, false);
+            // Finalizing the file (the WAV/AIFF header patch, the encoder's
+            // last frames) is a write too, and can be the one that fails.
+            emit isRecording(false, m_writeFailed);
         }
     } else if (recordingStatus == RECORD_READY) {
         // If we are ready for recording, i.e, the output file has been selected, we
@@ -141,9 +143,9 @@ void EngineRecord::process(const CSAMPLE* pBuffer, const int iBufferSize) {
             // Maybe the encoder could not be initialized
             qDebug() << "Setting record flag to: OFF";
             m_pRecReady->set(RECORD_OFF);
-            // Just report that we don't record
-            // There was already a message Box
-            emit isRecording(false, false);
+            // Report it as an error: the encoder's own message box is
+            // suppressed on this kiosk, so this is the only report there is.
+            emit isRecording(false, true);
         } else if (openFile()) {
             Event::start(tag);
             qDebug("Setting record flag to: ON");
@@ -176,6 +178,12 @@ void EngineRecord::process(const CSAMPLE* pBuffer, const int iBufferSize) {
             if (m_bCueIsEnabled) {
                 closeCueFile();
             }
+        }
+        if (m_writeFailed) {
+            // The part just closed did not make it to the drive intact; the
+            // next one would be written to the same failing drive.
+            stopAfterWriteFailure();
+            return;
         }
         updateFromPreferences();  // Update file location from preferences.
         if (openFile()) {
@@ -212,6 +220,10 @@ void EngineRecord::process(const CSAMPLE* pBuffer, const int iBufferSize) {
         // Compress audio. Encoder will call method 'write()' below to
         // write a file stream and emit bytesRecorded.
         m_pEncoder->encodeBuffer(pBuffer, iBufferSize);
+        if (m_writeFailed) {
+            stopAfterWriteFailure();
+            return;
+        }
 
         //Writing cueLine before updating the time counter since we prefer to be ahead
         //rather than late.
@@ -282,12 +294,24 @@ void EngineRecord::write(const unsigned char *header, const unsigned char *body,
     }
     // Always write body
     m_dataStream.writeRawData((const char*) body, bodyLen);
+    if (m_dataStream.status() != QDataStream::Ok || m_file.error() != QFileDevice::NoError) {
+        // A full or vanished drive. QDataStream drops every later write once
+        // its status is bad, so carrying on would record nothing while the
+        // UI still showed a recording in progress.
+        if (!m_writeFailed) {
+            qWarning() << "EngineRecord: write to" << m_fileName
+                       << "failed:" << m_file.errorString();
+        }
+        m_writeFailed = true;
+        return;
+    }
     emit bytesRecorded((headerLen+bodyLen));
 
-    // Push what has accumulated towards the device and let go of what is
-    // already there, so the file's footprint in the page cache stays flat
-    // however long the recording runs.
-    m_pageCache.onWritten(m_file.handle(), m_dataStream.device()->pos());
+    // Writeback is left to the kernel, which the OS should bound globally
+    // (vm.dirty_background_ratio / vm.dirty_ratio in init.sh). Pushing it from
+    // here with sync_file_range() blocked this thread whenever the drive's
+    // request queue was full, which overflowed the sidechain FIFO within
+    // seconds when recording to a USB stick.
     probeFreeSpace(headerLen + bodyLen);
 }
 
@@ -305,21 +329,23 @@ void EngineRecord::probeFreeSpace(int bytesWritten) {
     emit freeSpaceAvailable(storage.bytesAvailable());
 }
 // Encoder calls this method to write compressed audio
-int EngineRecord::tell() {
+qint64 EngineRecord::tell() {
     if (!fileOpen()) {
         return -1;
     }
     return m_dataStream.device()->pos();
 }
 // Encoder calls this method to write compressed audio
-void EngineRecord::seek(int pos) {
+void EngineRecord::seek(qint64 pos) {
     if (!fileOpen()) {
         return;
     }
-    m_dataStream.device()->seek(static_cast<qint64>(pos));
+    if (!m_dataStream.device()->seek(pos)) {
+        m_writeFailed = true;
+    }
 }
 // These are not used for streaming, but the interface requires them
-int EngineRecord::filelen() {
+qint64 EngineRecord::filelen() {
     if (!fileOpen()) {
         return 0;
     }
@@ -333,6 +359,8 @@ bool EngineRecord::fileOpen() {
 bool EngineRecord::openFile() {
     // We can use a QFile to write compressed audio.
     if (m_pEncoder) {
+        m_writeFailed = false;
+        m_dataStream.resetStatus();
         m_file.setFileName(m_fileName);
         if (!m_file.open(QIODevice::WriteOnly)) {
             qDebug() << "EngineRecord::openFile() failed for"
@@ -343,9 +371,6 @@ bool EngineRecord::openFile() {
         if (m_file.handle() != -1) {
             m_dataStream.setDevice(&m_file);
         }
-        // A recording that splits opens one file per part; each starts with an
-        // empty cache of its own.
-        m_pageCache.reset();
         m_freeSpaceProbeCountdown = kFreeSpaceProbeIntervalBytes;
     } else {
         return false;
@@ -403,14 +428,27 @@ void EngineRecord::closeFile() {
     if (m_file.handle() != -1) {
         // Close QFile and encoder, if open.
         if (m_pEncoder) {
+            // Even after a failed write, let the encoder try to finalize what
+            // did reach the drive: a WAV whose header was never patched
+            // claims to hold no audio at all.
+            m_dataStream.resetStatus();
             m_pEncoder->flush();
             m_pEncoder.reset();
         }
-        // Nothing is going to be written behind the tail of this file, so the
-        // limiter's rolling window would leave it cached for good.
-        mixxx::PageCacheLimiter::dropAll(m_file.handle());
+        if (!m_file.flush()) {
+            m_writeFailed = true;
+        }
         m_file.close();
     }
+}
+
+void EngineRecord::stopAfterWriteFailure() {
+    static const QString tag("EngineRecord recording");
+    closeFile();
+    closeCueFile();
+    m_pRecReady->set(RECORD_OFF);
+    Event::end(tag);
+    emit isRecording(false, true);
 }
 
 void EngineRecord::closeCueFile() {

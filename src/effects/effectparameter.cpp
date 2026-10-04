@@ -30,6 +30,8 @@ EffectManifestParameterPointer EffectParameter::manifest() const {
     return m_pParameterManifest;
 }
 
+// From Custom Bite DJ <https://github.com/pablo-feijo/custom-bitedj> by
+// Pablo Feijo; see LICENSE.
 QString EffectParameter::effectId() const {
     return m_pEngineEffect->getManifest()->id();
 }

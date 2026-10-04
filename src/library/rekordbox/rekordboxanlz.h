@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 
 #include "audio/types.h"
 #include "track/track_decl.h"
@@ -22,12 +23,27 @@ namespace rekordbox {
 /// updated in place, because this runs on every load of a track that a deck
 /// may already be playing.
 ///
+/// Throws if the file cannot be parsed. The whole file is parsed before the
+/// track is touched, so a truncated or corrupt file leaves the track as it was.
+///
 /// Declared here rather than kept file-local so that it can be tested
 /// directly; the definition lives in rekordboxfeature.cpp.
 void readAnalyze(TrackPointer track,
         audio::SampleRate sampleRate,
         int timingOffset,
         bool ignoreCues,
+        const QString& anlzPath);
+
+/// Run both `readAnalyze` passes for a track's `.DAT` path: beats from the
+/// `.DAT`, then cues from the `.EXT`, or from the `.DAT` again when the export
+/// has no `.EXT`. Each pass fails on its own, so a corrupt `.EXT` still leaves
+/// the grid and a corrupt `.DAT` still leaves the cues.
+///
+/// Returns the paths that exist but could not be read. A track rekordbox never
+/// analysed has no ANLZ file at all, which is not a failure.
+QStringList readAnalyzeFiles(TrackPointer track,
+        audio::SampleRate sampleRate,
+        int timingOffset,
         const QString& anlzPath);
 
 } // namespace rekordbox

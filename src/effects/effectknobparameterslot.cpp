@@ -48,7 +48,11 @@ EffectKnobParameterSlot::EffectKnobParameterSlot(
             this,
             &EffectKnobParameterSlot::slotLinkInverseChanged);
 
-    // Bite DJ fork additions: read-only manifest metadata for skins.
+    // Bite DJ fork additions: read-only manifest metadata for skins. The
+    // _is_mix and _beat_period* controls below, and the beatPeriod() encoding
+    // they use, come from Custom Bite DJ
+    // <https://github.com/pablo-feijo/custom-bitedj> by Pablo Feijo; see
+    // LICENSE.
     m_pControlUnits = new ControlObject(
             ConfigKey(m_group, itemPrefix + QString("_units")));
     m_pControlUnits->setReadOnly();

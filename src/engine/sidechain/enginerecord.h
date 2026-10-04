@@ -10,7 +10,6 @@
 #include "engine/sidechain/sidechainworker.h"
 #include "preferences/usersettings.h"
 #include "track/track_decl.h"
-#include "util/pagecachelimiter.h"
 
 class ControlProxy;
 
@@ -26,11 +25,11 @@ class EngineRecord : public QObject, public EncoderCallback, public SideChainWor
     // writes compressed audio to file
     void write(const unsigned char *header, const unsigned char *body, int headerLen, int bodyLen) override;
     // gets stream position
-    int tell() override;
+    qint64 tell() override;
     // sets stream position
-    void seek(int pos) override;
+    void seek(qint64 pos) override;
     // gets stream length
-    int filelen()  override;
+    qint64 filelen() override;
 
     // creates or opens an audio file
     bool openFile();
@@ -55,9 +54,8 @@ class EngineRecord : public QObject, public EncoderCallback, public SideChainWor
     void freeSpaceAvailable(qint64 bytesAvailable);
 
     // Emitted when recording state changes. 'recording' represents whether
-    // recording is active and 'error' is true if an error occurred. Currently
-    // only one error can occur: the specified file was unable to be opened for
-    // writing.
+    // recording is active and 'error' is true if an error occurred: the file
+    // could not be opened, written or finalized, or the encoder failed.
     void isRecording(bool recording, bool error);
     void durationRecorded(quint64 durationInt);
 
@@ -74,6 +72,9 @@ class EngineRecord : public QObject, public EncoderCallback, public SideChainWor
     // kFreeSpaceProbeIntervalBytes and reports it through
     // freeSpaceAvailable(). Called with the size of each write.
     void probeFreeSpace(int bytesWritten);
+    // Ends the take after m_writeFailed: finalizes whatever reached the drive,
+    // turns recording off and reports it to RecordingManager as an error.
+    void stopAfterWriteFailure();
 
     UserSettingsPointer m_pConfig;
     EncoderPointer m_pEncoder;
@@ -86,12 +87,11 @@ class EngineRecord : public QObject, public EncoderCallback, public SideChainWor
     QFile m_file;
     QFile m_cueFile;
     QDataStream m_dataStream;
-    // Bounds what the recording leaves in the kernel's page cache, so that a
-    // stick that writes slowly cannot turn a long set into hundreds of
-    // megabytes of dirty pages the whole process then stalls behind.
-    mixxx::PageCacheLimiter m_pageCache;
     // Bytes still to be written before the next free-space probe.
     qint64 m_freeSpaceProbeCountdown;
+    // Set when a write, seek or flush of the current file fails; cleared when
+    // the next file is opened. Checked after each encoded buffer.
+    bool m_writeFailed = false;
 
     PollingControlProxy m_sampleRateControl;
     ControlProxy* m_pRecReady;

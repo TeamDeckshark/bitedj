@@ -5,7 +5,10 @@
 #include <QByteArray>
 #include <QTemporaryDir>
 
+#include "library/rekordbox/rekordboxconstants.h"
+#include "library/rekordbox/rekordboxpagechain.h"
 #include "test/mixxxtest.h"
+#include "track/beats.h"
 #include "track/cue.h"
 #include "track/cueinfo.h"
 #include "track/track.h"
@@ -106,6 +109,22 @@ class AnlzBuilder {
         addSection("PCO2", body);
     }
 
+    /// PQTZ beat grid, one beat per entry at the given millisecond times.
+    void addBeatGridTag(const QList<uint32_t>& beatTimesMs) {
+        QByteArray body;
+        appendU32(&body, 0);
+        appendU32(&body, 0x80000);
+        appendU32(&body, static_cast<uint32_t>(beatTimesMs.size()));
+        uint16_t beatNumber = 1;
+        for (const uint32_t timeMs : beatTimesMs) {
+            appendU16(&body, beatNumber);
+            appendU16(&body, 12000); // tempo, BPM * 100
+            appendU32(&body, timeMs);
+            beatNumber = beatNumber % 4 + 1;
+        }
+        addSection("PQTZ", body);
+    }
+
     QByteArray build() const {
         QByteArray header;
         header.append("PMAI", 4);
@@ -169,6 +188,14 @@ class RekordboxAnlzTest : public MixxxTest {
         file.close();
 
         mixxx::rekordbox::readAnalyze(pTrack, kSampleRate, 0, false, path);
+    }
+
+    QString writeFile(const QString& name, const QByteArray& data) {
+        const QString path = m_tempDir.filePath(name);
+        QFile file(path);
+        EXPECT_TRUE(file.open(QIODevice::WriteOnly));
+        EXPECT_EQ(data.size(), file.write(data));
+        return path;
     }
 
     static CuePointer findHotcue(const TrackPointer& pTrack, int hotcueIndex) {
@@ -498,6 +525,90 @@ TEST_F(RekordboxAnlzTest, LoopDemotedToCueChangesType) {
     ASSERT_TRUE(pCue);
     EXPECT_EQ(mixxx::CueType::HotCue, pCue->getType());
     EXPECT_FALSE(pCue->getEndPosition().isValid());
+}
+
+// An export without an .EXT keeps everything in the .DAT. Both passes have to
+// read it, or the track loads with its cues but no grid.
+TEST_F(RekordboxAnlzTest, DatOnlyExportImportsGridAndCues) {
+    const TrackPointer pTrack = createTrack();
+
+    AnlzBuilder builder;
+    builder.addBeatGridTag({500, 1000, 1500, 2000});
+    builder.addCueTag(kCueListTypeHotCue, {{1, kCueEntryTypeCue, 1000, 0, {}}});
+    const QString datPath = writeFile(QStringLiteral("ANLZ0000.DAT"), builder.build());
+
+    EXPECT_TRUE(mixxx::rekordbox::readAnalyzeFiles(pTrack, kSampleRate, 0, datPath)
+                    .isEmpty());
+
+    const auto pBeats = pTrack->getBeats();
+    ASSERT_TRUE(pBeats);
+    EXPECT_EQ(mixxx::rekordboxconstants::beatsSubversion, pBeats->getSubVersion());
+    EXPECT_EQ(QList<int>{mixxx::kHotCueBankStart}, hotcueIndices(pTrack));
+}
+
+// A truncated .EXT is reported, keeps the cues the track already had, and does
+// not stop the grid coming in from the .DAT. Nor are the .DAT's older cues
+// read in its place: they may be stale against what the DJ set in rekordbox.
+TEST_F(RekordboxAnlzTest, CorruptExtKeepsCuesAndGrid) {
+    const TrackPointer pTrack = createTrack();
+    AnlzBuilder earlier;
+    earlier.addCueTag(kCueListTypeHotCue, {{2, kCueEntryTypeCue, 7000, 0, {}}});
+    importCues(pTrack, earlier);
+
+    AnlzBuilder dat;
+    dat.addBeatGridTag({500, 1000, 1500, 2000});
+    dat.addCueTag(kCueListTypeHotCue, {{1, kCueEntryTypeCue, 1000, 0, {}}});
+    const QString datPath = writeFile(QStringLiteral("ANLZ0001.DAT"), dat.build());
+
+    AnlzBuilder ext;
+    ext.addCueExtendedTag(kCueListTypeHotCue, {{1, kCueEntryTypeCue, 1000, 0, {}}});
+    const QString extPath = writeFile(
+            QStringLiteral("ANLZ0001.EXT"), ext.build().left(40));
+
+    EXPECT_EQ(QStringList{extPath},
+            mixxx::rekordbox::readAnalyzeFiles(pTrack, kSampleRate, 0, datPath));
+    EXPECT_TRUE(pTrack->getBeats());
+    EXPECT_EQ(QList<int>{mixxx::kHotCueBankStart + 1}, hotcueIndices(pTrack));
+}
+
+// A corrupt .DAT loses only the grid; the cues still come from the .EXT.
+TEST_F(RekordboxAnlzTest, CorruptDatStillImportsExtCues) {
+    const TrackPointer pTrack = createTrack();
+
+    const QString datPath = writeFile(
+            QStringLiteral("ANLZ0002.DAT"), QByteArrayLiteral("PMAI\0\0"));
+    AnlzBuilder ext;
+    ext.addCueExtendedTag(kCueListTypeHotCue, {{1, kCueEntryTypeCue, 1000, 0, {}}});
+    writeFile(QStringLiteral("ANLZ0002.EXT"), ext.build());
+
+    EXPECT_EQ(QStringList{datPath},
+            mixxx::rekordbox::readAnalyzeFiles(pTrack, kSampleRate, 0, datPath));
+    EXPECT_FALSE(pTrack->getBeats());
+    EXPECT_EQ(QList<int>{mixxx::kHotCueBankStart}, hotcueIndices(pTrack));
+}
+
+// A track rekordbox never analysed has an empty analyze path, which the
+// importer resolves to the device directory. That is not a broken export.
+TEST_F(RekordboxAnlzTest, NoAnalysisIsNotAFailure) {
+    const TrackPointer pTrack = createTrack();
+    EXPECT_TRUE(mixxx::rekordbox::readAnalyzeFiles(
+            pTrack, kSampleRate, 0, m_tempDir.path() + QStringLiteral("/"))
+                    .isEmpty());
+    EXPECT_TRUE(mixxx::rekordbox::readAnalyzeFiles(pTrack,
+            kSampleRate,
+            0,
+            m_tempDir.filePath(QStringLiteral("missing.DAT")))
+                    .isEmpty());
+}
+
+TEST(RekordboxPageChainGuardTest, RejectsCyclesAndOutOfRangePages) {
+    mixxx::rekordbox::PageChainGuard chain(4096, 4096 * 4);
+    chain.visit(1);
+    chain.visit(3);
+    EXPECT_THROW(chain.visit(1), std::runtime_error);
+    EXPECT_THROW(chain.visit(4), std::runtime_error);
+    EXPECT_THROW(chain.visit(0xffffffff), std::runtime_error);
+    EXPECT_THROW(mixxx::rekordbox::PageChainGuard(0, 4096), std::runtime_error);
 }
 
 } // namespace

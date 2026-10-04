@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QTimer>
+#include <functional>
 
 class ControlObject;
 
@@ -41,6 +42,17 @@ class Notifications : public QObject {
     // controller re-init, MIDI hot-plug rescan).
     void publish(const QString& message, Severity severity);
     void publishSticky(const QString& message, Severity severity);
+    // publishWithAction() is publish() plus a tappable action on the strip
+    // labelled `actionLabel`: tapping it runs `action` and clears, tapping
+    // anywhere else on the strip dismisses without running it, and so does
+    // the 5-second auto-clear. Any later publish or clear() drops the action
+    // unrun, so the strip never offers an action it is no longer showing.
+    void publishWithAction(const QString& message,
+            Severity severity,
+            const QString& actionLabel,
+            std::function<void()> action);
+    // Runs the pending action, if any, then clears. Called by the strip.
+    void triggerAction();
     void clear();
 
     // Busy state: when set, the [Notifications],busy CO flips to 1 and
@@ -67,6 +79,9 @@ class Notifications : public QObject {
 
   signals:
     void messagePosted(const QString& message, int severity);
+    // Follows every messagePosted: the label of the strip's action, or an
+    // empty string when the message has none.
+    void actionPosted(const QString& actionLabel);
     void cleared();
     void busyChanged(bool busy);
 
@@ -88,6 +103,8 @@ class Notifications : public QObject {
     ControlObject* m_pCoSeverity;
     ControlObject* m_pCoBusy;
     QTimer m_idleTimer;
+    // Run by triggerAction(); empty unless the current message has an action.
+    std::function<void()> m_action;
     QTimer m_inputGraceTimer;
     bool m_busy;
     // True while this object is installed as the application-wide event

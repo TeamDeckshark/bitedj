@@ -13,7 +13,8 @@ class SkinContext;
 // Notifications::messagePosted to receive text + severity (CO transport for
 // visibility/severity is handled separately via skin <Connection>s), sets a
 // dynamic "severity" property so QSS can tint the band, and dismisses the
-// notification on tap.
+// notification on tap. A notification published with an action also shows that
+// action at the right-hand end; a tap there runs it instead of just dismissing.
 class WNotificationStrip : public WWidget {
     Q_OBJECT
   public:
@@ -28,6 +29,7 @@ class WNotificationStrip : public WWidget {
 
   private slots:
     void onMessagePosted(const QString& message, int severity);
+    void onActionPosted(const QString& actionLabel);
     void onCleared();
 
   private:
@@ -37,5 +39,9 @@ class WNotificationStrip : public WWidget {
     void updateLabelText();
 
     QLabel* m_pLabel;
+    // A label rather than a QPushButton: children of a WWidget never see a
+    // touchscreen tap (WWidget synthesizes touch -> mouse to itself only), so
+    // mousePressEvent hit-tests this instead.
+    QLabel* m_pActionLabel;
     QString m_message;
 };

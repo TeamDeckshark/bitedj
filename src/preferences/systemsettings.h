@@ -4,6 +4,7 @@
 #include <QFileSystemWatcher>
 #include <QList>
 #include <QObject>
+#include <QProcess>
 #include <QString>
 #include <QStringList>
 #include <QTimer>
@@ -116,9 +117,11 @@ class SystemSettings : public QObject {
     static QString mountPlayingFrom(
             const QStringList& locations, const QStringList& mountPoints);
 
-    // One flag per entry of `driveMountPoints`, in the same order.
+    // One flag per entry of `driveMountPoints`, in the same order. Each entry
+    // is every filesystem mounted off that drive: a stick with two partitions
+    // is one drive and one LED, and a track off either of them lights it.
     static QList<bool> drivesPlaying(const QList<BaseTrackPlayer*>& players,
-            const QStringList& driveMountPoints);
+            const QList<QStringList>& driveMountPoints);
 
     // Ejects whatever drive is currently mounted on the physical USB port
     // configured as [BiteDJ],usb_drive_path_<driveNumber> (a sysfs topology
@@ -144,6 +147,17 @@ class SystemSettings : public QObject {
     // would be writing to the same stick a deck is reading its audio off.
     void toggleRecordRow(int index);
 
+    // Support hatch (triple-tap on a drive's name in the Settings tab): runs
+    // the export action defined in res/support/debuglogexport.xml (compiled
+    // in) against the indexed drive. As shipped, that writes a gzipped tarball
+    // of /var/log to the root of the drive as
+    // bitedj-<firmware>-<timestamp>-debug.tar.gz, replacing any debug archive
+    // an earlier export left there, and syncs it so the stick can be pulled as
+    // soon as the success notification shows. Asynchronous — the action runs
+    // as a SCHED_OTHER, niced child so it can't compete with the audio or GUI
+    // threads — and one export at a time. Idempotent on out-of-range.
+    void exportDebugLogsToRow(int index);
+
   signals:
     // Emitted whenever the mounted-drive list changes. Drives WUsbList row
     // rebuilds (string transport alongside the [System],usb_count CO).
@@ -168,6 +182,7 @@ class SystemSettings : public QObject {
     void onVinylModeChanged(double value);
     void onVinylBrakeChanged(double value);
     void onHotcueActivatePlaysChanged(double value);
+    void onLoadIntoPlayingChanged(double value);
     void onScreenRotationChanged(double value);
     // RecordingManager::isRecording — the engine's own view of whether the
     // sidechain recorder is running, which is what confirms a start took (the
@@ -179,6 +194,7 @@ class SystemSettings : public QObject {
     // mount state, writing only the ones that actually changed. Cheap enough to
     // call from any of the many things that can change the answer.
     void updateDrivePlaying();
+    void onDebugExportFinished(int exitCode, QProcess::ExitStatus exitStatus);
 
   private:
     // Re-enumerates mounted USB drives. Unless `force` is set, returns without
@@ -220,8 +236,9 @@ class SystemSettings : public QObject {
     // sampler count changes.
     void rebuildPlaybackWatches();
     // Fills m_driveMountPoints from [BiteDJ],usb_drive_path_<N> and the current
-    // enumeration: entry N-1 is the mountpoint of the drive on USB port N, or
-    // empty when that port is unconfigured or carries nothing.
+    // enumeration: entry N-1 is every mountpoint of the drive on USB port N
+    // (more than one for a multi-partition stick), or empty when that port is
+    // unconfigured or carries nothing.
     void refreshDriveMountPoints();
 
     // Mountpoint of the filesystem on the same physical USB device as the mount
@@ -255,12 +272,23 @@ class SystemSettings : public QObject {
     // engine reports the stop we asked for as well as one we did not, so this
     // runs on both paths and must survive running twice.
     void releaseRecordingTarget();
+    // Kills a debug-log export writing to any of `mountPoints` and removes its
+    // partial file, so the eject that called this is not refused with EBUSY.
+    // An export is only diagnostics; the DJ asking for their stick back wins.
+    void abortDebugExportOn(const QStringList& mountPoints);
 
     // Re-entrancy guard: ejectRow() pumps the event loop while waiting for the
     // asynchronous track release, which can re-deliver a tap. One eject at a time.
     bool m_ejecting = false;
 
     static QAtomicPointer<SystemSettings> s_pInstance;
+
+    // The running debug-log export (null when none), the mountpoint it writes
+    // to, and the archive's final and in-progress file names there.
+    QProcess* m_pDebugExport = nullptr;
+    QString m_debugExportMountPoint;
+    QString m_debugExportFileName;
+    QString m_debugExportPartialFileName;
 
     UserSettingsPointer m_pConfig;
     std::shared_ptr<PlayerManager> m_pPlayerManager;
@@ -309,6 +337,10 @@ class SystemSettings : public QObject {
     // from the cue), 0 = gated (previews only while held, then seeks back and
     // stops). CO and config share the key; CueControl reads the config value.
     std::unique_ptr<ControlObject> m_pCoHotcueActivatePlays;
+    // [BiteDJ],load_into_playing — a LoadIntoPlaying: what loading a track
+    // into a playing deck does (load / ask first / refuse). Persisted to
+    // config; read by BaseTrackPlayerImpl on each load.
+    std::unique_ptr<ControlObject> m_pCoLoadIntoPlaying;
     // [BiteDJ],screen_rotation — display rotation in degrees (0 or 180).
     std::unique_ptr<ControlObject> m_pCoScreenRotation;
     // Emitted from the controller thread; the queued connection hops the eject
@@ -320,11 +352,11 @@ class SystemSettings : public QObject {
     // derived state, and the only consumer is the eject-button daemon's MIDI
     // output mapping, which lights that port's red LED with it.
     std::vector<std::unique_ptr<ControlObject>> m_drivePlayingCos;
-    // Mountpoint per drive number, index N-1. Recomputed on every enumeration
+    // Mountpoints per drive number, index N-1. Recomputed on every enumeration
     // change rather than per query: resolving a drive number to a mountpoint
     // walks sysfs, and the playing state is recomputed far more often than the
     // mount set changes.
-    QStringList m_driveMountPoints;
+    QList<QStringList> m_driveMountPoints;
     // One proxy per player on its play CO, plus the load/unload connections on
     // the players themselves. Together these are every event that can change
     // what drive<N>_playing should be, short of the mount set moving.

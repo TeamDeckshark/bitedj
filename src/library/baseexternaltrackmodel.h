@@ -1,9 +1,10 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 
-#include "library/trackmodel.h"
 #include "library/basesqltablemodel.h"
+#include "library/trackmodel.h"
 
 class TrackCollection;
 class QModelIndex;
@@ -25,6 +26,11 @@ class BaseExternalTrackModel : public BaseSqlTableModel {
     bool isColumnInternal(int column) override;
     Qt::ItemFlags flags(const QModelIndex& index) const override;
 
+  protected:
+    void updateTrackIdLookup() override;
+
   private:
     TrackId doGetTrackId(const TrackPointer& pTrack) const override;
+
+    QHash<QString, TrackId> m_trackIdsByLocation;
 };

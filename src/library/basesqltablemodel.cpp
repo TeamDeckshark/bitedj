@@ -350,6 +350,7 @@ void BaseSqlTableModel::select() {
             std::move(rowInfos),
             std::move(trackIdToRows),
             std::move(trackPosToRows));
+    updateTrackIdLookup();
     // Both rowInfo and trackIdToRows (might) have been moved and
     // must not be used afterwards!
 
@@ -901,6 +902,18 @@ void BaseSqlTableModel::removeTrackRows(const QSet<TrackId>& trackIdsToRemove) {
             std::move(rowInfos),
             std::move(trackIdToRows),
             std::move(trackPosToRows));
+    updateTrackIdLookup();
+}
+
+TrackId BaseSqlTableModel::rowIdentityTrackId(const QModelIndex& index) const {
+    if (!index.isValid()) {
+        return TrackId();
+    }
+    const int row = index.row();
+    if (row < 0 || row >= m_rowInfo.size()) {
+        return TrackId();
+    }
+    return m_rowInfo.at(row).trackId;
 }
 
 QList<TrackRef> BaseSqlTableModel::getTrackRefs(

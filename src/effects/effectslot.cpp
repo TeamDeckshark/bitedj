@@ -261,7 +261,14 @@ unsigned int EffectSlot::numParameters(
 }
 
 void EffectSlot::setEnabled(bool enabled) {
+    if (m_pControlEnabled->toBool() == enabled) {
+        return;
+    }
     m_pControlEnabled->set(enabled);
+    // ControlObject suppresses valueChanged for changes originating from
+    // itself, so a programmatic caller (e.g. the EQ bypass preference) would
+    // otherwise never reach the DSP; only external writers trigger the slot.
+    updateEngineState();
 }
 
 EffectParameterSlotBasePointer EffectSlot::getEffectParameterSlot(

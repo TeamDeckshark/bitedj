@@ -45,6 +45,7 @@ TouchScrollFilter::TouchScrollFilter(QAbstractScrollArea* pScrollArea)
           m_pScrollArea(pScrollArea),
           m_state(State::Idle),
           m_replayingPress(false),
+          m_pressType(QEvent::MouseButtonPress),
           m_pressModifiers(Qt::NoModifier),
           m_pPressDevice(nullptr),
           m_remainingDy(0) {
@@ -58,16 +59,16 @@ bool TouchScrollFilter::eventFilter(QObject* pWatched, QEvent* pEvent) {
 
     switch (pEvent->type()) {
     case QEvent::MouseButtonPress:
+    case QEvent::MouseButtonDblClick:
+        // Qt sends the double click instead of the second press of a double
+        // tap. It has to be held back like any other press: let through, the
+        // moves after it would reach the view with the button down and drag
+        // out a selection.
         return handleMousePress(static_cast<QMouseEvent*>(pEvent));
     case QEvent::MouseMove:
         return handleMouseMove(static_cast<QMouseEvent*>(pEvent));
     case QEvent::MouseButtonRelease:
         return handleMouseRelease(static_cast<QMouseEvent*>(pEvent));
-    case QEvent::MouseButtonDblClick:
-        // Qt sends this instead of the second press of a double tap, so there
-        // is nothing to hold back.
-        m_state = State::Idle;
-        return false;
     default:
         return false;
     }
@@ -80,6 +81,7 @@ bool TouchScrollFilter::handleMousePress(QMouseEvent* pEvent) {
     }
 
     m_state = State::Pending;
+    m_pressType = pEvent->type();
     m_pressPos = pEvent->position();
     m_pressScenePos = pEvent->scenePosition();
     m_pressGlobalPos = pEvent->globalPosition();
@@ -152,7 +154,7 @@ void TouchScrollFilter::replayPress() {
     const QPointingDevice* pDevice = m_pPressDevice
             ? m_pPressDevice
             : QPointingDevice::primaryPointingDevice();
-    QMouseEvent pressEvent(QEvent::MouseButtonPress,
+    QMouseEvent pressEvent(m_pressType,
             m_pressPos,
             m_pressScenePos,
             m_pressGlobalPos,

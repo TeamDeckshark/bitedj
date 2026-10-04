@@ -86,6 +86,16 @@ QList<BaseTrackPlayer*> playersOf(std::initializer_list<FakePlayer*> players) {
     return list;
 }
 
+// One drive per mountpoint, the shape drivesPlaying() takes for single-
+// filesystem sticks: drives({A, B}) is two drives with one mount each.
+QList<QStringList> drives(std::initializer_list<QString> mountPoints) {
+    QList<QStringList> list;
+    for (const QString& mountPoint : mountPoints) {
+        list.append(QStringList{mountPoint});
+    }
+    return list;
+}
+
 class DrivePlayingTest : public MixxxTest {};
 
 // --- the rule: which locations are on the drive ------------------------------
@@ -168,7 +178,7 @@ TEST_F(DrivePlayingTest, SamplersAndPreviewDecksCountToo) {
     previewDeck.play.set(1.0);
 
     const QList<bool> playing = SystemSettings::drivesPlaying(
-            playersOf({&sampler, &previewDeck}), {kMountA, kMountB});
+            playersOf({&sampler, &previewDeck}), drives({kMountA, kMountB}));
 
     EXPECT_EQ((QList<bool>{true, true}), playing);
 }
@@ -183,7 +193,7 @@ TEST_F(DrivePlayingTest, OnlyTheDriveHoldingThePlayingTrackIsFlagged) {
     deck2.loadFrom(kMountB + QStringLiteral("/b.mp3"));
 
     const QList<bool> playing =
-            SystemSettings::drivesPlaying(playersOf({&deck1, &deck2}), {kMountA, kMountB});
+            SystemSettings::drivesPlaying(playersOf({&deck1, &deck2}), drives({kMountA, kMountB}));
 
     EXPECT_EQ((QList<bool>{true, false}), playing);
 }
@@ -194,7 +204,7 @@ TEST_F(DrivePlayingTest, TrackPlayingOffTheInternalDiskFlagsNoDrive) {
     deck.play.set(1.0);
 
     const QList<bool> playing =
-            SystemSettings::drivesPlaying(playersOf({&deck}), {kMountA, kMountB});
+            SystemSettings::drivesPlaying(playersOf({&deck}), drives({kMountA, kMountB}));
 
     EXPECT_EQ((QList<bool>{false, false}), playing);
 }
@@ -203,22 +213,22 @@ TEST_F(DrivePlayingTest, StoppingTheOnlyPlayerClearsTheDrive) {
     FakePlayer deck(QStringLiteral("[Channel1]"));
     deck.loadFrom(kMountA + QStringLiteral("/a.mp3"));
     deck.play.set(1.0);
-    ASSERT_EQ((QList<bool>{true}), SystemSettings::drivesPlaying(playersOf({&deck}), {kMountA}));
+    ASSERT_EQ((QList<bool>{true}), SystemSettings::drivesPlaying(playersOf({&deck}), drives({kMountA})));
 
     deck.play.set(0.0);
 
-    EXPECT_EQ((QList<bool>{false}), SystemSettings::drivesPlaying(playersOf({&deck}), {kMountA}));
+    EXPECT_EQ((QList<bool>{false}), SystemSettings::drivesPlaying(playersOf({&deck}), drives({kMountA})));
 }
 
 TEST_F(DrivePlayingTest, EjectingTheTrackClearsTheDrive) {
     FakePlayer deck(QStringLiteral("[Channel1]"));
     deck.loadFrom(kMountA + QStringLiteral("/a.mp3"));
     deck.play.set(1.0);
-    ASSERT_EQ((QList<bool>{true}), SystemSettings::drivesPlaying(playersOf({&deck}), {kMountA}));
+    ASSERT_EQ((QList<bool>{true}), SystemSettings::drivesPlaying(playersOf({&deck}), drives({kMountA})));
 
     deck.unload();
 
-    EXPECT_EQ((QList<bool>{false}), SystemSettings::drivesPlaying(playersOf({&deck}), {kMountA}));
+    EXPECT_EQ((QList<bool>{false}), SystemSettings::drivesPlaying(playersOf({&deck}), drives({kMountA})));
 }
 
 TEST_F(DrivePlayingTest, LoadingAnotherDrivesTrackIntoARunningDeckMovesTheFlag) {
@@ -228,17 +238,36 @@ TEST_F(DrivePlayingTest, LoadingAnotherDrivesTrackIntoARunningDeckMovesTheFlag) 
     deck.loadFrom(kMountA + QStringLiteral("/a.mp3"));
     deck.play.set(1.0);
     ASSERT_EQ((QList<bool>{true, false}),
-            SystemSettings::drivesPlaying(playersOf({&deck}), {kMountA, kMountB}));
+            SystemSettings::drivesPlaying(playersOf({&deck}), drives({kMountA, kMountB})));
 
     deck.loadFrom(kMountB + QStringLiteral("/b.mp3"));
 
     EXPECT_EQ((QList<bool>{false, true}),
-            SystemSettings::drivesPlaying(playersOf({&deck}), {kMountA, kMountB}));
+            SystemSettings::drivesPlaying(playersOf({&deck}), drives({kMountA, kMountB})));
 }
 
 TEST_F(DrivePlayingTest, DrivesPlayingReturnsOneFlagPerRequestedMount) {
-    EXPECT_EQ(4, SystemSettings::drivesPlaying({}, QStringList(4)).size());
-    EXPECT_TRUE(SystemSettings::drivesPlaying({}, QStringList()).isEmpty());
+    EXPECT_EQ(4, SystemSettings::drivesPlaying({}, QList<QStringList>(4)).size());
+    EXPECT_TRUE(SystemSettings::drivesPlaying({}, QList<QStringList>()).isEmpty());
+}
+
+TEST_F(DrivePlayingTest, ATrackOffAnyPartitionOfTheStickFlagsTheDrive) {
+    // One stick, two filesystems (an exFAT and a FAT32 partition, say), both on
+    // the same USB port. It is one drive and one LED, so a track off the second
+    // mount must light it just as one off the first does -- the drive used to
+    // resolve to whichever mount sorted first, and the other never lit.
+    const QList<QStringList> oneStickTwoMounts{QStringList{kMountA, kMountB}};
+    FakePlayer deck(QStringLiteral("[Channel1]"));
+    deck.loadFrom(kMountB + QStringLiteral("/b.mp3"));
+    deck.play.set(1.0);
+
+    EXPECT_EQ((QList<bool>{true}),
+            SystemSettings::drivesPlaying(playersOf({&deck}), oneStickTwoMounts));
+
+    deck.loadFrom(kMountA + QStringLiteral("/a.mp3"));
+
+    EXPECT_EQ((QList<bool>{true}),
+            SystemSettings::drivesPlaying(playersOf({&deck}), oneStickTwoMounts));
 }
 
 // --- the rule: which drive a record request would collide with ----------------
@@ -331,6 +360,8 @@ TEST_F(DrivePlayingControlsTest, IsDrivePlayingRejectsOutOfRangeDriveNumbers) {
 
 // --- the wire: bitedj.midi.xml ----------------------------------------------
 
+// The note numbers here are half of a contract with deckshark-midi-driver: its
+// config.yaml carries the same pairs per port, and its own tests assert that.
 class BiteDjMappingTest : public MixxxTest {
   protected:
     void SetUp() override {

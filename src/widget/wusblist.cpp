@@ -30,6 +30,10 @@ const char* kRecordingProperty = "recording";
 // How long an armed eject button waits for the confirming second tap before
 // reverting.
 constexpr int kDisarmTimeoutMs = 3000;
+// Taps on a drive's name that trigger a debug-log export, and the window they
+// all have to land in.
+constexpr int kNameTapsForDebugExport = 3;
+constexpr qint64 kNameTapWindowMs = 1000;
 // Distance the finger has to travel vertically before the gesture counts as a
 // scroll instead of a tap. Qt's drag distance is meant for a mouse and is
 // easily exceeded by the jitter of a fingertip (same threshold as
@@ -57,6 +61,7 @@ WUsbList::WUsbList(QWidget* parent)
           m_pLayout(new QGridLayout(m_pContent)),
           m_pEmptyRow(nullptr),
           m_armedIndex(-1),
+          m_nameTapIndex(-1),
           m_dragState(DragState::Idle),
           m_lastGlobalY(0),
           m_remainingDy(0) {
@@ -99,6 +104,7 @@ WUsbList::WUsbList(QWidget* parent)
     m_disarmTimer.setSingleShot(true);
     m_disarmTimer.setInterval(kDisarmTimeoutMs);
     connect(&m_disarmTimer, &QTimer::timeout, this, &WUsbList::onDisarmTimeout);
+    m_nameTapClock.start();
 
     SystemSettings* pSettings = SystemSettings::tryInstance();
     if (pSettings) {
@@ -202,15 +208,21 @@ void WUsbList::mouseReleaseEvent(QMouseEvent* e) {
     if (state == DragState::Pending) {
         // The finger never moved: a tap after all.
         const QPoint globalPos = e->globalPosition().toPoint();
-        const int recordIndex = buttonIndexAt(m_recordButtons, globalPos);
+        const int recordIndex = widgetIndexAt(m_recordButtons, globalPos);
         if (recordIndex >= 0) {
             handleRecordTap(recordIndex);
             e->accept();
             return;
         }
-        const int index = buttonIndexAt(m_ejectButtons, globalPos);
+        const int index = widgetIndexAt(m_ejectButtons, globalPos);
         if (index >= 0) {
             handleEjectTap(index);
+            e->accept();
+            return;
+        }
+        const int nameIndex = widgetIndexAt(m_nameLabels, globalPos);
+        if (nameIndex >= 0) {
+            handleNameTap(nameIndex);
             e->accept();
             return;
         }
@@ -218,20 +230,20 @@ void WUsbList::mouseReleaseEvent(QMouseEvent* e) {
     WWidget::mouseReleaseEvent(e);
 }
 
-int WUsbList::buttonIndexAt(const QList<QPushButton*>& buttons,
-        const QPoint& globalPos) const {
+template<typename T>
+int WUsbList::widgetIndexAt(const QList<T*>& widgets, const QPoint& globalPos) const {
     // Rows scrolled out of sight still have a geometry, but it is clipped away
     // by the viewport, so only taps landing inside the viewport can hit one.
     const QWidget* pViewport = m_pScrollArea->viewport();
     if (!pViewport->rect().contains(pViewport->mapFromGlobal(globalPos))) {
         return -1;
     }
-    for (int i = 0; i < buttons.size(); ++i) {
-        const QPushButton* pButton = buttons.at(i);
-        if (!pButton->isEnabled()) {
+    for (int i = 0; i < widgets.size(); ++i) {
+        const T* pWidget = widgets.at(i);
+        if (!pWidget->isEnabled()) {
             continue;
         }
-        if (pButton->rect().contains(pButton->mapFromGlobal(globalPos))) {
+        if (pWidget->rect().contains(pWidget->mapFromGlobal(globalPos))) {
             return i;
         }
     }
@@ -302,6 +314,26 @@ void WUsbList::applyRecordingState(int recordingIndex) {
     }
 }
 
+void WUsbList::handleNameTap(int index) {
+    const qint64 nowMs = m_nameTapClock.elapsed();
+    if (index != m_nameTapIndex) {
+        m_nameTapIndex = index;
+        m_nameTapTimesMs.clear();
+    }
+    m_nameTapTimesMs.append(nowMs);
+    while (nowMs - m_nameTapTimesMs.first() > kNameTapWindowMs) {
+        m_nameTapTimesMs.removeFirst();
+    }
+    if (m_nameTapTimesMs.size() < kNameTapsForDebugExport) {
+        return;
+    }
+    // Start counting afresh, so a fourth tap is not a second export.
+    m_nameTapTimesMs.clear();
+    if (SystemSettings* pSettings = SystemSettings::tryInstance()) {
+        pSettings->exportDebugLogsToRow(index);
+    }
+}
+
 void WUsbList::handleEjectTap(int index) {
     if (index < 0 || index >= m_ejectButtons.size()) {
         return;
@@ -356,6 +388,10 @@ void WUsbList::rebuildRows(const QStringList& labels) {
     m_rowWidgets.clear();
     m_ejectButtons.clear();
     m_recordButtons.clear();
+    m_nameLabels.clear();
+    // Row indexes are about to mean different drives.
+    m_nameTapIndex = -1;
+    m_nameTapTimesMs.clear();
     if (m_pEmptyRow) {
         m_pEmptyRow->setParent(nullptr);
         m_pEmptyRow->deleteLater();
@@ -393,6 +429,7 @@ void WUsbList::rebuildRows(const QStringList& labels) {
         m_rowWidgets.append(pEject);
         m_recordButtons.append(pRecord);
         m_ejectButtons.append(pEject);
+        m_nameLabels.append(pLabel);
         restyle(style(), pLabel);
         restyle(style(), pRecord);
         restyle(style(), pEject);

@@ -70,6 +70,12 @@ public:
   // Set Rate Ramp Sensitivity
   static void setRateRampSensitivity(int);
   static int getRateRampSensitivity();
+  static constexpr int kDefaultJogFilterLength = 6;
+  static constexpr int kMinJogFilterLength = 1;
+  static constexpr int kMaxJogFilterLength = 64;
+  static int sanitizeJogFilterLength(int length);
+  static void setJogFilterLength(int length);
+  static int getJogFilterLength();
   bool isReverseButtonPressed();
   // ReadAheadManager::getNextSamples() notifies us each time the play position
   // wrapped around during one buffer process (beatloop or track repeat) so
@@ -147,6 +153,7 @@ private:
 
   std::unique_ptr<ControlObject> m_pJog;
   std::unique_ptr<Rotary> m_pJogFilter;
+  mutable int m_iJogFilterLength;
 
   ControlObject* m_pVCEnabled;
   ControlObject* m_pVCScratching;
@@ -160,6 +167,7 @@ private:
   static ControlValueAtomic<double> m_dTemporaryRateChangeFine;
   static ControlValueAtomic<double> m_dPermanentRateChangeCoarse;
   static ControlValueAtomic<double> m_dPermanentRateChangeFine;
+  static ControlValueAtomic<int> m_iConfiguredJogFilterLength;
 
   int m_wrapAroundCount;
   mixxx::audio::FramePos m_jumpPos;

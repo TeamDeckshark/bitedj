@@ -3,6 +3,10 @@
   beat grid editor. The panel sits directly beside the waveforms, so the beat
   markers you are correcting stay on screen while you correct them.
 
+  Began as the side-panel grid controls in PiFlex
+  <https://github.com/xsploit/PiFlex> by Tyler "subsect", and was reworked
+  here; see LICENSE.
+
   The deck tabs at the top are part of the page, not of the tab bar above it,
   so both pages carry an identical pair and the bar looks continuous while the
   stack swaps under it. A tab writes its deck's stack trigger, which both

@@ -13,7 +13,8 @@
 
 WNotificationStrip::WNotificationStrip(QWidget* parent)
         : WWidget(parent),
-          m_pLabel(new QLabel(this)) {
+          m_pLabel(new QLabel(this)),
+          m_pActionLabel(new QLabel(this)) {
     // QSS-painted background/border requires WA_StyledBackground on a plain
     // QWidget subclass.
     setAttribute(Qt::WA_StyledBackground, true);
@@ -25,7 +26,12 @@ WNotificationStrip::WNotificationStrip(QWidget* parent)
     m_pLabel->setObjectName("NotificationLabel");
     m_pLabel->setAlignment(Qt::AlignCenter);
     m_pLabel->setWordWrap(false);
-    pLayout->addWidget(m_pLabel);
+    pLayout->addWidget(m_pLabel, 1);
+
+    m_pActionLabel->setObjectName("NotificationAction");
+    m_pActionLabel->setAlignment(Qt::AlignCenter);
+    m_pActionLabel->setVisible(false);
+    pLayout->addWidget(m_pActionLabel);
 
     // Hidden by default so stock Mixxx (where the visibility CO never fires
     // and we never receive a messagePosted) doesn't paint an empty band.
@@ -38,6 +44,10 @@ WNotificationStrip::WNotificationStrip(QWidget* parent)
                 &Notifications::messagePosted,
                 this,
                 &WNotificationStrip::onMessagePosted);
+        connect(pNotifications,
+                &Notifications::actionPosted,
+                this,
+                &WNotificationStrip::onActionPosted);
         connect(pNotifications,
                 &Notifications::cleared,
                 this,
@@ -61,7 +71,12 @@ void WNotificationStrip::mousePressEvent(QMouseEvent* event) {
         return;
     }
     if (Notifications* pNotifications = Notifications::tryInstance()) {
-        pNotifications->clear();
+        if (m_pActionLabel->isVisible() &&
+                m_pActionLabel->geometry().contains(event->pos())) {
+            pNotifications->triggerAction();
+        } else {
+            pNotifications->clear();
+        }
     }
     event->accept();
 }
@@ -72,9 +87,23 @@ void WNotificationStrip::onMessagePosted(const QString& message, int severity) {
     applySeverity(severity);
 }
 
+void WNotificationStrip::onActionPosted(const QString& actionLabel) {
+    m_pActionLabel->setText(actionLabel);
+    m_pActionLabel->setVisible(!actionLabel.isEmpty());
+    // The action takes its width out of the message label, so re-elide
+    // against the new geometry rather than waiting for a resize that a
+    // layout change inside the strip never sends to the strip itself.
+    if (layout()) {
+        layout()->activate();
+    }
+    updateLabelText();
+}
+
 void WNotificationStrip::onCleared() {
     m_message.clear();
     m_pLabel->clear();
+    m_pActionLabel->clear();
+    m_pActionLabel->setVisible(false);
 }
 
 void WNotificationStrip::resizeEvent(QResizeEvent* event) {

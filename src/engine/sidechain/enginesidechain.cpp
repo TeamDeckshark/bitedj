@@ -19,14 +19,12 @@
 #include "util/sample.h"
 #include "util/trace.h"
 
-#define SIDECHAIN_BUFFER_SIZE 65536
-
 namespace {
 // How long the thread sleeps before looking at the FIFO again. Nothing wakes
 // it early (see run()), so this is the whole of its scheduling: the FIFO holds
-// about 0.74 s of stereo audio at 44.1 kHz, which leaves an order of magnitude
-// of headroom over this interval before a sample could be dropped, while
-// costing ten wake-ups a second on an appliance that is doing nothing.
+// about 11.9 s of stereo audio at 44.1 kHz (see kSampleFifoSize), two orders of
+// magnitude over this interval, while costing ten wake-ups a second on an
+// appliance that is doing nothing.
 constexpr unsigned long kDrainIntervalMs = 100;
 } // namespace
 
@@ -35,7 +33,7 @@ EngineSideChain::EngineSideChain(
         CSAMPLE* sidechainMix)
         : m_pConfig(pConfig),
           m_bStopThread(false),
-          m_sampleFifo(SIDECHAIN_BUFFER_SIZE),
+          m_sampleFifo(kSampleFifoSize),
           m_pWorkBuffer(SampleUtil::alloc(SIDECHAIN_BUFFER_SIZE)),
           m_pSidechainMix(sidechainMix) {
     // Bite DJ: the lowest priority Qt offers, not the HighPriority upstream
@@ -97,7 +95,7 @@ void EngineSideChain::writeSamples(const CSAMPLE* pBuffer, int iFrames) {
         // Dropped, never blocked: this runs in the audio callback, and a
         // recording missing a buffer is always better than the engine missing
         // its deadline. This FIFO is also the hard ceiling on what the sidechain
-        // can hold in memory — SIDECHAIN_BUFFER_SIZE samples, 256 KiB, fixed at
+        // can hold in memory — kSampleFifoSize samples, 4 MiB, fixed at
         // construction — no matter how far behind the encoder or the device it
         // writes to has fallen.
         Counter("EngineSideChain::writeSamples buffer overrun").increment();

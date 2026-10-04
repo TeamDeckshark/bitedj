@@ -56,8 +56,11 @@ WTrackTableView::WTrackTableView(QWidget* pParent,
           m_sorting(false),
           m_selectionChangedSinceLastGuiTick(true),
           m_loadCachedOnly(false) {
-    // Connect slots and signals to make the world go 'round.
-    connect(this, &WTrackTableView::doubleClicked, this, &WTrackTableView::slotMouseDoubleClicked);
+    // A double tap does not load the track: on the touch screen a double tap
+    // is too easy to land by accident while browsing, and loading onto a
+    // playing deck can't be undone. Return and the controllers' GoToItem still
+    // run the double-click action, see keyPressEvent() and
+    // activateSelectedTrack().
 
     m_pCOTGuiTick = new ControlProxy(
             QStringLiteral("[App]"), QStringLiteral("gui_tick_50ms_period_s"), this);

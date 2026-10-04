@@ -110,7 +110,7 @@ TEST_F(EngineSideChainTest, anOverrunDropsSamplesRatherThanBlockingTheCallback) 
     // Nothing drains between these writes fast enough to make room for all of
     // them, so the FIFO fills and the rest go on the floor. What matters is
     // that every call returns: the caller is the audio callback.
-    const int fifoFrames = EngineSideChain::SIDECHAIN_BUFFER_SIZE /
+    const int fifoFrames = EngineSideChain::kSampleFifoSize /
             mixxx::kEngineChannelCount;
     const int writes = (fifoFrames / kFramesPerWrite) * 4;
     QElapsedTimer timer;

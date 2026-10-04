@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QEvent>
 #include <QObject>
 #include <QPointF>
 #include <Qt>
@@ -19,6 +20,10 @@ class QPointingDevice;
 ///   can start
 /// * released without moving: the press is replayed just before the release,
 ///   which leaves taps (selection, editing, double click) untouched
+///
+/// The second press of a double tap is held back the same way, so a finger
+/// that stays down after a double tap scrolls instead of extending the
+/// selection.
 class TouchScrollFilter : public QObject {
     Q_OBJECT
 
@@ -54,6 +59,8 @@ class TouchScrollFilter : public QObject {
     /// Guards the press we send ourselves against being filtered again
     bool m_replayingPress;
 
+    /// MouseButtonPress or MouseButtonDblClick, replayed as such
+    QEvent::Type m_pressType;
     QPointF m_pressPos;
     QPointF m_pressScenePos;
     QPointF m_pressGlobalPos;

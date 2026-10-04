@@ -97,5 +97,7 @@
         <file>shaders/passthrough.vert</file>
         <file>shaders/rgbsignal.frag</file>
         <file>shaders/stackedsignal.frag</file>
+      <!-- Bite DJ: debug-log export run by SystemSettings::exportDebugLogsToRow -->
+        <file>support/debuglogexport.xml</file>
     </qresource>
 </RCC>

@@ -140,6 +140,11 @@ class BaseTrackPlayerImpl : public BaseTrackPlayer {
     /// fallback), deduplicated by the previous failed track id.
     void notifyLoadFailed(const TrackPointer& pTrack, const QString& reason);
 
+    /// Bite DJ: applies [BiteDJ],load_into_playing to a load aimed at this
+    /// player. Returns true when the load must not go ahead now — refused
+    /// outright, or held behind a LOAD confirmation on the notification strip.
+    bool holdLoadIntoPlaying(const TrackPointer& pNewTrack, bool bPlay);
+
     void connectLoadedTrack();
     void disconnectLoadedTrack();
 
@@ -150,6 +155,9 @@ class BaseTrackPlayerImpl : public BaseTrackPlayer {
     EngineDeck* m_pChannel;
     bool m_replaygainPending;
     EngineChannel* m_pChannelToCloneFrom;
+    /// Set only while the DJ's LOAD confirmation re-issues a held load, so
+    /// holdLoadIntoPlaying() lets it through even though the deck still plays.
+    bool m_loadIntoPlayingConfirmed;
 
     PerformanceTimer m_ejectTimer;
 

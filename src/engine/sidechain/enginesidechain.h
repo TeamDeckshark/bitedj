@@ -33,7 +33,15 @@ class EngineSideChain : public QThread, public AudioDestination {
     // Thread-safe, blocking.
     void addSideChainWorker(SideChainWorker* pWorker);
 
+    // The most samples handed to a SideChainWorker in one process() call.
+    // Encoders size their own input buffers from this.
     static constexpr int SIDECHAIN_BUFFER_SIZE = 65536;
+    // Capacity of the FIFO between the audio callback and this thread: 4 MiB,
+    // about 11.9 s of stereo audio at 44.1 kHz. A USB stick in the middle of
+    // a flash erase can stop accepting writes for seconds, and this thread
+    // runs SCHED_IDLE; until it drains, the audio waits here. Must be a power
+    // of two (FIFO is a PortAudio ring buffer).
+    static constexpr int kSampleFifoSize = 1048576;
 
   private:
     void run() override;

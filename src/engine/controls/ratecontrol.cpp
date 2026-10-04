@@ -17,6 +17,9 @@
 namespace {
 constexpr int kRateSensitivityMin = 100;
 constexpr int kRateSensitivityMax = 2500;
+const ConfigKey kJogFilterLengthConfigKey(
+        QStringLiteral("[Controls]"),
+        QStringLiteral("JogWheelFilterLength"));
 } // namespace
 
 // Static default values for rate buttons (percents)
@@ -24,6 +27,7 @@ ControlValueAtomic<double> RateControl::m_dTemporaryRateChangeCoarse;
 ControlValueAtomic<double> RateControl::m_dTemporaryRateChangeFine;
 ControlValueAtomic<double> RateControl::m_dPermanentRateChangeCoarse;
 ControlValueAtomic<double> RateControl::m_dPermanentRateChangeFine;
+ControlValueAtomic<int> RateControl::m_iConfiguredJogFilterLength;
 int RateControl::m_iRateRampSensitivity;
 RateControl::RampMode RateControl::m_eRateRampMode;
 
@@ -98,6 +102,7 @@ RateControl::RateControl(const QString& group, UserSettingsPointer pConfig)
           m_pJog(std::make_unique<ControlObject>(
                   ConfigKey(group, QStringLiteral("jog")))),
           m_pJogFilter(std::make_unique<Rotary>()),
+          m_iJogFilterLength(kDefaultJogFilterLength),
           // Vinyl control
           m_pVCEnabled(ControlObject::getControl(ConfigKey(
                   getGroup(), QStringLiteral("vinylcontrol_enabled")))),
@@ -196,8 +201,11 @@ RateControl::RateControl(const QString& group, UserSettingsPointer pConfig)
     // this control.
     m_pScratch2Scratching->set(1.0);
 
-    // FIXME: This should be dependent on sample rate/block size or something
-    m_pJogFilter->setFilterLength(25);
+    setJogFilterLength(getConfig()->getValue(
+            kJogFilterLengthConfigKey,
+            kDefaultJogFilterLength));
+    m_iJogFilterLength = getJogFilterLength();
+    m_pJogFilter->setFilterLength(m_iJogFilterLength);
 
 //     // Update Internal Settings
 //     // Set Pitchbend Mode
@@ -236,6 +244,28 @@ void RateControl::setRateRampSensitivity(int sense) {
     } else {
         m_iRateRampSensitivity = sense;
     }
+}
+
+// static
+int RateControl::sanitizeJogFilterLength(int length) {
+    if (length < kMinJogFilterLength || length > kMaxJogFilterLength) {
+        return kDefaultJogFilterLength;
+    }
+    return length;
+}
+
+// static
+void RateControl::setJogFilterLength(int length) {
+    m_iConfiguredJogFilterLength.setValue(sanitizeJogFilterLength(length));
+}
+
+// static
+int RateControl::getJogFilterLength() {
+    const int length = m_iConfiguredJogFilterLength.getValue();
+    if (length < kMinJogFilterLength || length > kMaxJogFilterLength) {
+        return kDefaultJogFilterLength;
+    }
+    return length;
 }
 
 //static
@@ -369,6 +399,12 @@ double RateControl::getWheelFactor() const {
 double RateControl::getJogFactor() const {
     // FIXME: Sensitivity should be configurable separately?
     constexpr double jogSensitivity = 0.1; // Nudges during playback
+    const int configuredFilterLength = getJogFilterLength();
+    if (m_iJogFilterLength != configuredFilterLength) {
+        m_iJogFilterLength = configuredFilterLength;
+        m_pJogFilter->setFilterLength(m_iJogFilterLength);
+    }
+
     double jogValue = m_pJog->get();
 
     // Since m_pJog is an accumulator, reset it since we've used its value.

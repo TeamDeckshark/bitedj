@@ -1,8 +1,9 @@
 #include "util/rotary.h"
 
 #include <QtDebug>
+#include <algorithm>
 
-constexpr int kiRotaryFilterMaxLen = 50;
+constexpr int kiRotaryFilterMaxLen = 64;
 
 Rotary::Rotary()
         : m_iFilterLength(kiRotaryFilterMaxLen),
@@ -86,6 +87,11 @@ void Rotary::setFilterLength(int i) {
     } else {
         m_iFilterLength = i;
     }
+
+    // Do not reuse samples from the old smoothing window after a live change.
+    m_iFilterPos = 0;
+    std::fill(m_pFilter.begin(), m_pFilter.end(), 0.0);
+    m_dLastValue = 0.0;
 }
 
 int Rotary::getFilterLength() {

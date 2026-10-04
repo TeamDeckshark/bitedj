@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Bite DJ debug-log export: what SystemSettings::exportDebugLogsToRow() runs
+  when a drive's name is tapped three times in Settings > System > USB Drives.
+  Compiled into the binary through res/mixxx.qrc and read from
+  :/support/debuglogexport.xml at the start of every export.
+
+  <archive> names the files written to the root of the drive:
+    fileName         Template for the archive's name. {firmware} is the
+                     VERSION= of /etc/os-release made safe for a FAT file name
+                     ("unknown" when there is none); {timestamp} is the local
+                     time in timestampFormat (a QDateTime format string).
+    partialFileName  The archive's name while it is still being written.
+                     {fileName} is the expanded fileName. Keep it hidden, so a
+                     stick pulled mid-export never carries a truncated archive
+                     that looks like a finished one; an eject that cancels the
+                     export deletes this file.
+    replaceGlob      Archives earlier exports left behind, removed once the new
+                     one is in place. Keep it narrow enough to never match a
+                     file the DJ put on the stick.
+
+  <command> is the process. program is run with "-c", the script, then $0
+  and the positional parameters the script reads:
+    $1  mountpoint of the drive
+    $2  fileName (expanded)
+    $3  partialFileName (expanded)
+    $4  replaceGlob
+  nice is the niceness the process runs at. The process is also taken off the
+  GUI thread's SCHED_FIFO priority and into its own process group (so a
+  cancelled export kills tar along with the shell); that is not configurable.
+  Exit status 0 is success. Anything else is reported to the DJ along with the
+  script's stderr.
+-->
+<action>
+  <archive
+      fileName="bitedj-{firmware}-{timestamp}-debug.tar.gz"
+      timestampFormat="yyyyMMdd-HHmmss"
+      partialFileName=".{fileName}.partial"
+      replaceGlob="bitedj-*-debug.tar.gz"/>
+  <command program="sh" nice="10">
+    <script><![CDATA[
+dir=$1; name=$2; partial=$3; glob=$4
+tmp="$dir/$partial"
+# The device's tar is BusyBox's, which rejects GNU tar's long options, so
+# they are only passed to a GNU tar (a dev machine). With them, both tars exit
+# 1 when a file of a live /var/log changed, vanished or couldn't be read but
+# still write the rest, so a status of 1 is tolerated. BusyBox also exits 1 on
+# a usage error without writing anything, hence the -s check: a missing or
+# empty archive is a failure whatever the status.
+set --
+if tar --version 2>/dev/null | grep -q 'GNU tar'; then
+  set -- --warning=no-file-changed --ignore-failed-read
+fi
+tar -czf "$tmp" "$@" -C /var log
+status=$?
+if [ "$status" -gt 1 ] || [ ! -s "$tmp" ]; then
+  rm -f -- "$tmp"; [ "$status" -gt 0 ] && exit "$status"; exit 1
+fi
+mv -f -- "$tmp" "$dir/$name" || { rm -f -- "$tmp"; exit 1; }
+# Earlier archives go only once the new one is in place.
+for old in "$dir"/$glob; do
+  [ "$old" = "$dir/$name" ] || rm -f -- "$old"
+done
+sync -f "$dir/$name" 2>/dev/null || sync
+]]></script>
+  </command>
+</action>

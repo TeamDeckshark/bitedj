@@ -2,6 +2,7 @@
 
 #include <QCoreApplication>
 #include <QDebug>
+#include <QFile>
 #include <QStandardPaths>
 #include <QtGlobal>
 
@@ -80,6 +81,22 @@ QString VersionStore::mixxxVersionSuffix() {
 // static
 QString VersionStore::productName() {
     return kBiteDJ;
+}
+
+// static
+QString VersionStore::firmwareVersion() {
+    QFile file(QStringLiteral("/etc/os-release"));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QString();
+    }
+    while (!file.atEnd()) {
+        const QString line = QString::fromUtf8(file.readLine()).trimmed();
+        constexpr auto kVersionKey = QLatin1String("VERSION=");
+        if (line.startsWith(kVersionKey)) {
+            return line.mid(kVersionKey.size()).trimmed();
+        }
+    }
+    return QString();
 }
 
 QDateTime VersionStore::date() {

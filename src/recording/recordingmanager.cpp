@@ -2,6 +2,7 @@
 
 #include <QDateTime>
 #include <QDir>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QMutex>
 
@@ -11,6 +12,7 @@
 #include "engine/sidechain/enginesidechain.h"
 #include "errordialoghandler.h"
 #include "moc_recordingmanager.cpp"
+#include "notifications/notifications.h"
 #include "recording/defs_recording.h"
 
 #define MIN_DISK_FREE 1024 * 1024 * 1024ll // one gibibyte
@@ -115,12 +117,22 @@ void RecordingManager::startRecording() {
     m_iNumberSplits = 1;
     // Append file extension.
     QString date_time_str = formatDateTimeForFilename(QDateTime::currentDateTime());
-    m_recordingFile = QString("%1.%2")
-                              .arg(date_time_str, fileExtension);
 
     // Storing the absolutePath of the recording file without file extension.
     m_recording_base_file = getRecordingDir();
     m_recording_base_file.append("/").append(date_time_str);
+    // The file is opened truncating, so a name that is already taken would
+    // silently replace an earlier take. With no RTC, the clock comes back
+    // after a power cut from a timestamp saved up to five minutes before it,
+    // so the same name can come round again.
+    const QString requestedBase = m_recording_base_file;
+    for (int suffix = 1;
+            QFileInfo::exists(m_recording_base_file + QChar('.') + fileExtension) ||
+            QFileInfo::exists(m_recording_base_file + QStringLiteral(".cue"));
+            ++suffix) {
+        m_recording_base_file = requestedBase + QStringLiteral("-%1").arg(suffix);
+    }
+    m_recordingFile = QFileInfo(m_recording_base_file).fileName() + QChar('.') + fileExtension;
     // Appending file extension to get the filelocation.
     m_recordingLocation = m_recording_base_file + QChar('.') + fileExtension;
     m_pConfig->set(ConfigKey(RECORDING_PREF_KEY, "Path"), m_recordingLocation);
@@ -241,6 +253,12 @@ void RecordingManager::slotFreeSpaceAvailable(qint64 bytesAvailable) {
 
 void RecordingManager::warnFreespace() {
     qWarning() << "RecordingManager: less than 1 GiB free space";
+    // Modal dialogs are suppressed on the kiosk; use the in-skin strip.
+    if (auto* pNotifications = Notifications::tryInstance()) {
+        pNotifications->publish(tr("Recording drive has less than 1 GiB free"),
+                Notifications::Severity::Warning);
+        return;
+    }
     ErrorDialogProperties* props = ErrorDialogHandler::instance()->newDialogProperties();
     props->setType(DLG_WARNING);
     props->setTitle(tr("Low Disk Space Warning"));
@@ -263,6 +281,13 @@ void RecordingManager::slotIsRecording(bool isRecordingActive, bool error) {
     emit isRecording(isRecordingActive);
 
     if (error) {
+        // Modal dialogs are suppressed on the kiosk; use the in-skin strip.
+        if (auto* pNotifications = Notifications::tryInstance()) {
+            pNotifications->publish(
+                    tr("Recording failed. Check the drive and its free space."),
+                    Notifications::Severity::Error);
+            return;
+        }
         ErrorDialogProperties* props = ErrorDialogHandler::instance()->newDialogProperties();
         props->setType(DLG_WARNING);
         props->setTitle(tr("Recording"));

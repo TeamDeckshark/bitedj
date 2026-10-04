@@ -890,7 +890,6 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/util/mac.cpp
   src/util/moc_included_test.cpp
   src/util/movinginterquartilemean.cpp
-  src/util/pagecachelimiter.cpp
   src/util/rangelist.cpp
   src/util/readaheadsamplebuffer.cpp
   src/util/ringdelaybuffer.cpp
@@ -1164,7 +1163,6 @@ target_precompile_headers(mixxx-lib PUBLIC
   src/util/painterscope.h
   src/util/parented_ptr.h
   src/util/path.h
-  src/util/pagecachelimiter.h
   src/util/performancetimer.h
   src/util/platform.h
   src/util/qt.h
@@ -1578,6 +1576,7 @@ if(BUILD_TESTING)
     src/test/eqmode_test.cpp
     src/test/fileinfo_test.cpp
     src/test/foldertreemodel_test.cpp
+    src/test/browsethread_test.cpp
     src/test/frametest.cpp
     src/test/fscueoverridestore_test.cpp
     src/test/fshistorystore_test.cpp
@@ -1611,7 +1610,6 @@ if(BUILD_TESTING)
     src/test/mixxxtest.cpp
     src/test/mock_networkaccessmanager.cpp
     src/test/musicbrainzrecordingstasktest.cpp
-    src/test/pagecachelimiter_test.cpp
     src/test/performancetimer_test.cpp
     src/test/playcountertest.cpp
     src/test/playedtracks_test.cpp
@@ -1625,6 +1623,7 @@ if(BUILD_TESTING)
     src/test/rekordboxanlz_test.cpp
     src/test/replaygaintest.cpp
     src/test/rescalertest.cpp
+    src/test/rotary_test.cpp
     src/test/rgbcolor_test.cpp
     src/test/samplebuffertest.cpp
     src/test/schemamanager_test.cpp

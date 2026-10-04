@@ -40,6 +40,11 @@ class VersionStore {
     /// Returns the product name shown to the user. (e.g. "Bite DJ")
     static QString productName();
 
+    /// Returns the appliance firmware version (the VERSION= line of
+    /// /etc/os-release, verbatim), or the null string when there is none --
+    /// e.g. on a desktop build, or an OS image that does not set it.
+    static QString firmwareVersion();
+
     /// Returns the application name used for the window title, the JACK client
     /// name and native dialog titles. (e.g. "Mixxx")
     static QString applicationName();

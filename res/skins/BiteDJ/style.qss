@@ -77,7 +77,7 @@ WPushButton[value="1"]:hover {
 #DeckBPM[highlight="1"],
 #DeckRate[highlight="1"],
 #BPMPercent[highlight="1"] {
-  color: #c9372c;
+  color: #f15921;
 }
 
 #DeckBPMTitleWrapper {
@@ -122,7 +122,7 @@ WPushButton[value="1"]:hover {
 #DeckTitlePlaying {
   font-size: 18px;
   font-weight: bold;
-  color: #c9372c;
+  color: #f15921;
   margin-right: 4px;
 }
 
@@ -142,7 +142,7 @@ WPushButton[value="1"]:hover {
 
 /* Playing key != file key (same cue as DeckBPM for rate_ratio != 1). */
 #DeckKey[highlight="1"] {
-  color: #c9372c;
+  color: #f15921;
   background-color: rgba(241, 89, 33, 0.12);
 }
 
@@ -157,7 +157,7 @@ WPushButton[value="1"]:hover {
 }
 
 #DeckHeaderBPM[highlight="1"] {
-  color: #c9372c;
+  color: #f15921;
   background-color: rgba(241, 89, 33, 0.12);
 }
 
@@ -268,8 +268,8 @@ WPushButton[value="1"]:hover {
 }
 
 #FxPanel_TabBar WPushButton[value="1"] {
-  background-color: #855ea7;
-  border-color: #855ea7;
+  background-color: #488ab3;
+  border-color: #488ab3;
   color: #e7e8e9;
 }
 
@@ -296,7 +296,7 @@ WPushButton[value="1"]:hover {
 
 #DeckCueChip:pressed {
   color: #e7e8e9;
-  background-color: #855ea7;
+  background-color: #488ab3;
 }
 
 #CuePanel {
@@ -330,8 +330,8 @@ WPushButton[value="1"]:hover {
 }
 
 #CuePanel_BankToggle[value="1"] {
-  background-color: #855ea7;
-  border-color: #855ea7;
+  background-color: #488ab3;
+  border-color: #488ab3;
   color: #e7e8e9;
 }
 
@@ -345,7 +345,7 @@ WPushButton[value="1"]:hover {
 }
 
 #CuePanel_Close:pressed {
-  border-color: #855ea7;
+  border-color: #488ab3;
   color: #e7e8e9;
 }
 
@@ -398,7 +398,7 @@ WPushButton[value="1"]:hover {
 
 /* Saved loop currently running. */
 #CuePad[displayValue="2"] {
-  border: 2px solid #c9372c;
+  border: 2px solid #f15921;
 }
 
 #BeatFX_ParamRow {
@@ -427,8 +427,65 @@ WPushButton[value="1"]:hover {
 }
 
 #BeatFX_BucketButton[displayValue="1"] {
-  color: #c9372c;
-  border-color: #c9372c;
+  color: #f15921;
+  border-color: #f15921;
+  background-color: #2a1a13;
+}
+
+/* Parameter list below the BeatFX header. Scrolled by dragging the content
+ * (ContentDragScroller), so the scroll bar is only a slim position indicator
+ * and doesn't eat the narrow panel's width. */
+#BeatFX_Parameters,
+#BeatFX_Parameters QWidget#qt_scrollarea_viewport,
+#BeatFX_ParameterList {
+  background-color: transparent;
+  border: 0;
+}
+
+#BeatFX_ParameterList {
+  padding-top: 4px;
+}
+
+#BeatFX_Parameters QScrollBar:vertical {
+  background-color: #151515;
+  border: 0;
+  border-radius: 2px;
+  margin: 0 0 0 4px;
+  width: 10px;
+}
+
+#BeatFX_Parameters QScrollBar::handle:vertical {
+  background-color: #488ab3;
+  border: 0;
+  border-radius: 3px;
+  min-height: 32px;
+}
+
+#BeatFX_Parameters QScrollBar::add-line:vertical,
+#BeatFX_Parameters QScrollBar::sub-line:vertical {
+  height: 0;
+}
+
+#BeatFX_Parameters QScrollBar::add-page:vertical,
+#BeatFX_Parameters QScrollBar::sub-page:vertical {
+  background: none;
+}
+
+/* Button parameters (Quantize, Triplets, ...): same surface as the buckets,
+ * the current option is the text, On is highlighted like a picked bucket. */
+#BeatFX_ParamButton {
+  color: #a7a9ac;
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 2px;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+#BeatFX_ParamButton[displayValue="1"] {
+  color: #f15921;
+  border-color: #f15921;
   background-color: #2a1a13;
 }
 
@@ -499,8 +556,8 @@ WPushButton[value="1"]:hover {
 }
 
 #BeatFX_ActiveToggle[value="1"] {
-  color: #c9372c;
-  border-color: #c9372c;
+  color: #f15921;
+  border-color: #f15921;
 }
 
 /* Deck-routing toggles for [EffectRack1_EffectUnit1]. Channel colors mirror
@@ -522,14 +579,14 @@ WPushButton[value="1"]:hover {
 }
 
 #BeatFX_DeckAssign1[displayValue="1"] {
-  background-color: #855ea7;
-  border-color: #855ea7;
+  background-color: #488ab3;
+  border-color: #488ab3;
   color: #1a1a1a;
 }
 
 #BeatFX_DeckAssign2[displayValue="1"] {
-  background-color: #c9372c;
-  border-color: #c9372c;
+  background-color: #f15921;
+  border-color: #f15921;
   color: #1a1a1a;
 }
 
@@ -560,14 +617,14 @@ WPushButton[value="1"]:hover {
 }
 
 #KeyFX_DeckLabel_1 {
-  color: #855ea7;
+  color: #488ab3;
   font-size: 15px;
   font-weight: bold;
   text-transform: uppercase;
 }
 
 #KeyFX_DeckLabel_2 {
-  color: #c9372c;
+  color: #f15921;
   font-size: 15px;
   font-weight: bold;
   text-transform: uppercase;
@@ -581,7 +638,7 @@ WPushButton[value="1"]:hover {
 }
 
 #KeyFX_DeckKey[highlight="1"] {
-  color: #c9372c;
+  color: #f15921;
 }
 
 #KeyFX_ButtonRow {
@@ -607,8 +664,129 @@ WPushButton[value="1"]:hover {
 #KeyFX_Down:pressed,
 #KeyFX_Up:pressed,
 #KeyFX_Reset:pressed {
-  border-color: #c9372c;
-  color: #c9372c;
+  border-color: #f15921;
+  color: #f15921;
+}
+
+/* GRID page: the beat grid editor for one deck, picked by the 1 / 2 tabs the
+ * page carries itself (templates/grid_deck_page.xml). Both deck pages use the
+ * same object names, so the per-deck accent comes from the page they sit in:
+ * #Grid_DeckPage_1 is blue, #Grid_DeckPage_2 orange, matching the deck colors
+ * everywhere else in the skin. */
+#Grid_DeckBar {
+  margin: 0 0 4px 0;
+  qproperty-layoutAlignment: 'AlignVCenter';
+  qproperty-layoutSpacing: 4;
+}
+
+#Grid_DeckTab1,
+#Grid_DeckTab2 {
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  color: #a7a9ac;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+#Grid_DeckTab1[displayValue="1"] {
+  background-color: #488ab3;
+  border-color: #488ab3;
+  color: #1a1a1a;
+}
+
+#Grid_DeckTab2[displayValue="1"] {
+  background-color: #f15921;
+  border-color: #f15921;
+  color: #1a1a1a;
+}
+
+/* The grid's BPM, so it reads as the thing being edited rather than a chip. */
+#Grid_Bpm {
+  color: #e7e8e9;
+  font-size: 20px;
+  font-weight: bold;
+  padding: 0 2px 0 0;
+}
+
+#Grid_ButtonRow {
+  margin: 0 0 4px 0;
+  qproperty-layoutSpacing: 4;
+}
+
+#Grid_Nudge,
+#Grid_Align,
+#Grid_Bpm_Down,
+#Grid_Bpm_Up,
+#Grid_Scale,
+#Grid_Undo {
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  color: #a7a9ac;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+#Grid_Bpm_Down,
+#Grid_Bpm_Up {
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+/* The longest word on the row and the narrowest column it can sit in, so it
+ * drops a point to keep clear of its own borders. */
+#Grid_Align {
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+/* Secondary row: a doubled/halved analysis is a rare fix, and undo is the way
+ * back out of every button above it. */
+#Grid_Scale,
+#Grid_Undo {
+  color: #6b6e76;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+/* Nothing to undo — the grid is as the analyzer left it. Disabled is load
+ * bearing, not decoration: a disabled WWidget never synthesizes touch ->
+ * mouse, so the button stops taking taps as well as looking dead. */
+#Grid_Undo:disabled {
+  border-color: #2a2a2a;
+  color: #3f4249;
+}
+
+/* No track on this deck, so the whole action block is off. */
+#Grid_Actions:disabled,
+#Grid_Nudge:disabled,
+#Grid_Align:disabled,
+#Grid_Bpm_Down:disabled,
+#Grid_Bpm_Up:disabled,
+#Grid_Scale:disabled {
+  border-color: #2a2a2a;
+  color: #3f4249;
+}
+
+#Grid_DeckPage_1 #Grid_Nudge:enabled:pressed,
+#Grid_DeckPage_1 #Grid_Align:enabled:pressed,
+#Grid_DeckPage_1 #Grid_Bpm_Down:enabled:pressed,
+#Grid_DeckPage_1 #Grid_Bpm_Up:enabled:pressed,
+#Grid_DeckPage_1 #Grid_Scale:enabled:pressed,
+#Grid_DeckPage_1 #Grid_Undo:enabled:pressed {
+  border-color: #488ab3;
+  color: #488ab3;
+}
+
+#Grid_DeckPage_2 #Grid_Nudge:enabled:pressed,
+#Grid_DeckPage_2 #Grid_Align:enabled:pressed,
+#Grid_DeckPage_2 #Grid_Bpm_Down:enabled:pressed,
+#Grid_DeckPage_2 #Grid_Bpm_Up:enabled:pressed,
+#Grid_DeckPage_2 #Grid_Scale:enabled:pressed,
+#Grid_DeckPage_2 #Grid_Undo:enabled:pressed {
+  border-color: #f15921;
+  color: #f15921;
 }
 
 /* GRID page: the beat grid editor for one deck, picked by the 1 / 2 tabs the
@@ -783,7 +961,7 @@ WEffectSelector QAbstractItemView {
   background-color: #1a1a1a;
   border: 1px solid #32323c;
   color: #e5e6ea;
-  selection-background-color: #855ea7;
+  selection-background-color: #488ab3;
   selection-color: #e7e8e9;
 }
 
@@ -796,7 +974,7 @@ WEffectSelector QAbstractItemView {
 /************************************************************************/
 
 #LibraryWrapper QScrollBar {
-  background-color: #855ea7;
+  background-color: #488ab3;
 }
 
 #LibraryWrapper QScrollBar::handle:horizontal {
@@ -952,7 +1130,7 @@ WLabel {
 }
 
 #WaveformInfo_Key[highlight="1"] {
-  color: #c9372c;
+  color: #f15921;
 }
 
 #WaveformInfo_Loop_Icon {
@@ -997,7 +1175,7 @@ WBeatSpinBox::up-button {
 /************************************************************************/
 
 #TabControls {
-  background-color: #855ea7;
+  background-color: #488ab3;
   margin-bottom: 5px;
 }
 
@@ -1100,7 +1278,7 @@ WBeatSpinBox::up-button {
 #SettingsSegmentMid,
 #SettingsSegmentRight {
   background-color: transparent;
-  border: 2px solid #855ea7;
+  border: 2px solid #488ab3;
   color: #a7a9ac;
   font-size: 14px;
   font-weight: bold;
@@ -1155,7 +1333,7 @@ WBeatSpinBox::up-button {
 #SettingsSegmentLeft[displayValue="1"],
 #SettingsSegmentMid[displayValue="1"],
 #SettingsSegmentRight[displayValue="1"] {
-  background-color: #855ea7;
+  background-color: #488ab3;
   color: #e7e8e9;
 }
 
@@ -1200,7 +1378,7 @@ WBeatSpinBox::up-button {
  * that keeps four drives tappable rather than a target size. */
 #SamplerDriveChip {
   background-color: transparent;
-  border: 2px solid #855ea7;
+  border: 2px solid #488ab3;
   border-radius: 4px;
   color: #a7a9ac;
   font-size: 14px;
@@ -1211,7 +1389,7 @@ WBeatSpinBox::up-button {
 }
 
 #SamplerDriveChip[selected="true"] {
-  background-color: #855ea7;
+  background-color: #488ab3;
   color: #e7e8e9;
 }
 
@@ -1226,7 +1404,7 @@ WBeatSpinBox::up-button {
 
 #SettingsActionButton {
   background-color: transparent;
-  border: 2px solid #855ea7;
+  border: 2px solid #488ab3;
   border-radius: 4px;
   color: #e7e8e9;
   font-size: 14px;
@@ -1249,8 +1427,8 @@ WBeatSpinBox::up-button {
 /* Filled accent variant for the commit action (Apply) so un-applied staged
  * settings read as a pending decision next to the outline Cancel. */
 #SettingsPrimaryButton {
-  background-color: #855ea7;
-  border: 2px solid #855ea7;
+  background-color: #488ab3;
+  border: 2px solid #488ab3;
   border-radius: 4px;
   color: #e7e8e9;
   font-size: 14px;
@@ -1288,8 +1466,8 @@ WBeatSpinBox::up-button {
 }
 
 #SettingsSubtabBar WPushButton[value="1"] {
-  background-color: #855ea7;
-  border-color: #855ea7;
+  background-color: #488ab3;
+  border-color: #488ab3;
   color: #e7e8e9;
 }
 
@@ -1439,11 +1617,11 @@ WBeatSpinBox::up-button {
 }
 
 #SamplersDeckBadge1 {
-  background-color: #855ea7;
+  background-color: #488ab3;
 }
 
 #SamplersDeckBadge2 {
-  background-color: #c9372c;
+  background-color: #f15921;
 }
 
 /* PLAY-mode sampler button.
@@ -1474,9 +1652,9 @@ WBeatSpinBox::up-button {
 /* LOAD-mode button: amber palette so the user knows the next press loads. */
 #SamplerLoad {
   background-color: rgba(241, 89, 33, 0.18);
-  border: 2px dashed #c9372c;
+  border: 2px dashed #f15921;
   border-radius: 2px;
-  color: #c9372c;
+  color: #f15921;
   font-size: 11px;
   font-weight: bold;
   margin: 2px 4px 4px 4px;
@@ -1485,7 +1663,7 @@ WBeatSpinBox::up-button {
 
 #SamplerLoad:hover {
   background-color: rgba(241, 89, 33, 0.28);
-  border: 2px dashed #c9372c;
+  border: 2px dashed #f15921;
 }
 
 #SamplerLoad[loaded="1"] {
@@ -1497,7 +1675,7 @@ WBeatSpinBox::up-button {
 }
 
 #SamplerLoad[pressed="true"] {
-  background-color: #c9372c;
+  background-color: #f15921;
   color: #1a1a1a;
 }
 
@@ -1576,7 +1754,7 @@ WBeatSpinBox::up-button {
 }
 
 #SoftTakeoverLabel {
-  color: #c9372c;
+  color: #f15921;
   font-size: 16px;
   font-weight: bold;
   qproperty-alignment: 'AlignCenter';
@@ -1606,10 +1784,25 @@ WBeatSpinBox::up-button {
   background-color: #1a1100;
   border-color: #593a00;
 }
+/* The strip's optional action (Warn's LOAD on a playing deck). Painted as a
+ * filled button so it reads as the one thing to tap; the rest of the strip
+ * dismisses. 44px tall in the 60px strip keeps it on the touch floor. */
+#NotificationStrip #NotificationAction {
+  background-color: #f15921;
+  border-radius: 4px;
+  color: #1a1100;
+  font-size: 16px;
+  font-weight: bold;
+  min-height: 44px;
+  min-width: 88px;
+  margin-left: 8px;
+  padding: 0 12px;
+}
+
 #NotificationStrip[severity="info"] #NotificationLabel,
 #NotificationStrip[severity="warning"] #NotificationLabel,
 #NotificationStrip[severity="error"] #NotificationLabel {
-  color: #c9372c;
+  color: #f15921;
 }
 
 #SettingsHeader {
@@ -1754,7 +1947,7 @@ WBeatSpinBox::up-button {
 
 #ControllerList #ControllerRow[active="true"] {
   background-color: #2d6488;
-  border-color: #855ea7;
+  border-color: #488ab3;
 }
 
 #ControllerList #ControllerRow:pressed {
@@ -1791,7 +1984,7 @@ WBeatSpinBox::up-button {
 
 #UsbList QScrollBar::handle:vertical,
 #ControllerList QScrollBar::handle:vertical {
-  background-color: #855ea7;
+  background-color: #488ab3;
   border: 0;
   border-radius: 5px;
   margin: 0 4px;
@@ -1839,7 +2032,7 @@ WBeatSpinBox::up-button {
 #UsbList #UsbEjectButton,
 #UsbList #UsbRecordButton {
   background-color: transparent;
-  border: 2px solid #855ea7;
+  border: 2px solid #488ab3;
   border-radius: 4px;
   color: #7fb2d6;
   font-size: 14px;

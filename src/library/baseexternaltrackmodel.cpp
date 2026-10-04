@@ -95,19 +95,29 @@ TrackId BaseExternalTrackModel::getTrackId(const QModelIndex& index) const {
 }
 
 TrackId BaseExternalTrackModel::doGetTrackId(const TrackPointer& pTrack) const {
-    if (pTrack) {
-        // The external table has foreign Track IDs, so we need to compare
-        // by location
-        for (int row = 0; row < rowCount(); ++row) {
-            QString nativeLocation = getFieldString(index(row, 0),
-                    ColumnCache::COLUMN_TRACKLOCATIONSTABLE_LOCATION);
-            QString location = QDir::fromNativeSeparators(nativeLocation);
-            if (location == pTrack->getLocation()) {
-                return TrackId(index(row, 0).data());
-            }
-        }
+    if (!pTrack) {
+        return TrackId();
     }
-    return TrackId();
+    return m_trackIdsByLocation.value(pTrack->getLocation());
+}
+
+void BaseExternalTrackModel::updateTrackIdLookup() {
+    m_trackIdsByLocation.clear();
+    m_trackIdsByLocation.reserve(rowCount());
+    for (int row = 0; row < rowCount(); ++row) {
+        const QModelIndex rowIndex = index(row, 0);
+        const QString nativeLocation = getFieldString(rowIndex,
+                ColumnCache::COLUMN_TRACKLOCATIONSTABLE_LOCATION);
+        const QString location = QDir::fromNativeSeparators(nativeLocation);
+        if (location.isEmpty()) {
+            continue;
+        }
+        const TrackId trackId = rowIdentityTrackId(rowIndex);
+        if (!trackId.isValid()) {
+            continue;
+        }
+        m_trackIdsByLocation.insert(location, trackId);
+    }
 }
 
 bool BaseExternalTrackModel::isColumnInternal(int column) {

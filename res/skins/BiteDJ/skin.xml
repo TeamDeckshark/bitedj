@@ -40,7 +40,7 @@
         max-height: 8px;
 	  }
 	  QProgressBar::chunk {
-	    background-color: #c9372c;
+	    background-color: #08537c;
 	  }
 	</LaunchImageStyle>
 

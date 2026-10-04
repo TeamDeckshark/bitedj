@@ -1,16 +1,25 @@
 #include "preferences/systemsettings.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
+#include <QDomDocument>
+#include <QFile>
 #include <QEventLoop>
 #include <QFileInfo>
 #include <QFileInfoList>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStorageInfo>
 #include <QStringList>
 #include <QThread>
 #include <QtDebug>
+
+#include <sched.h>
+#include <signal.h>
+#include <sys/resource.h>
+#include <unistd.h>
 
 #include "analyzer/trackanalysisscheduler.h"
 #include "control/controlobject.h"
@@ -19,6 +28,7 @@
 #include "library/dao/fsanalysiscache.h"
 #include "library/dao/fshistoryworker.h"
 #include "mixer/basetrackplayer.h"
+#include "mixer/loadintoplaying.h"
 #include "mixer/playermanager.h"
 #include "mixer/samplerdrive.h"
 #include "mixer/previewdeck.h"
@@ -29,6 +39,7 @@
 #include "recording/recordingmanager.h"
 #include "track/track.h"
 #include "util/usbdevice.h"
+#include "util/versionstore.h"
 
 namespace {
 const QString kGroup = QStringLiteral("[System]");
@@ -109,6 +120,74 @@ void notify(const QString& message, Notifications::Severity severity) {
     if (Notifications* pNotifications = Notifications::tryInstance()) {
         pNotifications->publish(message, severity);
     }
+}
+
+// Debug-log export (exportDebugLogsToRow). What it runs and what it names its
+// files is defined in this file (see its header comment for the format), which
+// is compiled in from res/support/debuglogexport.xml.
+const QString kDebugExportActionPath = QStringLiteral(":/support/debuglogexport.xml");
+
+// The parsed <action>. The names are the raw templates; exportDebugLogsToRow
+// expands the placeholders.
+struct DebugExportAction {
+    QString fileNameTemplate;
+    QString timestampFormat;
+    QString partialFileNameTemplate;
+    QString replaceGlob;
+    QString program;
+    QString script;
+    int nice = 0;
+};
+
+// Reads the action definition, or writes why it can't to *pError. Every field
+// is required: the definition ships inside the binary, so a missing one is a
+// bug to report rather than something to paper over with a default.
+std::optional<DebugExportAction> loadDebugExportAction(QString* pError) {
+    QFile file(kDebugExportActionPath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        *pError = file.errorString();
+        return std::nullopt;
+    }
+    QDomDocument document;
+    QString parseError;
+    int errorLine = 0;
+    if (!document.setContent(&file, &parseError, &errorLine)) {
+        *pError = QStringLiteral("line %1: %2").arg(QString::number(errorLine), parseError);
+        return std::nullopt;
+    }
+
+    const QDomElement root = document.documentElement();
+    const QDomElement archive = root.firstChildElement(QStringLiteral("archive"));
+    const QDomElement command = root.firstChildElement(QStringLiteral("command"));
+    const QDomElement script = command.firstChildElement(QStringLiteral("script"));
+    bool niceIsNumber = false;
+    DebugExportAction action;
+    action.fileNameTemplate = archive.attribute(QStringLiteral("fileName"));
+    action.timestampFormat = archive.attribute(QStringLiteral("timestampFormat"));
+    action.partialFileNameTemplate = archive.attribute(QStringLiteral("partialFileName"));
+    action.replaceGlob = archive.attribute(QStringLiteral("replaceGlob"));
+    action.program = command.attribute(QStringLiteral("program"));
+    action.script = script.text();
+    action.nice = command.attribute(QStringLiteral("nice")).toInt(&niceIsNumber);
+
+    if (action.fileNameTemplate.isEmpty() || action.timestampFormat.isEmpty() ||
+            action.partialFileNameTemplate.isEmpty() || action.replaceGlob.isEmpty() ||
+            action.program.isEmpty() || action.script.trimmed().isEmpty() ||
+            !niceIsNumber) {
+        *pError = QStringLiteral("incomplete <action> definition");
+        return std::nullopt;
+    }
+    return action;
+}
+
+// Firmware version as it may appear in a FAT file name: os-release quotes the
+// value and may put spaces or slashes in it.
+QString firmwareVersionForFileName() {
+    QString version = VersionStore::firmwareVersion();
+    version.remove(QLatin1Char('"'));
+    version.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9._-]+")),
+            QStringLiteral("_"));
+    return version.isEmpty() ? QStringLiteral("unknown") : version;
 }
 } // namespace
 
@@ -191,6 +270,17 @@ SystemSettings::SystemSettings(UserSettingsPointer pConfig,
             &ControlObject::valueChanged,
             this,
             &SystemSettings::onHotcueActivatePlaysChanged);
+
+    // Loading into a playing deck (General settings tab). Same seed-then-persist
+    // pattern; BaseTrackPlayerImpl reads the CO on each load, so a change governs
+    // the very next one.
+    m_pCoLoadIntoPlaying = std::make_unique<ControlObject>(kLoadIntoPlayingConfigKey);
+    m_pCoLoadIntoPlaying->set(m_pConfig->getValue(kLoadIntoPlayingConfigKey,
+            static_cast<double>(kLoadIntoPlayingDefault)));
+    connect(m_pCoLoadIntoPlaying.get(),
+            &ControlObject::valueChanged,
+            this,
+            &SystemSettings::onLoadIntoPlayingChanged);
 
     // Screen rotation in degrees, 0 or 180 (System settings tab).
     const ConfigKey screenRotationKey(kBiteDj, QStringLiteral("screen_rotation"));
@@ -306,6 +396,7 @@ SystemSettings::SystemSettings(UserSettingsPointer pConfig,
 
 SystemSettings::~SystemSettings() {
     s_pInstance.storeRelease(nullptr);
+    abortDebugExportOn(QStringList{m_debugExportMountPoint});
     // Close the file while the audio callback that writes it is still running.
     // EngineRecord's destructor does finalize an open file, but that happens
     // much further down the teardown, and this is the DJ's set: give the
@@ -498,21 +589,24 @@ void SystemSettings::refresh(bool force) {
 }
 
 void SystemSettings::refreshDriveMountPoints() {
-    QStringList mountPoints;
+    QList<QStringList> mountPoints;
     for (int drive = 1; drive <= kNumEjectDrives; ++drive) {
-        QString mountPoint;
+        QStringList driveMounts;
         const QString usbPath = m_pConfig->getValue(
                 ConfigKey(kBiteDj, QStringLiteral("usb_drive_path_%1").arg(drive)),
                 QString());
         if (!usbPath.isEmpty()) {
+            // Every filesystem on the port, not the first: a stick with two
+            // partitions mounts twice, and stopping at the first match left
+            // tracks off the other one never lighting the LED. Which one came
+            // first was just enumerateUsbMounts()' name order.
             for (const UsbMount& mount : std::as_const(m_usbMounts)) {
                 if (deviceOnUsbPath(mount.device, usbPath)) {
-                    mountPoint = mount.mountPoint;
-                    break;
+                    driveMounts.append(mount.mountPoint);
                 }
             }
         }
-        mountPoints.append(mountPoint);
+        mountPoints.append(driveMounts);
     }
     m_driveMountPoints = std::move(mountPoints);
 }
@@ -633,15 +727,16 @@ QString SystemSettings::mountPlayingFrom(
 
 // static
 QList<bool> SystemSettings::drivesPlaying(
-        const QList<BaseTrackPlayer*>& players, const QStringList& driveMountPoints) {
+        const QList<BaseTrackPlayer*>& players,
+        const QList<QStringList>& driveMountPoints) {
     // Collect the playing tracks once and test them against every drive rather
     // than walking the players per drive: a track can only be on one of them,
     // and getLoadedTrack() takes the player's lock.
     const QStringList locations = playingTrackLocations(players);
     QList<bool> playing;
     playing.reserve(driveMountPoints.size());
-    for (const QString& mountPoint : driveMountPoints) {
-        playing.append(anyLocationUnderMount(locations, mountPoint));
+    for (const QStringList& mountPoints : driveMountPoints) {
+        playing.append(!mountPlayingFrom(locations, mountPoints).isEmpty());
     }
     return playing;
 }
@@ -827,6 +922,7 @@ void SystemSettings::ejectRow(int index) {
     // unmounted, and the user tapped Eject on the drive, not on a partition. So
     // eject every filesystem sitting on the same physical USB device.
     const QStringList mountPoints = mountsOnSameUsbDevice(index);
+    abortDebugExportOn(mountPoints);
 
     int unloaded = 0;
     QStringList ejected;
@@ -1146,6 +1242,10 @@ void SystemSettings::onHotcueActivatePlaysChanged(double value) {
             value != 0.0 ? 1 : 0);
 }
 
+void SystemSettings::onLoadIntoPlayingChanged(double value) {
+    m_pConfig->setValue(kLoadIntoPlayingConfigKey, static_cast<int>(value));
+}
+
 void SystemSettings::onScreenRotationChanged(double value) {
     const int degrees = value == 180.0 ? 180 : 0;
     m_pConfig->setValue(ConfigKey(kBiteDj, QStringLiteral("screen_rotation")),
@@ -1182,4 +1282,128 @@ void SystemSettings::onShutdownRequested(double value) {
         notify(tr("Shutdown command failed to start"),
                 Notifications::Severity::Error);
     }
+}
+
+void SystemSettings::exportDebugLogsToRow(int index) {
+    if (index < 0 || index >= m_usbMounts.size()) {
+        return;
+    }
+    if (m_pDebugExport) {
+        notify(tr("Debug logs are already being saved to %1")
+                        .arg(m_debugExportMountPoint),
+                Notifications::Severity::Warning);
+        return;
+    }
+
+    QString loadError;
+    const std::optional<DebugExportAction> action = loadDebugExportAction(&loadError);
+    if (!action) {
+        qWarning() << "SystemSettings: cannot load" << kDebugExportActionPath
+                   << ":" << loadError;
+        notify(tr("Failed to save debug logs: %1").arg(loadError),
+                Notifications::Severity::Error);
+        return;
+    }
+
+    const QString mountPoint = m_usbMounts.at(index).mountPoint;
+    const QString fileName =
+            QString(action->fileNameTemplate)
+                    .replace(QStringLiteral("{firmware}"), firmwareVersionForFileName())
+                    .replace(QStringLiteral("{timestamp}"),
+                            QDateTime::currentDateTime().toString(
+                                    action->timestampFormat));
+    const QString partialFileName = QString(action->partialFileNameTemplate)
+                                            .replace(QStringLiteral("{fileName}"), fileName);
+
+    auto* pProcess = new QProcess(this);
+    pProcess->setProgram(action->program);
+    pProcess->setArguments(QStringList{QStringLiteral("-c"),
+            action->script,
+            action->program,
+            mountPoint,
+            fileName,
+            partialFileName,
+            action->replaceGlob});
+    pProcess->setProcessChannelMode(QProcess::SeparateChannels);
+    pProcess->setStandardOutputFile(QProcess::nullDevice());
+    const int nice = action->nice;
+    pProcess->setChildProcessModifier([nice] {
+        // Forked from the GUI thread, so the child would otherwise inherit its
+        // SCHED_FIFO priority and compress logs ahead of everything but the
+        // audio engine. Its own process group lets an abort reach tar too.
+        setpgid(0, 0);
+        sched_param param{};
+        param.sched_priority = 0;
+        sched_setscheduler(0, SCHED_OTHER, &param);
+        setpriority(PRIO_PROCESS, 0, nice);
+    });
+    connect(pProcess,
+            &QProcess::finished,
+            this,
+            &SystemSettings::onDebugExportFinished);
+
+    m_pDebugExport = pProcess;
+    m_debugExportMountPoint = mountPoint;
+    m_debugExportFileName = fileName;
+    m_debugExportPartialFileName = partialFileName;
+    notify(tr("Saving debug logs to %1...").arg(mountPoint),
+            Notifications::Severity::Info);
+    pProcess->start();
+    // A process that fails to start never emits finished(), so report it here.
+    if (!pProcess->waitForStarted()) {
+        onDebugExportFinished(-1, QProcess::CrashExit);
+    }
+}
+
+void SystemSettings::onDebugExportFinished(int exitCode, QProcess::ExitStatus exitStatus) {
+    QProcess* pProcess = m_pDebugExport;
+    if (!pProcess) {
+        // Already torn down by abortDebugExportOn().
+        return;
+    }
+    m_pDebugExport = nullptr;
+    const QString target = QDir(m_debugExportMountPoint).filePath(m_debugExportFileName);
+    m_debugExportMountPoint.clear();
+    m_debugExportFileName.clear();
+    m_debugExportPartialFileName.clear();
+
+    if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+        notify(tr("Debug logs saved to %1").arg(target), Notifications::Severity::Info);
+    } else {
+        QString error = QString::fromLocal8Bit(pProcess->readAllStandardError()).trimmed();
+        if (error.isEmpty()) {
+            error = pProcess->error() == QProcess::FailedToStart
+                    ? pProcess->errorString()
+                    : tr("exit code %1").arg(exitCode);
+        }
+        qWarning() << "SystemSettings: debug log export to" << target
+                   << "failed:" << error;
+        notify(tr("Failed to save debug logs: %1").arg(error),
+                Notifications::Severity::Error);
+    }
+    pProcess->deleteLater();
+}
+
+void SystemSettings::abortDebugExportOn(const QStringList& mountPoints) {
+    if (!m_pDebugExport || !mountPoints.contains(m_debugExportMountPoint)) {
+        return;
+    }
+    QProcess* pProcess = m_pDebugExport;
+    m_pDebugExport = nullptr;
+    pProcess->disconnect(this);
+    const qint64 pid = pProcess->processId();
+    if (pid > 0) {
+        // Negative pid: the whole group, so tar dies with the shell.
+        ::kill(static_cast<pid_t>(-pid), SIGKILL);
+    }
+    pProcess->waitForFinished(1000);
+    QFile::remove(QDir(m_debugExportMountPoint).filePath(m_debugExportPartialFileName));
+    qInfo() << "SystemSettings: aborted debug log export to"
+            << m_debugExportMountPoint;
+    notify(tr("Saving debug logs to %1 was cancelled").arg(m_debugExportMountPoint),
+            Notifications::Severity::Warning);
+    m_debugExportMountPoint.clear();
+    m_debugExportFileName.clear();
+    m_debugExportPartialFileName.clear();
+    pProcess->deleteLater();
 }

@@ -2,6 +2,7 @@
 
 #include <QMessageBox>
 #include <QMetaMethod>
+#include <QPointer>
 
 #include "control/controlencoder.h"
 #include "control/controlobject.h"
@@ -11,6 +12,7 @@
 #include "engine/enginebuffer.h"
 #include "engine/enginemixer.h"
 #include "engine/sync/enginesync.h"
+#include "mixer/loadintoplaying.h"
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
 #include "mixer/samplerdrive.h"
@@ -78,7 +80,8 @@ BaseTrackPlayerImpl::BaseTrackPlayerImpl(
           m_pLoadedTrack(),
           m_pPrevFailedTrackId(),
           m_replaygainPending(false),
-          m_pChannelToCloneFrom(nullptr) {
+          m_pChannelToCloneFrom(nullptr),
+          m_loadIntoPlayingConfirmed(false) {
     m_pChannel = new EngineDeck(handleGroup,
             pConfig,
             pMixingEngine,
@@ -596,6 +599,12 @@ void BaseTrackPlayerImpl::slotLoadTrack(TrackPointer pNewTrack, bool bPlay) {
                 return;
             }
         }
+        if (holdLoadIntoPlaying(pNewTrack, bPlay)) {
+            // A clone that is not happening now must not leak into whatever
+            // this player loads next. A confirmed load restores it.
+            m_pChannelToCloneFrom = nullptr;
+            return;
+        }
     }
 
     auto pOldTrack = unloadTrack();
@@ -643,6 +652,62 @@ void BaseTrackPlayerImpl::notifyLoadFailed(
         // Stock Mixxx (no Notifications singleton) — fall back to the modal
         // dialog so an error is still surfaced.
         QMessageBox::warning(nullptr, tr("Couldn't load track."), reason);
+    }
+}
+
+bool BaseTrackPlayerImpl::holdLoadIntoPlaying(const TrackPointer& pNewTrack, bool bPlay) {
+    int deckNumber = 0;
+    if (m_loadIntoPlayingConfirmed ||
+            !PlayerManager::isDeckGroup(getGroup(), &deckNumber) ||
+            !m_pPlay->toBool()) {
+        return false;
+    }
+    // Read through the CO SystemSettings owns rather than the config, so a
+    // change on the settings tab governs the very next load. No CO (tests,
+    // stock Mixxx) reads 0, which is Allow.
+    const auto mode = static_cast<LoadIntoPlaying>(
+            static_cast<int>(ControlObject::get(kLoadIntoPlayingConfigKey)));
+    Notifications* pNotifications = Notifications::tryInstance();
+    switch (mode) {
+    case LoadIntoPlaying::Prevent:
+        if (pNotifications) {
+            pNotifications->publish(
+                    tr("Not loading a new track to a currently playing deck"),
+                    Notifications::Severity::Warning);
+        }
+        return true;
+    case LoadIntoPlaying::Warn: {
+        if (!pNotifications) {
+            // Nowhere to ask, and refusing without a word would read as a
+            // broken load button, so behave as before.
+            return false;
+        }
+        // The confirmation outlives this call, and the strip may still be
+        // offering it after the player is gone, so hold it by QPointer. The
+        // track pointer it keeps is dropped as soon as the strip moves on
+        // (Notifications discards the action on any later publish or clear).
+        QPointer<BaseTrackPlayerImpl> pThis(this);
+        EngineChannel* pChannelToCloneFrom = m_pChannelToCloneFrom;
+        pNotifications->publishWithAction(
+                tr("Deck %1 is playing. Stop it and load?").arg(deckNumber),
+                Notifications::Severity::Warning,
+                tr("LOAD"),
+                [pThis, pNewTrack, bPlay, pChannelToCloneFrom]() {
+                    if (!pThis) {
+                        return;
+                    }
+                    // Load whether or not the deck is still playing by now:
+                    // the DJ has just said yes to this exact track.
+                    pThis->m_pChannelToCloneFrom = pChannelToCloneFrom;
+                    pThis->m_loadIntoPlayingConfirmed = true;
+                    pThis->slotLoadTrack(pNewTrack, bPlay);
+                    pThis->m_loadIntoPlayingConfirmed = false;
+                });
+        return true;
+    }
+    case LoadIntoPlaying::Allow:
+    default:
+        return false;
     }
 }
 

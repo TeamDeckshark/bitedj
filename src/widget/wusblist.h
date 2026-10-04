@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QList>
 #include <QPointF>
 #include <QPushButton>
@@ -34,6 +35,10 @@ class SkinContext;
 // starting one takes width off the drive labels for as long as it runs. A fixed
 // column would cost every row that width permanently, and at the 480px floor
 // the labels have less of it to spare than one row does for the duration.
+//
+// Tapping a drive's name three times within a second saves the device's logs
+// onto it (SystemSettings::exportDebugLogsToRow) — a hidden support hatch, so
+// the name looks no different from a plain label.
 //
 // More drives than fit the panel are reached by scrolling: the rows live in a
 // QScrollArea, which can be scrolled either by dragging its content or by
@@ -88,10 +93,15 @@ class WUsbList : public WWidget {
     // none): that row's button reads "Stop Recording", every other row's is
     // disabled for as long as it runs.
     void applyRecordingState(int recordingIndex);
-    // Index of the visible, enabled button under globalPos within `buttons`, or
-    // -1 for none. A disabled button is not a target: WWidget synthesizes the
-    // touch into a mouse event on the list, so nothing else would filter it out.
-    int buttonIndexAt(const QList<QPushButton*>& buttons, const QPoint& globalPos) const;
+    // Counts a tap on the name of the row at index, and asks SystemSettings for
+    // a debug-log export once it is the third on that row within a second.
+    void handleNameTap(int index);
+    // Index of the visible, enabled widget (button or name label) under
+    // globalPos within `widgets`, or -1 for none. A disabled button is not a
+    // target: WWidget synthesizes the touch into a mouse event on the list, so
+    // nothing else would filter it out.
+    template<typename T>
+    int widgetIndexAt(const QList<T*>& widgets, const QPoint& globalPos) const;
     // Replays a press/move/release onto the vertical scroll bar so it can be
     // dragged with a finger. Buttons are forced to the left button because the
     // events WWidget synthesizes from touches carry none, and QScrollBar drops
@@ -112,10 +122,17 @@ class WUsbList : public WWidget {
     QList<QPushButton*> m_ejectButtons;
     // Record buttons, indexed parallel to the drive list as well.
     QList<QPushButton*> m_recordButtons;
+    // Name labels, indexed parallel to the drive list as well.
+    QList<QLabel*> m_nameLabels;
     QStringList m_rowLabels;
     QLabel* m_pEmptyRow;
     int m_armedIndex;
     QTimer m_disarmTimer;
+    // Row of the most recent name taps and when they landed (QElapsedTimer
+    // msecs), oldest first; only those inside the last second are kept.
+    int m_nameTapIndex;
+    QList<qint64> m_nameTapTimesMs;
+    QElapsedTimer m_nameTapClock;
 
     DragState m_dragState;
     // Press and last seen positions in global coordinates, which stay valid

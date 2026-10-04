@@ -19,6 +19,8 @@ WEffectPushButton::WEffectPushButton(QWidget* pParent, EffectsManager* pEffectsM
 void WEffectPushButton::setup(const QDomNode& node, const SkinContext& context) {
     // Setup parent class.
     WPushButton::setup(node, context);
+    // <ShowParameterValue> is from Custom Bite DJ
+    // <https://github.com/pablo-feijo/custom-bitedj> by Pablo Feijo; see LICENSE.
     m_showParameterValue = context.selectString(node, "ShowParameterValue") == "true";
 
     auto pChainSlot = EffectWidgetUtils::getEffectChainFromNode(
