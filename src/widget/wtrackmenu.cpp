@@ -20,6 +20,7 @@
 #include "library/dlgtrackmetadataexport.h"
 #include "library/externaltrackcollection.h"
 #include "library/library.h"
+#include "library/rekordbox/rekordboxconstants.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
 #include "library/trackmodel.h"
@@ -1724,7 +1725,9 @@ class ScaleBpmTrackPointerOperation : public mixxx::TrackPointerOperation {
             return;
         }
         const mixxx::BeatsPointer pBeats = pTrack->getBeats();
-        if (!pBeats) {
+        // Bite DJ: rekordbox's grid is read-only (see RekordboxAnalysis).
+        if (!pBeats ||
+                pBeats->getSubVersion() == mixxx::rekordboxconstants::beatsSubversion) {
             return;
         }
         const auto scaledBeats = pBeats->tryScale(m_bpmScale);

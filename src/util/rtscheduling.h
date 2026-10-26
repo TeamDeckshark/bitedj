@@ -38,6 +38,12 @@ constexpr int kRtPrioMainThread = 49;
 /// on non-Linux platforms.
 bool promoteCurrentThreadToRealtime(int priority, const char* threadName);
 
+/// Switch the calling thread between SCHED_FIFO at priority (realtime = true)
+/// and plain SCHED_OTHER (false), silently. For a thread that changes class
+/// per work item, where the logging the functions above do would flood the
+/// log. Returns false if the change was refused (e.g. no rtprio to go back up).
+bool setCurrentThreadRealtimeQuietly(bool realtime, int priority);
+
 /// Best-effort demotion of the calling thread to the weakest scheduling class
 /// Linux has: SCHED_IDLE, which is only given the CPU when no SCHED_OTHER (let
 /// alone SCHED_FIFO) thread on the machine wants it. The counterpart of the

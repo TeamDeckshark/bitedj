@@ -267,6 +267,11 @@ class BaseTrackTableModel : public QAbstractTableModel, public TrackModel {
     /// session changed (a track started playing, or the session was reset).
     void slotPlayedTracksChanged();
 
+    /// Repaint the title column after the audible key or the match range
+    /// changed (see HarmonicMatch).
+    void slotHarmonicMatchChanged();
+    void slotRekordboxKeysChanged();
+
   private:
     QVariant rawSiblingValue(
             const QModelIndex& index,

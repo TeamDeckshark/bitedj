@@ -77,6 +77,7 @@
 #include "widget/wstarrating.h"
 #include "widget/waudiodevicelist.h"
 #include "widget/wcontrollerlist.h"
+#include "widget/wrelatedsearch.h"
 #include "widget/wsamplerdrive.h"
 #include "widget/wusblist.h"
 #include "widget/wversionlabel.h"
@@ -642,6 +643,8 @@ QList<QWidget*> LegacySkinParser::parseNode(const QDomElement& node) {
         result = wrapWidget(parseLibrarySidebar(node));
     } else if (nodeName == "LibraryBreadcrumb") {
         result = wrapWidget(parseLibraryBreadcrumb(node));
+    } else if (nodeName == "RelatedSearch") {
+        result = wrapWidget(parseRelatedSearch(node));
     } else if (nodeName == "Library") {
         result = wrapWidget(parseLibrary(node));
     } else if (nodeName == "Key") {
@@ -1620,6 +1623,14 @@ QWidget* LegacySkinParser::parseLibraryBreadcrumb(const QDomElement& node) {
             pLabel,
             &WLabel::setText);
     return pLabel;
+}
+
+QWidget* LegacySkinParser::parseRelatedSearch(const QDomElement& node) {
+    auto* pRelatedSearch = new WRelatedSearch(m_pParent, m_pLibrary);
+    commonWidgetSetup(node, pRelatedSearch);
+    pRelatedSearch->setup(node, *m_pContext);
+    pRelatedSearch->Init();
+    return pRelatedSearch;
 }
 
 QWidget* LegacySkinParser::parseLibrarySidebar(const QDomElement& node) {

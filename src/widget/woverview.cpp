@@ -7,6 +7,7 @@
 #include <QPainter>
 #include <QPen>
 #include <QVBoxLayout>
+#include <cmath>
 
 #include "analyzer/analyzerprogress.h"
 #include "control/controlproxy.h"
@@ -14,6 +15,7 @@
 #include "mixer/playermanager.h"
 #include "moc_woverview.cpp"
 #include "preferences/colorpalettesettings.h"
+#include "track/beats.h"
 #include "track/track.h"
 #include "util/colorcomponents.h"
 #include "util/dnd.h"
@@ -30,6 +32,19 @@ namespace {
 // Horizontal and vertical margin around the widget where we accept play pos dragging.
 constexpr int kDragOutsideLimitX = 100;
 constexpr int kDragOutsideLimitY = 50;
+
+constexpr int kBeatsPerBar = 4;
+// Minimum distance in pixels between two drawn beat lines. A whole track has
+// far more beats than the overview has pixels, so only every 2nd, 4th, ...
+// beat is drawn, whichever keeps at least this much space between the lines.
+// The stride is a power of two counted from the downbeat, so from 4 up only
+// downbeats are left.
+constexpr double kMinBeatLineSpacingPx = 6.0;
+constexpr int kMaxBeatLineStride = 1024;
+
+int positiveModulo(int value, int modulus) {
+    return ((value % modulus) + modulus) % modulus;
+}
 } // anonymous namespace
 
 WOverview::WOverview(
@@ -65,6 +80,7 @@ WOverview::WOverview(
           m_trackLoaded(false),
           m_pHoveredMark(nullptr),
           m_scaleFactor(1.0),
+          m_beatsDirty(true),
           m_trackSampleRateControl(
                   m_group,
                   QStringLiteral("track_samplerate")),
@@ -154,6 +170,19 @@ void WOverview::setup(const QDomNode& node, const SkinContext& context) {
         m_backgroundPixmap = *WPixmapStore::getPixmapNoCache(
                 context.makeSkinPath(m_backgroundPixmapPath),
                 m_scaleFactor);
+    }
+
+    // The beat grid is only drawn when the skin asks for it. Downbeats take
+    // the beat colour unless they have their own.
+    m_beatColor = context.selectColor(node, "BeatColor");
+    if (m_beatColor.isValid()) {
+        m_beatColor = WSkinColor::getCorrectColor(m_beatColor);
+    }
+    m_downbeatColor = context.selectColor(node, "BeatDownbeatColor");
+    if (m_downbeatColor.isValid()) {
+        m_downbeatColor = WSkinColor::getCorrectColor(m_downbeatColor);
+    } else {
+        m_downbeatColor = m_beatColor;
     }
 
     m_endOfTrackColor = QColor(200, 25, 20);
@@ -320,6 +349,11 @@ void WOverview::slotWaveformSummaryUpdated() {
     }
 }
 
+void WOverview::slotBeatsUpdated() {
+    m_beatsDirty = true;
+    update();
+}
+
 void WOverview::onTrackAnalyzerProgress(TrackId trackId, AnalyzerProgress analyzerProgress) {
     if (!m_pCurrentTrack || (m_pCurrentTrack->getId() != trackId)) {
         return;
@@ -337,6 +371,7 @@ void WOverview::slotTrackLoaded(TrackPointer pTrack) {
     //qDebug() << "WOverview::slotTrackLoaded()" << m_pCurrentTrack.get() << pTrack.get();
     DEBUG_ASSERT(m_pCurrentTrack == pTrack);
     m_trackLoaded = true;
+    m_beatsDirty = true;
     if (m_pCurrentTrack) {
         updateCues(m_pCurrentTrack->getCuePoints());
     }
@@ -356,6 +391,10 @@ void WOverview::slotLoadingTrack(TrackPointer pNewTrack, TrackPointer pOldTrack)
                 &Track::cuesUpdated,
                 this,
                 &WOverview::receiveCuesUpdated);
+        disconnect(m_pCurrentTrack.get(),
+                &Track::beatsUpdated,
+                this,
+                &WOverview::slotBeatsUpdated);
     }
 
     m_waveformSourceImage = QImage();
@@ -363,6 +402,8 @@ void WOverview::slotLoadingTrack(TrackPointer pNewTrack, TrackPointer pOldTrack)
     m_actualCompletion = 0;
     m_waveformPeak = -1.0;
     m_pixmapDone = false;
+    m_beats.clear();
+    m_beatsDirty = true;
     // Note: Here we already have the new track, but the engine and it's
     // Control Objects may still have the old one until the slotTrackLoaded()
     // signal has been received.
@@ -379,6 +420,10 @@ void WOverview::slotLoadingTrack(TrackPointer pNewTrack, TrackPointer pOldTrack)
                 &WOverview::slotWaveformSummaryUpdated);
         slotWaveformSummaryUpdated();
         connect(pNewTrack.get(), &Track::cuesUpdated, this, &WOverview::receiveCuesUpdated);
+        // The grid changes under a loaded track when the deck switches
+        // between rekordbox's analysis and Bite DJ's, and again when an
+        // analysis that switch asked for finishes.
+        connect(pNewTrack.get(), &Track::beatsUpdated, this, &WOverview::slotBeatsUpdated);
     } else {
         m_pCurrentTrack.reset();
         m_pWaveform.clear();
@@ -671,16 +716,22 @@ void WOverview::paintEvent(QPaintEvent* pEvent) {
         drawAxis(&painter);
         drawWaveformPixmap(&painter);
         drawPlayedOverlay(&painter);
+
+        const double trackSamples = getTrackSamples();
+        const float offset = 1.0f;
+        const auto gain = trackSamples > 0
+                ? static_cast<CSAMPLE_GAIN>(length() - 2) /
+                        static_cast<CSAMPLE_GAIN>(trackSamples)
+                : 0.0f;
+        if (trackSamples > 0) {
+            drawBeats(&painter, offset, gain);
+        }
+
         drawPlayPosition(&painter);
         drawEndOfTrackFrame(&painter);
         drawAnalyzerProgress(&painter);
 
-        double trackSamples = getTrackSamples();
         if (trackSamples > 0) {
-            const float offset = 1.0f;
-            const auto gain = static_cast<CSAMPLE_GAIN>(length() - 2) /
-                    static_cast<CSAMPLE_GAIN>(trackSamples);
-
             drawRangeMarks(&painter, offset, gain);
             drawMarks(&painter, offset, gain);
             drawPickupPosition(&painter);
@@ -769,6 +820,88 @@ void WOverview::drawPlayedOverlay(QPainter* pPainter) {
                     m_playedOverlayColor);
         }
     }
+}
+
+void WOverview::updateBeats(double trackSamples) {
+    m_beatsDirty = false;
+    m_beats.clear();
+    if (!m_beatColor.isValid() || !m_pCurrentTrack) {
+        return;
+    }
+    const mixxx::BeatsPointer pBeats = m_pCurrentTrack->getBeats();
+    if (!pBeats) {
+        return;
+    }
+    const auto endPosition = mixxx::audio::FramePos::fromEngineSamplePos(trackSamples);
+    // Beats are counted like the scrolling waveform counts them: from the
+    // detected drop at or before each beat, else from the grid's own beat 1.
+    auto anchorPosition = mixxx::audio::FramePos();
+    auto anchor = pBeats->cend();
+    for (auto it = pBeats->iteratorFrom(mixxx::audio::kStartFramePos);
+            it != pBeats->cend() && *it <= endPosition;
+            ++it) {
+        const auto beatAnchorPosition = pBeats->downbeatAnchorAt(*it);
+        if (!beatAnchorPosition.isValid()) {
+            m_beats.clear();
+            return;
+        }
+        if (beatAnchorPosition != anchorPosition) {
+            anchorPosition = beatAnchorPosition;
+            anchor = pBeats->iteratorFrom(anchorPosition);
+        }
+        m_beats.push_back(GridBeat{it->toEngineSamplePos(), static_cast<int>(it - anchor)});
+    }
+}
+
+void WOverview::drawBeats(QPainter* pPainter, const float offset, const float gain) {
+    if (m_beatsDirty) {
+        updateBeats(getTrackSamples());
+    }
+    if (m_beats.size() < 2) {
+        return;
+    }
+
+    // Thin the grid out by powers of two rather than drawing a solid wall of
+    // lines. Only beats are ever skipped, never moved: every line drawn is
+    // one of the grid's own beats, at its own position.
+    const double pixelsPerBeat = gain *
+            (m_beats.back().samplePosition - m_beats.front().samplePosition) /
+            static_cast<double>(m_beats.size() - 1);
+    const double minSpacing = kMinBeatLineSpacingPx * m_scaleFactor;
+    int stride = 1;
+    while (stride < kMaxBeatLineStride && pixelsPerBeat * stride < minSpacing) {
+        stride *= 2;
+    }
+
+    QVector<QLineF> beatLines;
+    QVector<QLineF> downbeatLines;
+    const double maxPosition = length() - 1;
+    for (const GridBeat& beat : m_beats) {
+        if (positiveModulo(beat.index, stride) != 0) {
+            continue;
+        }
+        // The pixel the beat falls in, as for the cue marks; +0.5 is that
+        // pixel's centre, which a 1px pen covers exactly.
+        const double position = std::round(offset + beat.samplePosition * gain) + 0.5;
+        if (position < 0 || position > maxPosition) {
+            continue;
+        }
+        QVector<QLineF>& lines = positiveModulo(beat.index, kBeatsPerBar) == 0
+                ? downbeatLines
+                : beatLines;
+        if (m_orientation == Qt::Horizontal) {
+            lines.append(QLineF(position, 0.0, position, height()));
+        } else {
+            lines.append(QLineF(0.0, position, width(), position));
+        }
+    }
+
+    PainterScope painterScope(pPainter);
+    pPainter->setRenderHint(QPainter::Antialiasing, false);
+    pPainter->setPen(QPen(m_beatColor, m_scaleFactor));
+    pPainter->drawLines(beatLines);
+    pPainter->setPen(QPen(m_downbeatColor, m_scaleFactor));
+    pPainter->drawLines(downbeatLines);
 }
 
 void WOverview::drawPlayPosition(QPainter* pPainter) {

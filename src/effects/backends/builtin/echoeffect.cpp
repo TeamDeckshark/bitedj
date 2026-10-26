@@ -37,6 +37,7 @@ EffectManifestPointer EchoEffect::getManifest() {
     pManifest->setShortName(QObject::tr("Echo"));
     pManifest->setAuthor("The Mixxx Team");
     pManifest->setVersion("1.0");
+    pManifest->setMetaknobDefault(db2ratio(-3.0));
     pManifest->setDescription(QObject::tr(
             "Stores the input signal in a temporary buffer and outputs it after a short time"));
 
@@ -194,10 +195,15 @@ void EchoEffect::processChannel(
             bufferedSampleRight *= frac;
             bufferedSampleLeft += pGroupState->delay_buf[prev_read_position] * (1 - frac);
             bufferedSampleRight += pGroupState->delay_buf[prev_read_position + 1] * (1 - frac);
-            incrementRing(&prev_read_position,
-                    engineParameters.channelCount(),
-                    pGroupState->delay_buf.size());
         }
+        // Both read heads advance every frame. Advancing the old one only
+        // while they differ let it fall one frame behind the new one on the
+        // first frame of every buffer with an unchanged delay, and the rest
+        // of that buffer then crossfaded adjacent samples (a low-pass smear
+        // on every repeat).
+        incrementRing(&prev_read_position,
+                engineParameters.channelCount(),
+                pGroupState->delay_buf.size());
         incrementRing(&read_position,
                 engineParameters.channelCount(),
                 pGroupState->delay_buf.size());

@@ -15,11 +15,12 @@
   the highlight. Select-only, like the FX / KEY tabs and the cue drawer — a
   tap on the deck already showing is a no-op.
 
-  Every action is a stock BpmControl push control on [Channel<N>] and edits
+  Every action is a BpmControl push control on [Channel<N>] (all stock except
+  Align's, which is Bite DJ's downbeat variant of beats_translate_curpos) and edits
   the loaded track's grid in place (Mixxx writes it back to the library):
 
     Earlier / Later    beats_translate_{earlier,later}  - 10 ms per step
-    Align              beats_translate_curpos           - nearest beat to playhead
+    Align              beats_translate_curpos_downbeat  - nearest downbeat to playhead
     BPM - / +          beats_adjust_{slower,faster}     - 0.01 BPM per step
     /2 and x2          beats_set_{halve,double}         - fix a doubled analysis
     Undo               beats_undo_adjustment            - one step back
@@ -34,6 +35,14 @@
   to the playhead, so it throws away the nudging the arrows beside it just did.
   "Align" rather than "Reset" because Undo, two rows down, is the button that
   restores the analyzed grid — two reverts named alike would be worse.
+
+  RB / BITE on the deck bar picks whose grid (and key) the loaded track
+  plays with when a rekordbox export on its drive has analysed it; see
+  RekordboxAnalysis. The pick is the track's, stored on its drive, and RB is
+  what a track starts on whenever its rekordbox grid can be read. Rekordbox's
+  grid is read-only here (there is nowhere to write a change back to), so the
+  action block is hidden while RB shows and a note takes its place. Edits in
+  BITE land in Bite DJ's own grid on the drive and come back on the next load.
 
   Undo takes its enabled state from beats_undo_possible. Greyed out it swallows
   the tap outright — a disabled WWidget never synthesizes touch -> mouse — so
@@ -89,6 +98,39 @@
             <Connection>
               <ConfigKey>[Skin],grid_deck2</ConfigKey>
               <EmitOnDownPress>true</EmitOnDownPress>
+            </Connection>
+          </PushButton>
+
+          <!-- Whose grid and key the loaded track plays with: RB (the
+               export's) or BITE (Bite DJ's own analysis), off
+               [ChannelN],analysis_source, remembered per track on its drive.
+               Tap to flip; flipping to BITE on a track Bite DJ has not
+               analysed yet starts that analysis. Lives on the deck bar
+               rather than in Grid_Actions because that block hides under
+               RB. Dimmed (not disabled), and stuck on BITE, while the loaded
+               track has no readable rekordbox grid, via
+               analysis_source_available. -->
+          <PushButton>
+            <ObjectName>Grid_Source</ObjectName>
+            <Size>40f,30f</Size>
+            <NumberStates>2</NumberStates>
+            <State>
+              <Number>0</Number>
+              <Text>BITE</Text>
+            </State>
+            <State>
+              <Number>1</Number>
+              <Text>RB</Text>
+            </State>
+            <Connection>
+              <ConfigKey>[Channel<Variable name="channel"/>],analysis_source</ConfigKey>
+              <EmitOnDownPress>true</EmitOnDownPress>
+              <ButtonState>LeftButton</ButtonState>
+            </Connection>
+            <Connection>
+              <ConnectValueFromWidget>false</ConnectValueFromWidget>
+              <ConfigKey>[Channel<Variable name="channel"/>],analysis_source_available</ConfigKey>
+              <BindProperty>available</BindProperty>
             </Connection>
           </PushButton>
 
@@ -155,7 +197,7 @@
                   <Text>Align</Text>
                 </State>
                 <Connection>
-                  <ConfigKey>[Channel<Variable name="channel"/>],beats_translate_curpos</ConfigKey>
+                  <ConfigKey>[Channel<Variable name="channel"/>],beats_translate_curpos_downbeat</ConfigKey>
                   <ConnectValueToWidget>false</ConnectValueToWidget>
                   <EmitOnDownPress>true</EmitOnDownPress>
                 </Connection>
@@ -260,7 +302,30 @@
           <ConfigKey>[Channel<Variable name="channel"/>],track_loaded</ConfigKey>
           <BindProperty>enabled</BindProperty>
         </Connection>
+        <Connection>
+          <ConnectValueFromWidget>false</ConnectValueFromWidget>
+          <ConfigKey>[Channel<Variable name="channel"/>],analysis_source</ConfigKey>
+          <Transform><Not/></Transform>
+          <BindProperty>visible</BindProperty>
+        </Connection>
       </WidgetGroup>
+
+      <!-- In Grid_Actions' place while the track plays with rekordbox's
+           grid, which cannot be edited: says why, and where the way to
+           editing is. Ignored horizontally: a word-wrapped label's size
+           hint is its text on one line, which would otherwise be its
+           minimum width. -->
+      <Label>
+        <ObjectName>Grid_ReadOnly</ObjectName>
+        <SizePolicy>i,me</SizePolicy>
+        <Text>Rekordbox grid &#8212; switch to BITE to edit</Text>
+        <Alignment>center</Alignment>
+        <Connection>
+          <ConnectValueFromWidget>false</ConnectValueFromWidget>
+          <ConfigKey>[Channel<Variable name="channel"/>],analysis_source</ConfigKey>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+      </Label>
 
     </Children>
   </WidgetGroup>

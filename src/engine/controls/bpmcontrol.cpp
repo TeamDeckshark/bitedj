@@ -6,6 +6,7 @@
 #include "control/controlpushbutton.h"
 #include "engine/effects/groupfeaturestate.h"
 #include "engine/enginebuffer.h"
+#include "library/rekordbox/rekordboxconstants.h"
 #include "moc_bpmcontrol.cpp"
 #include "track/beatutils.h"
 #include "track/track.h"
@@ -49,6 +50,18 @@ mixxx::Bpm averageBpmRoundedWithinRange(double averageLength, double rateRatio) 
             averageBpm,
             averageBpm + kBpmTapRounding);
     return averageBpm;
+}
+
+/// Bite DJ: the track's grid if the DJ may edit it, else null. Rekordbox's
+/// grid comes from the drive's export on every load and an edit of it could
+/// never be kept, so it is read-only here whichever control asks; the DJ
+/// switches the track to Bite DJ's own grid to correct it (RekordboxAnalysis).
+mixxx::BeatsPointer editableBeats(const TrackPointer& pTrack) {
+    mixxx::BeatsPointer pBeats = pTrack->getBeats();
+    if (pBeats && pBeats->getSubVersion() == mixxx::rekordboxconstants::beatsSubversion) {
+        return nullptr;
+    }
+    return pBeats;
 }
 
 } // namespace
@@ -231,6 +244,18 @@ BpmControl::BpmControl(const QString& group,
             &BpmControl::slotBeatsTranslate,
             Qt::DirectConnection);
 
+    // Bite DJ: the GRID page's Align. Snaps the closest *downbeat* (the
+    // coloured bar line) to the playhead instead of the closest beat, so
+    // tapping it on the "one" fixes the bar phase too, not just the beat
+    // phase.
+    m_pTranslateBeatsDownbeat = std::make_unique<ControlPushButton>(
+            ConfigKey(group, "beats_translate_curpos_downbeat"));
+    connect(m_pTranslateBeatsDownbeat.get(),
+            &ControlObject::valueChanged,
+            this,
+            &BpmControl::slotBeatsTranslateDownbeat,
+            Qt::DirectConnection);
+
     m_pBeatsTranslateMatchAlignment = std::make_unique<ControlPushButton>(
             ConfigKey(group, "beats_translate_match_alignment"));
     connect(m_pBeatsTranslateMatchAlignment.get(),
@@ -269,7 +294,7 @@ void BpmControl::adjustBeatsBpm(double deltaBpm) {
     if (!pTrack) {
         return;
     }
-    const mixxx::BeatsPointer pBeats = pTrack->getBeats();
+    const mixxx::BeatsPointer pBeats = editableBeats(pTrack);
     if (!pBeats) {
         return;
     }
@@ -324,7 +349,7 @@ void BpmControl::slotTranslateBeatsMove(double v) {
     if (!pTrack) {
         return;
     }
-    const mixxx::BeatsPointer pBeats = pTrack->getBeats();
+    const mixxx::BeatsPointer pBeats = editableBeats(pTrack);
     if (pBeats) {
         // TODO(rryan): Track::frameInfo is possibly inaccurate!
         const double sampleOffset = frameInfo().sampleRate * v * 0.01;
@@ -341,7 +366,7 @@ void BpmControl::slotBeatsUndoAdjustment(double v) {
         return;
     }
     const TrackPointer pTrack = getEngineBuffer()->getLoadedTrack();
-    if (!pTrack) {
+    if (!pTrack || !editableBeats(pTrack)) {
         return;
     }
     pTrack->undoBeatsChange();
@@ -366,7 +391,7 @@ void BpmControl::slotBpmTapFilter(double averageLength, int numSamples) {
     if (!pTrack) {
         return;
     }
-    const mixxx::BeatsPointer pBeats = pTrack->getBeats();
+    const mixxx::BeatsPointer pBeats = editableBeats(pTrack);
     if (!pBeats) {
         return;
     }
@@ -416,7 +441,7 @@ void BpmControl::slotScaleBpm(mixxx::Beats::BpmScale bpmScale) {
     if (!pTrack) {
         return;
     }
-    const mixxx::BeatsPointer pBeats = pTrack->getBeats();
+    const mixxx::BeatsPointer pBeats = editableBeats(pTrack);
     if (!pBeats) {
         return;
     }
@@ -1164,11 +1189,34 @@ void BpmControl::slotBeatsTranslate(double v) {
     if (!pTrack) {
         return;
     }
-    const mixxx::BeatsPointer pBeats = pTrack->getBeats();
+    const mixxx::BeatsPointer pBeats = editableBeats(pTrack);
     if (pBeats) {
         const auto currentPosition = frameInfo().currentPosition.toLowerFrameBoundary();
         const auto closestBeat = pBeats->findClosestBeat(currentPosition);
         const mixxx::audio::FrameDiff_t frameOffset = currentPosition - closestBeat;
+        const auto translatedBeats = pBeats->tryTranslate(frameOffset);
+        if (translatedBeats) {
+            pTrack->trySetBeats(*translatedBeats);
+        }
+    }
+}
+
+void BpmControl::slotBeatsTranslateDownbeat(double v) {
+    if (v <= 0) {
+        return;
+    }
+    TrackPointer pTrack = getEngineBuffer()->getLoadedTrack();
+    if (!pTrack) {
+        return;
+    }
+    const mixxx::BeatsPointer pBeats = editableBeats(pTrack);
+    if (pBeats) {
+        const auto currentPosition = frameInfo().currentPosition.toLowerFrameBoundary();
+        const auto closestDownbeat = pBeats->findClosestDownbeat(currentPosition);
+        if (!closestDownbeat.isValid()) {
+            return;
+        }
+        const mixxx::audio::FrameDiff_t frameOffset = currentPosition - closestDownbeat;
         const auto translatedBeats = pBeats->tryTranslate(frameOffset);
         if (translatedBeats) {
             pTrack->trySetBeats(*translatedBeats);
@@ -1184,7 +1232,7 @@ void BpmControl::slotBeatsTranslateMatchAlignment(double v) {
     if (!pTrack) {
         return;
     }
-    const mixxx::BeatsPointer pBeats = pTrack->getBeats();
+    const mixxx::BeatsPointer pBeats = editableBeats(pTrack);
     if (pBeats) {
         // Must reset the user offset *before* calling getPhaseOffset(),
         // otherwise it will always return 0 if sync lock is active.

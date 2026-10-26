@@ -19,6 +19,7 @@ EffectManifestPointer AutoPanEffect::getManifest() {
     pManifest->setShortName(QObject::tr("Autopan"));
     pManifest->setAuthor("The Mixxx Team");
     pManifest->setVersion("1.0");
+    pManifest->setMetaknobDefault(0.5);
     pManifest->setDescription(QObject::tr(
             "Bounce the sound left and right across the stereo field"));
 

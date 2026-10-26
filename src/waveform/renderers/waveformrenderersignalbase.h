@@ -19,6 +19,12 @@ public:
     virtual void onSetup(const QDomNode &node) = 0;
 
   protected:
+    /// The share of the strip's half-height a full-scale peak reaches while
+    /// the waveform ignores trim, leaving the rest as margin (see getGains()).
+    /// Kept short of the beat lines, which end at 0.8 (kBeatLineLength in
+    /// waveformrenderbeat.cpp), so a full-scale track never paints over them.
+    static constexpr float kUntrimmedHeadroom = 0.7f;
+
     void deleteControls();
 
     void getGains(float* pAllGain,

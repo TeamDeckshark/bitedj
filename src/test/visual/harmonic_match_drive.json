@@ -1,0 +1,528 @@
+{
+  "description": "Compatible-key rows in a USB drive library, where keys exist only as text (Serato's tkey, no key_id), with deck 1 loaded but never played (its fader down and its play button off, as after a fresh load on the device): the reference key still comes from the loaded deck. \u00b11 greens the 8A reference itself, 8A, 9A, 7A and the relative 8B, never 2A; KEY narrows to the two 8A tracks; ejecting the deck clears every green. Each grab is followed by textColor checks on every visible column of each row.",
+  "size": [
+    800,
+    480
+  ],
+  "drives": {
+    "SERATO": {
+      "_Serato_/database V2": "drives/serato/database V2",
+      "_Serato_/Subcrates/Warmup.crate": "drives/serato/Warmup.crate",
+      "Music/reference.flac": "media/reference.flac",
+      "Music/same.flac": "media/same.flac",
+      "Music/up1.flac": "media/up1.flac",
+      "Music/relative.flac": "media/relative.flac",
+      "Music/far.flac": "media/far.flac",
+      "Music/down1.flac": "media/down1.flac"
+    }
+  },
+  "steps": [
+    {
+      "load": "media/reference.flac",
+      "group": "[Channel1]"
+    },
+    {
+      "waitFor": "[Channel1],track_loaded",
+      "value": 1
+    },
+    {
+      "waitForAnalysis": true
+    },
+    {
+      "set": "[Library],key_match",
+      "value": 2
+    },
+    {
+      "set": "[Tab],library",
+      "value": 1
+    },
+    {
+      "sidebar": [
+        "Serato",
+        "/media/SERATO",
+        "All Tracks"
+      ],
+      "timeout": 30000
+    },
+    {
+      "wait": 1000
+    },
+    {
+      "snapshot": "harmonic_match_drive_pm1"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Reference",
+      "column": "BPM",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "BPM",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Up One",
+      "column": "BPM",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative",
+      "column": "BPM",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Down One",
+      "column": "BPM",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "set": "[Library],key_match",
+      "value": 1
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "harmonic_match_drive_key"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Reference",
+      "column": "BPM",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "BPM",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Up One",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "set": "[Channel1],eject",
+      "value": 1
+    },
+    {
+      "waitFor": "[Channel1],track_loaded",
+      "value": 0
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "harmonic_match_drive_ejected"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Reference",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Reference",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Same Key",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Up One",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Up One",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "BPM",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Down One",
+      "column": "Key",
+      "color": "#ffffff"
+    }
+  ]
+}

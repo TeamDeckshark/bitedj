@@ -1,0 +1,48 @@
+{
+  "description": "Rekordbox playlists keep tracks whose file another track ID already claimed: the fake stick's collection holds Anthem three times (track IDs 2, 5 and 6, one audio file, the way rekordbox exports a file the DJ imported more than once) and its Set playlist names IDs 1, 5, 3, 6, 2. All five entries must show, in that order, with each Anthem copy resolving to the one library row for that file; All Tracks shows the four files once each. The import used to drop IDs 5 and 6 when their insert collided on the library's unique location, so the playlist came up with only three of its five songs.",
+  "size": [
+    800,
+    480
+  ],
+  "drives": {
+    "REKORDBOX": {
+      "PIONEER/rekordbox/export.pdb": "drives/rekordbox/export.pdb"
+    }
+  },
+  "steps": [
+    {
+      "wait": 2000
+    },
+    {
+      "set": "[Tab],library",
+      "value": 1
+    },
+    {
+      "sidebar": [
+        "Rekordbox",
+        "REKORDBOX",
+        "Set"
+      ],
+      "timeout": 30000
+    },
+    {
+      "wait": 1000
+    },
+    {
+      "snapshot": "rekordbox_duplicates_set"
+    },
+    {
+      "sidebar": [
+        "Rekordbox",
+        "REKORDBOX",
+        "All Tracks"
+      ]
+    },
+    {
+      "wait": 1000
+    },
+    {
+      "snapshot": "rekordbox_duplicates_all_tracks"
+    }
+  ]
+}

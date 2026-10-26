@@ -19,6 +19,11 @@ Bite DJ targets a fixed-function, embedded, linux-based, touchscreen-driven DJ u
 
 The sections below describe the fork as a whole. In brief, by release:
 
+- **1.0-4** — Rekordbox beat grids and keys used natively with a per-track RB | BITE
+  source choice, harmonic key match tinting, library search box with RELATED
+  chips and All Tracks per drive, beat grid drawn on the overview, downbeat
+  Align, on-screen keyboard control, SHIFT+jog search and ALSA crackle fixes, a
+  GUI stall watchdog, and headless screenshot tests. Plus fixes from NauticMixxx.
 - **1.0-3** — On Air load gate for playing decks, debug-log export to USB,
   recording and Browse hardening, Rekordbox import robustness, multi-partition
   drive LEDs.
@@ -42,6 +47,9 @@ The sections below describe the fork as a whole. In brief, by release:
   Rekordbox ANLZ/PDB fixes.
 - Kyohei Okuno — memory cue controls, CFX Filter, time mode switching, CDJ-style
   browser navigation, column reordering, and several fixes.
+- Nautic Software's NauticMixxx — Echo read-head fix, `export.pdb` row
+  initialization, selection survival across drive re-plugs, controller and
+  sound-device teardown ordering.
 
 ---
 
@@ -101,6 +109,19 @@ The sections below describe the fork as a whole. In brief, by release:
   enabled, and no default profile ships (the target kernel has no IP stack).
 - External-library models (Rekordbox, Serato, …) look up a track's row through a
   location hash built on `select()` instead of a linear scan.
+- **SHIFT+jog search** no longer starves the GUI, the controller and the other deck:
+  above 8× the reader keeps one speculative request in flight and decodes it on
+  `SCHED_OTHER`. The audio callback no longer allocates on a cache miss.
+- The ALSA output ring gets a third period: two periods of latency are requested,
+  giving 11.6 ms of headroom for +5.8 ms of output latency. The callback still runs
+  every 5.8 ms.
+- **`GuiStallWatchdog`** logs what the GUI thread is stuck in once it stalls for 1 s:
+  state, wchan, the current syscall and its file, the kernel stack, and one
+  user-space stack per stall (module+offset for `addr2line`). The end of the stall
+  is logged with its length.
+- Opening a playlist no longer waits on other database writers: `setModelSetting()`
+  skips the write when the stored value already matches. Showing a Rekordbox or
+  Serato playlist that holds the GUI thread for 250 ms or more logs a warning.
 
 ## Audio path resilience
 
@@ -120,6 +141,8 @@ The sections below describe the fork as a whole. In brief, by release:
   buffer.
 - ALSA logical PCMs (`default`, `pulse`, `dmix`, surround aliases) are hidden from
   the device list; only direct hardware devices are offered.
+- `SoundManager` closes the clock reference first and opens it last; blocking streams
+  abort instead of draining.
 
 ## Touchscreen UI
 
@@ -154,6 +177,14 @@ The sections below describe the fork as a whole. In brief, by release:
   uses the UI locale and falls back to JP. Changes rebuild the skin after a 700 ms
   debounce.
 - Global UI font changed from Monospace to Inter.
+- **On-screen keyboard**: Bite DJ decides when the kiosk's keyboard shows. On every
+  `focusChanged` it sends `osk-supervisor` (pid in
+  `$XDG_RUNTIME_DIR/osk-supervisor.pid`) `SIGUSR2` when a text field has focus and
+  `SIGUSR1` otherwise; a press inside the focused field asks again after the
+  keyboard's hide key. A press outside the field, Enter and Escape clear its focus
+  so the keyboard hides (Enter is left alone in multi-line editors).
+- The FX / KEY / GRID panel is pinned at 224 px, so the waveforms beside it no longer
+  jump on each tab switch.
 - Fixed white-background artifacts when changing pages, and the white waveform flash
   on tab switch (the GL window container's autofill palette before first buffer swap).
 
@@ -176,8 +207,14 @@ into the skin as dedicated pages backed by new settings objects
 - **General** page: **On Air** setting (`[BiteDJ],load_into_playing`) — Allow | Warn
   | Block — for loading onto a playing deck (see Decks). Deck 1/2 crossfader
   assignment is a single Xfader row with two tap-to-cycle A / THRU / B buttons.
+  **Wave Follows** has EQ and Trim chips (EQ replaces the old Apply Waveform EQ
+  row); with Trim off (`[Waveform],apply_trim_to_waveform`) the scrolling waveform
+  is drawn at 1×, scaled to 70% so it stays inside the beat lines.
 - **EQ** settings page, later folded into a new top-level **Levels** page with knobs
-  for booth, master and headphone levels.
+  for booth, master and headphone levels. Master/Booth/Phones gains and the master
+  graphic EQ go straight to `mixxx.cfg` (`[BiteDJ],master_gain`, `booth_gain`,
+  `head_gain`, `master_eq_1..8`) so they survive a power-off at the wall; the EQ copy
+  wins over `effects.xml`.
 - **EQ / Isolator mode** (`[BiteDJ],eq_mode`): one global choice of how a turned-down
   knob cuts. EQ bottoms out at a finite shelf; Isolator (the default) reaches silence
   at the stop. The curves cross at half travel. Honoured by the deck EQs, the master
@@ -185,7 +222,10 @@ into the skin as dedicated pages backed by new settings objects
   which also puts MIDI 64 exactly on the detent.
 - **Library** page fits the 480×420 panel: each column has one button that cycles
   OFF → XS → S → M → L (`[Library],column_size_<name>`); hiding the last visible
-  column is refused.
+  column is refused. **Key → RB** (`[Library],rekordbox_key`, default on) shows the
+  key a scanned rekordbox export gives a track in every library view (painting only;
+  sorting and `~key:` searches use each view's own column). **Match** (Off / Key /
+  ±1 / ±2) sets the harmonic match tint (see Track browser).
 - **USB** drive management page with per-drive eject, power off, a scrollbar, and a
   live-updating drive list. Devices view also gained a scrollbar.
 - **System** page with firmware release info and logging configuration.
@@ -245,6 +285,10 @@ to live on the unit.
   rows broke re-plugged devices.
 - External drive references are removed from the track browser when the filesystem is
   ejected, and an open playlist closes back to the sidebar browser on eject.
+- Every Rekordbox drive and Serato library gets an **All Tracks** entry first in the
+  sidebar.
+- Ejecting a stick closes its analysis cache through the stored connection handle,
+  so the "does not belong to the calling thread" warnings are gone.
 - **Drive LEDs**: `[BiteDJ],drive<N>_playing` (read-only) is 1 while a track from any
   partition of the drive in USB port N is playing in a deck, sampler or preview deck.
   The hidden `bitedj.midi.xml` mapping sends it to the eject daemon, which flashes
@@ -272,6 +316,27 @@ to live on the unit.
   folder that is its own ancestor.
 - New indexes on `(rb_id, device)` and `(playlist_id, position)` make import lookups
   no longer quadratic under the database write lock.
+- **Rekordbox beat grids and keys are used natively** for tracks from any view. They
+  are tagged and never stored in Bite DJ's `.bitedj` analysis slots, so the rekordbox
+  and Bite DJ analyses both survive; analyzers no longer re-analyze rekordbox keys.
+  Legacy drives with imported data in Bite DJ's slots are recognised.
+- **RB | BITE** source choice on the GRID page, made per track. RB is the default
+  whenever the track's rekordbox grid can be read; a missing or unreadable ANLZ grid
+  puts the track on BITE. The pick is stored on the drive (`analysis_source` in
+  `.bitedj/analysis.sqlite`) and mirrored in `[ChannelN],analysis_source`.
+- Rekordbox grids are **read-only**: `BpmControl` and the track menu's BPM scale
+  refuse to edit them, and under RB the GRID page hides its edit buttons. Switching
+  source swaps the grid without an undo entry and clears the undo stack; BITE edits
+  land in Bite DJ's own `beats_cache` slot on the drive.
+- Bar lines sit on rekordbox's own beat 1s: the import anchors the bar count on the
+  PQTZ beats marked as beat 1, and the renderers restart the count on each later
+  anchor. PQTZ positions are kept on whole frames. A PQTZ grid with one exported
+  tempo whose beats only wander by millisecond rounding becomes a constant grid.
+- A file imported into rekordbox more than once (several track IDs, one file) no
+  longer loses its later copies or the playlist entries that name them; All Tracks
+  lists it once. Playlist entries resolve through a track-ID → row-id hash.
+- `rekordbox_pdb` initializes `row_ref_t::m_body`, so a corrupt export can no longer
+  free an uninitialized pointer.
 
 ## Track browser
 
@@ -290,6 +355,21 @@ to live on the unit.
   screen. A valid loaded track is no longer cleared from a deck when the incoming
   track's file is missing.
 - Already-played tracks are colored blue (`PlayedTracks`).
+- **Search and RELATED**: the library top bar has a search box and a RELATED button
+  showing chips for the last selected track (KEY harmonic, BPM range, ARTIST, GENRE,
+  ALBUM). A tap adds a chip's terms, a tap on a lit chip removes only its terms, and a
+  chip replaces terms on its own field. D1 | D2 swap the chips for that deck's
+  playing KEY and BPM, following the deck live until tapped again or ejected.
+- Search filters on Rekordbox and Serato tables are narrowed to columns the table
+  really has, and key filters match key text through a `key_text_id()` SQLite
+  function, so artist and key searches no longer empty those views. Browse folders
+  keep plain word search.
+- **Harmonic match**: tracks whose key mixes with the reference deck's pitch-shifted
+  key get a green row tint in the library, Rekordbox/Serato and Browse views (the
+  played tint still wins). The reference is the audible deck, else a playing deck,
+  else the deck loaded last, so it works without a controller.
+- `WLibraryTableView` caches its selection as row numbers, which survive a re-plugged
+  drive resetting the model.
 - BPM displayed to one decimal; BPM-locked indicator removed from the browser to
   reduce clutter; BPM now shown alongside key in the deck widget-group summaries.
 - Cover art plumbing removed from the track model.
@@ -325,7 +405,12 @@ to live on the unit.
   use tabular digits.
 - **Beat grid editor**: a grid page in the Overview panel for nudging and stretching
   a deck's beat grid, with hold-to-repeat 10 ms / 0.01 BPM steps. "Set" is renamed
-  "Align".
+  "Align", and snaps the closest *downbeat* to the playhead, fixing the bar phase too
+  (`[ChannelN],beats_translate_curpos_downbeat`); `beats_translate_curpos` keeps its
+  stock meaning for mappings.
+- Crossfader assignments lock while a deck is audible through the fader, for the
+  Settings buttons, mappings and orientation buttons alike; a refused change posts a
+  notification and the Xfader buttons grey out (`[BiteDJ],xfader_assign_enabled`).
 - **Per-USB, per-deck samplers** (`SamplerDrive`, `WSamplerDrive`) — sampler decks are
   loaded and saved on a per-USB basis.
 - Volume faders start at 0 instead of 100%.
@@ -336,6 +421,11 @@ to live on the unit.
 - Main waveform touch no longer seeks (`setSeekDisabled`).
 - Key display highlights orange on change in the waveform overview.
 - The waveform overview uses skin-defined hot cue labels.
+- The scrolling waveform's beat lines are #999 and cover the middle 80%; downbeats
+  keep the full height, are 2 px wide and carry an inward arrow at each end.
+- The deck strip's overview draws the beat grid (beats grey, downbeats orange from
+  `<BeatColor>` / `<BeatDownbeatColor>`), thinned by powers of two to stay at least
+  6 px apart, and repaints when the grid changes.
 
 ## Analysis
 
@@ -347,6 +437,11 @@ to live on the unit.
   on replace when a new track is loaded into the same deck — the new load takes
   precedence.
 - Waveform analysis is no longer prevented by transient electrical issues.
+- **Provisional grids**: on-load analysis publishes a grid after 30 s of analyzed
+  audio and each time that doubles, so the grid shows while the track is still being
+  analyzed. Provisional grids are tagged so an interrupted analysis is redone, and
+  stay off the undo stack; if the DJ edits one, the final result keeps the edit and
+  Undo restores the analyzed grid.
 
 ## Effects
 
@@ -366,6 +461,10 @@ to live on the unit.
 - Fixed effect knob parameter changes to use `slotValueChanged`.
 - `EffectSlot::setEnabled()` now reaches the DSP when called from code (e.g. the EQ
   bypass preference).
+- A Beat FX effect picked for the first time loads at its manifest metaknob default,
+  so DDJ-400 LEVEL/DEPTH works without SHIFT. Echo, Flanger, Reverb, Tremolo,
+  Autopan, Bitcrusher and White Noise get audible defaults.
+- Echo advances both read heads every frame, so repeats no longer smear.
 
 ## Controllers & MIDI
 
@@ -387,6 +486,8 @@ to live on the unit.
 - Rescan automatically re-enables any valid controllers; fixed a crash when applying
   preferences after a controller appeared only on a post-startup rescan.
 - Booth output hidden in sound preferences unless `[Deckshark],show_booth_output`.
+- `DlgPrefControllers` disconnects by connection handle, and the controller list is
+  cleared before its devices are deleted at shutdown.
 
 ## Recording
 
@@ -413,9 +514,14 @@ New test coverage added alongside the fork's features: `audiosourceshortread`,
 `effectbeatperiod`, `eqmode`, `foldertreemodel`, `fscueoverridestore`,
 `fshistorystore`, `fshistoryworker`, `fsmetaoverridestore`, `fssamplerbankstore`,
 `highcontrast`, `hotcuecontrol` (memory cues), `keycontrol`, `librarycolumncontrol`,
-`playedtracks`, `rekordboxanlz`, `rotary`, `samplerdrive`, `systemsettings`,
-`touchscrollfilter`, `waveformmarkset`, `wcontrollerlist`, `wnumberpos`,
-`wpushbutton`, and `wusblist`.
+`playedtracks`, `rekordboxanlz`, `relatedtracksearch`, `rotary`, `samplerdrive`,
+`settingsgenerallayout`, `systemsettings`, `touchscrollfilter`, `waveformmarkset`,
+`wcontrollerlist`, `wnumberpos`, `wpushbutton`, and `wusblist`.
+
+**Screenshot tests** (`bitedj-visual-test`, `ctest -L visual`): the whole app boots
+offscreen at 800×480 and JSON scenarios are compared pixel-exactly against golden
+PNGs in `src/test/visual`. `drives/rekordbox/make_fixture.py` writes `export.pdb` and
+ANLZ fixtures for them.
 
 ## Misc
 

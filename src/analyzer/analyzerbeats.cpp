@@ -45,6 +45,19 @@ constexpr double kDropMinPositionFraction = 0.15;
 // the louder one wins. Prevents adjacent bins picking up the same drop.
 constexpr int kDropMinSeparationBeats = 4;
 
+// Bite DJ: a deck that loads an unanalyzed track gets a provisional grid once
+// this much audio has been analyzed, and a fresh one every time the analyzed
+// audio doubles after that. The tempo tracker is offline, so every provisional
+// grid re-tracks everything so far; doubling keeps the whole series to about
+// the cost of one more full tracking pass. 30 s is enough material for the
+// tracker's ~6 s tempo windows to settle on a tempo.
+constexpr double kProvisionalBeatsFirstSeconds = 30.0;
+
+// Sub-version fragment marking a provisional grid. A grid carrying it may be
+// saved (the track can be unloaded mid-analysis) but always gets re-analyzed.
+const QString kProvisionalKey = QStringLiteral("provisional");
+const QString kProvisionalFragment = QStringLiteral("provisional=1");
+
 // A detected BPM is trusted as-is when it lands within this fraction of the BPM
 // stored in the file/library metadata. 5% comfortably absorbs tag rounding and
 // genre-typical tempo drift while still catching half/double-time octave errors
@@ -114,15 +127,19 @@ mixxx::AnalyzerPluginInfo AnalyzerBeats::defaultPlugin() {
     return plugins.at(0);
 }
 
-AnalyzerBeats::AnalyzerBeats(UserSettingsPointer pConfig, bool enforceBpmDetection)
+AnalyzerBeats::AnalyzerBeats(UserSettingsPointer pConfig,
+        bool enforceBpmDetection,
+        bool provisionalBeats)
         : m_bpmSettings(pConfig),
           m_enforceBpmDetection(enforceBpmDetection),
+          m_provisionalBeats(provisionalBeats),
           m_bPreferencesReanalyzeOldBpm(false),
           m_bPreferencesReanalyzeImported(false),
           m_bPreferencesFixedTempo(true),
           m_bPreferencesFastAnalysis(false),
           m_maxFramesToProcess(0),
           m_currentFrame(0),
+          m_nextProvisionalFrame(0),
           m_bassFilterStateL(0.0f),
           m_bassFilterStateR(0.0f),
           m_bassFilterCoefficient(0.0f),
@@ -185,6 +202,7 @@ bool AnalyzerBeats::initialize(const AnalyzerTrack& track,
         m_maxFramesToProcess = frameLength;
     }
     m_currentFrame = 0;
+    m_metadataBpm = track.getTrack()->getMetadata().getTrackInfo().getBpm();
 
     m_bassFilterStateL = 0.0f;
     m_bassFilterStateR = 0.0f;
@@ -214,6 +232,11 @@ bool AnalyzerBeats::initialize(const AnalyzerTrack& track,
         if (m_pPlugin) {
             if (m_pPlugin->initialize(m_sampleRate)) {
                 qDebug() << "Beat calculation started with plugin" << m_pluginId;
+                if (m_provisionalBeats && m_pPlugin->supportsBeatTracking()) {
+                    m_pProvisionalTrack = track.getTrack();
+                    m_nextProvisionalFrame = static_cast<SINT>(
+                            kProvisionalBeatsFirstSeconds * m_sampleRate);
+                }
             } else {
                 qDebug() << "Beat calculation will not start.";
                 m_pPlugin.reset();
@@ -260,6 +283,11 @@ bool AnalyzerBeats::shouldAnalyze(TrackPointer pTrack) const {
     QString subVersion = pBeats->getSubVersion();
     if (subVersion == mixxx::rekordboxconstants::beatsSubversion) {
         return m_bPreferencesReanalyzeImported;
+    }
+
+    if (isProvisional(pBeats)) {
+        qDebug() << "Re-analyzing track whose analysis was interrupted.";
+        return true;
     }
 
     if (subVersion.isEmpty() && pBeats->firstBeat() <= mixxx::audio::kStartFramePos &&
@@ -311,7 +339,48 @@ bool AnalyzerBeats::processSamples(const CSAMPLE* pIn, SINT count) {
         accumulateBassEnergy(pIn[i * 2], pIn[i * 2 + 1]);
     }
 
-    return m_pPlugin->processSamples(pIn, count);
+    if (!m_pPlugin->processSamples(pIn, count)) {
+        return false;
+    }
+    if (m_pProvisionalTrack && m_currentFrame >= m_nextProvisionalFrame) {
+        publishProvisionalBeats();
+        m_nextProvisionalFrame *= 2;
+    }
+    return true;
+}
+
+void AnalyzerBeats::publishProvisionalBeats() {
+    const mixxx::BeatsPointer pCurrentBeats = m_pProvisionalTrack->getBeats();
+    if (pCurrentBeats && pCurrentBeats != m_pLastProvisionalBeats &&
+            (isProvisional(pCurrentBeats) ||
+                    pCurrentBeats->getSubVersion() ==
+                            mixxx::rekordboxconstants::beatsSubversion)) {
+        // The DJ has corrected the last provisional grid, or switched the
+        // track to rekordbox's grid. Either way it's theirs now: stop
+        // replacing it until the final result (see storeResults()).
+        m_pProvisionalTrack.reset();
+        return;
+    }
+    const QVector<mixxx::audio::FramePos> beats = m_pPlugin->getProvisionalBeats();
+    if (beats.size() < 2) {
+        return;
+    }
+    const mixxx::BeatsPointer pBeats = makeBeats(beats, m_pProvisionalTrack, true);
+    if (!pBeats) {
+        return;
+    }
+    // Off the undo stack: Undo must never step back into a half-analyzed grid.
+    if (m_pProvisionalTrack->trySetBeatsDiscardingUndo(pBeats)) {
+        m_pLastProvisionalBeats = pBeats;
+        qDebug() << "AnalyzerBeats published a provisional grid after"
+                 << m_currentFrame / m_sampleRate.value() << "s";
+    }
+}
+
+// static
+bool AnalyzerBeats::isProvisional(const mixxx::BeatsPointer& pBeats) {
+    return pBeats &&
+            pBeats->getSubVersion().split(QChar('|')).contains(kProvisionalFragment);
 }
 
 void AnalyzerBeats::accumulateBassEnergy(CSAMPLE left, CSAMPLE right) {
@@ -337,52 +406,41 @@ void AnalyzerBeats::accumulateBassEnergy(CSAMPLE left, CSAMPLE right) {
 
 void AnalyzerBeats::cleanup() {
     m_pPlugin.reset();
+    m_pProvisionalTrack.reset();
+    m_pLastProvisionalBeats.reset();
 }
 
-void AnalyzerBeats::storeResults(TrackPointer pTrack) {
-    VERIFY_OR_DEBUG_ASSERT(m_pPlugin) {
-        return;
+mixxx::BeatsPointer AnalyzerBeats::makeBeats(
+        const QVector<mixxx::audio::FramePos>& beats,
+        const TrackPointer& pTrack,
+        bool provisional) const {
+    QHash<QString, QString> extraVersionInfo = getExtraVersionInfo(
+            m_pluginId, m_bPreferencesFastAnalysis);
+    if (provisional) {
+        extraVersionInfo[kProvisionalKey] = QStringLiteral("1");
     }
+    return reconciledWithMetadataBpm(
+            BeatFactory::makePreferredBeats(
+                    beats,
+                    extraVersionInfo,
+                    m_bPreferencesFixedTempo,
+                    m_sampleRate),
+            pTrack);
+}
 
-    if (!m_pPlugin->finalize()) {
-        qWarning() << "Beat/BPM analysis failed";
-        return;
-    }
-
-    mixxx::BeatsPointer pBeats;
-    if (m_pPlugin->supportsBeatTracking()) {
-        QVector<mixxx::audio::FramePos> beats = m_pPlugin->getBeats();
-        QHash<QString, QString> extraVersionInfo = getExtraVersionInfo(
-                m_pluginId, m_bPreferencesFastAnalysis);
-        pBeats = BeatFactory::makePreferredBeats(
-                beats,
-                extraVersionInfo,
-                m_bPreferencesFixedTempo,
-                m_sampleRate);
-        qDebug() << "AnalyzerBeats plugin detected" << beats.size()
-                 << "beats. Predominant BPM:"
-                 << (pBeats ? pBeats->getBpmInRange(
-                                      mixxx::audio::kStartFramePos,
-                                      mixxx::audio::FramePos{
-                                              pTrack->getDuration() *
-                                              pBeats->getSampleRate()})
-                            : mixxx::Bpm());
-    } else {
-        mixxx::Bpm bpm = m_pPlugin->getBpm();
-        qDebug() << "AnalyzerBeats plugin detected constant BPM: " << bpm;
-        pBeats = mixxx::Beats::fromConstTempo(m_sampleRate, mixxx::audio::kStartFramePos, bpm);
-    }
-
+mixxx::BeatsPointer AnalyzerBeats::reconciledWithMetadataBpm(
+        mixxx::BeatsPointer pBeats, const TrackPointer& pTrack) const {
     // Reconcile the detected tempo against the file/library metadata BPM so the
     // stored grid is always within tolerance of the tempo the file claims. This
     // matters most for the SoundTouch plugin, whose BPMDetect routinely reports
-    // a half- or double-time octave of the true tempo. We read the metadata BPM
-    // here, before trySetBeats() below overwrites it with the beats-derived
-    // value. Only constant-tempo grids are reconciled; variable-tempo grids
-    // (live sets, old disco) keep the analyzer's per-beat positions.
+    // a half- or double-time octave of the true tempo. The metadata BPM must be
+    // read before the first trySetBeats() of this analysis overwrites it with
+    // the beats-derived value — a provisional grid counts — so initialize()
+    // takes it while the record still holds it. Only constant-tempo grids
+    // are reconciled; variable-tempo grids (live sets, old disco) keep the
+    // analyzer's per-beat positions.
     if (pBeats && pBeats->hasConstantTempo()) {
-        const mixxx::Bpm metadataBpm =
-                pTrack->getMetadata().getTrackInfo().getBpm();
+        const mixxx::Bpm metadataBpm = m_metadataBpm;
         const mixxx::Bpm analyzedBpm = pBeats->getBpmInRange(
                 mixxx::audio::kStartFramePos,
                 mixxx::audio::FramePos{
@@ -399,6 +457,39 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
                     reconciledBpm,
                     pBeats->getSubVersion());
         }
+    }
+    return pBeats;
+}
+
+void AnalyzerBeats::storeResults(TrackPointer pTrack) {
+    VERIFY_OR_DEBUG_ASSERT(m_pPlugin) {
+        return;
+    }
+
+    if (!m_pPlugin->finalize()) {
+        qWarning() << "Beat/BPM analysis failed";
+        return;
+    }
+
+    mixxx::BeatsPointer pBeats;
+    if (m_pPlugin->supportsBeatTracking()) {
+        QVector<mixxx::audio::FramePos> beats = m_pPlugin->getBeats();
+        pBeats = makeBeats(beats, pTrack, false);
+        qDebug() << "AnalyzerBeats plugin detected" << beats.size()
+                 << "beats. Predominant BPM:"
+                 << (pBeats ? pBeats->getBpmInRange(
+                                      mixxx::audio::kStartFramePos,
+                                      mixxx::audio::FramePos{
+                                              pTrack->getDuration() *
+                                              pBeats->getSampleRate()})
+                            : mixxx::Bpm());
+    } else {
+        mixxx::Bpm bpm = m_pPlugin->getBpm();
+        qDebug() << "AnalyzerBeats plugin detected constant BPM: " << bpm;
+        pBeats = reconciledWithMetadataBpm(
+                mixxx::Beats::fromConstTempo(
+                        m_sampleRate, mixxx::audio::kStartFramePos, bpm),
+                pTrack);
     }
 
     // Flush any partial bin so the energy envelope covers the full analyzed
@@ -429,6 +520,29 @@ void AnalyzerBeats::storeResults(TrackPointer pTrack) {
         }
     }
 
+    // Bite DJ: a player that asked for this analysis may have switched back to
+    // rekordbox's grid while it ran ([ChannelN],analysis_source). That grid is
+    // the one it wants now, and shouldAnalyze() would not have replaced it.
+    const mixxx::BeatsPointer pCurrentBeats = pTrack->getBeats();
+    if (!m_bPreferencesReanalyzeImported && pCurrentBeats &&
+            pCurrentBeats->getSubVersion() == mixxx::rekordboxconstants::beatsSubversion) {
+        qDebug() << "Beat analysis finished after a Rekordbox grid was put back. Discarded.";
+        return;
+    }
+    if (pBeats && isProvisional(pCurrentBeats)) {
+        // Replacing a provisional grid: keep it off the undo stack, Undo must
+        // never step back into a half-analyzed grid.
+        pTrack->trySetBeatsDiscardingUndo(pBeats);
+        if (pCurrentBeats != m_pLastProvisionalBeats) {
+            // ...but the DJ corrected it while the analysis ran, so their
+            // grid stays, now as a finished one, and Undo restores the
+            // analyzed grid just set.
+            qDebug() << "Beat analysis finished after the provisional grid was edited."
+                     << "Keeping the edit.";
+            pTrack->trySetBeats(pCurrentBeats->withSubVersion(pBeats->getSubVersion()));
+        }
+        return;
+    }
     pTrack->trySetBeats(pBeats);
 }
 

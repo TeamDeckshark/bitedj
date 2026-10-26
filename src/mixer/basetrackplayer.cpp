@@ -12,6 +12,7 @@
 #include "engine/enginebuffer.h"
 #include "engine/enginemixer.h"
 #include "engine/sync/enginesync.h"
+#include "library/rekordbox/rekordboxanalysis.h"
 #include "mixer/loadintoplaying.h"
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
@@ -115,6 +116,28 @@ BaseTrackPlayerImpl::BaseTrackPlayerImpl(
             &ControlObject::valueChanged,
             this,
             &BaseTrackPlayerImpl::slotEjectTrack);
+
+    // Bite DJ: whose beat grid and key the loaded track plays with, when a
+    // rekordbox export on its drive has analysed it — rekordbox's or Bite
+    // DJ's own (AnalysisSource). The choice belongs to the track, stored on
+    // its drive (RekordboxAnalysis), so this control only shows it for the
+    // track loaded here and passes a flip on to it. A two-state TOGGLE so the
+    // skin's tap-to-cycle PushButton flips it and reads its label off the
+    // state. analysis_source_available says whether the loaded track has a
+    // readable rekordbox grid to choose at all; without one (or with no
+    // track) the source is Bite DJ's.
+    m_pAnalysisSource = std::make_unique<ControlPushButton>(
+            ConfigKey(getGroup(), QStringLiteral("analysis_source")));
+    m_pAnalysisSource->setButtonMode(ControlPushButton::TOGGLE);
+    m_pAnalysisSource->setStates(2);
+    m_pAnalysisSource->set(static_cast<int>(AnalysisSource::BiteDJ));
+    connect(m_pAnalysisSource.get(),
+            &ControlObject::valueChanged,
+            this,
+            &BaseTrackPlayerImpl::slotAnalysisSourceChanged);
+    m_pAnalysisSourceAvailable = std::make_unique<ControlObject>(
+            ConfigKey(getGroup(), QStringLiteral("analysis_source_available")));
+    m_pAnalysisSourceAvailable->setReadOnly();
 
     // Get loop point control objects
     m_pLoopInPoint = make_parented<ControlProxy>(
@@ -451,6 +474,40 @@ void BaseTrackPlayerImpl::slotEjectTrack(double v) {
     m_pChannel->getEngineBuffer()->ejectTrack();
 }
 
+void BaseTrackPlayerImpl::showAnalysisSource(const RekordboxAnalysis::Result& result) {
+    m_pAnalysisSourceAvailable->forceSet(result.rekordboxAvailable ? 1.0 : 0.0);
+    m_pAnalysisSource->set(static_cast<int>(result.source));
+}
+
+void BaseTrackPlayerImpl::slotAnalysisSourceChanged(double value) {
+    if (!m_pLoadedTrack || m_pAnalysisSourceAvailable->get() == 0.0) {
+        // Nothing to choose between: put the button back.
+        m_pAnalysisSource->set(static_cast<int>(AnalysisSource::BiteDJ));
+        return;
+    }
+    const RekordboxAnalysis::Result result = RekordboxAnalysis::chooseSource(
+            m_pLoadedTrack, static_cast<AnalysisSource>(static_cast<int>(value)), m_pConfig);
+    showAnalysisSource(result);
+    // The track is already playing here, so the switch has to happen on it.
+    // Choosing Bite DJ for a track it has not analysed yet is the DJ asking
+    // for that analysis: queue it, as a load would.
+    if (result.needsAnalysis) {
+        emit analysisRequested(m_pLoadedTrack);
+    }
+}
+
+void BaseTrackPlayerImpl::slotLoadedTrackBeatsUpdated() {
+    // The same track on another player can be switched over there, and only
+    // a rekordbox grid is ever tagged as one. Follow it.
+    if (!m_pLoadedTrack || m_pAnalysisSourceAvailable->get() == 0.0) {
+        return;
+    }
+    const auto source = RekordboxAnalysis::isRekordboxBeats(m_pLoadedTrack->getBeats())
+            ? AnalysisSource::Rekordbox
+            : AnalysisSource::BiteDJ;
+    m_pAnalysisSource->set(static_cast<int>(source));
+}
+
 TrackPointer BaseTrackPlayerImpl::unloadTrack() {
     if (!m_pLoadedTrack) {
         // nothing to do
@@ -498,6 +555,7 @@ TrackPointer BaseTrackPlayerImpl::unloadTrack() {
 
     TrackPointer pUnloadedTrack(std::move(m_pLoadedTrack));
     DEBUG_ASSERT(!m_pLoadedTrack);
+    showAnalysisSource(RekordboxAnalysis::Result());
     emit trackUnloaded(pUnloadedTrack);
     return pUnloadedTrack;
 }
@@ -512,6 +570,11 @@ void BaseTrackPlayerImpl::connectLoadedTrack() {
                     m_pFileBPM->set(pTrack->getBpm());
                 }
             });
+
+    connect(m_pLoadedTrack.get(),
+            &Track::beatsUpdated,
+            this,
+            &BaseTrackPlayerImpl::slotLoadedTrackBeatsUpdated);
 
     connect(m_pLoadedTrack.get(),
             &Track::keyChanged,
@@ -608,6 +671,10 @@ void BaseTrackPlayerImpl::slotLoadTrack(TrackPointer pNewTrack, bool bPlay) {
     }
 
     auto pOldTrack = unloadTrack();
+
+    // Before the engine and the analyzer see the track: what this player
+    // shows decides whether there is anything left to analyze.
+    showAnalysisSource(RekordboxAnalysis::applySource(pNewTrack, m_pConfig));
 
     loadTrack(pNewTrack);
 

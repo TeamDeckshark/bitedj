@@ -73,6 +73,20 @@ const ConfigKey mixxx::library::prefs::kApplyPlayedTrackColorConfigKey =
                 mixxx::library::prefs::kConfigGroup,
                 QStringLiteral("ApplyPlayedTrackColor")};
 
+// Bite DJ: Settings -> Library -> Match, see HarmonicMatch::Mode. The key is
+// both the [Library],key_match control and its persisted config value.
+const ConfigKey mixxx::library::prefs::kKeyMatchConfigKey =
+        ConfigKey{
+                mixxx::library::prefs::kConfigGroup,
+                QStringLiteral("key_match")};
+
+// Bite DJ: Settings -> Library -> Key -> RB, see RekordboxKeyDisplay. Both
+// the [Library],rekordbox_key control and its persisted config value.
+const ConfigKey mixxx::library::prefs::kRekordboxKeyConfigKey =
+        ConfigKey{
+                mixxx::library::prefs::kConfigGroup,
+                QStringLiteral("rekordbox_key")};
+
 // The "Export" suffix in the key is kept for backward compatibility
 const ConfigKey mixxx::library::prefs::kSyncTrackMetadataConfigKey =
         ConfigKey{

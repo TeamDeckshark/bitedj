@@ -8,6 +8,7 @@
 #include "analyzer/plugins/analyzerkeyfinder.h"
 #endif
 #include "analyzer/plugins/analyzerqueenmarykey.h"
+#include "library/rekordbox/rekordboxconstants.h"
 #include "proto/keys.pb.h"
 #include "track/keyfactory.h"
 #include "track/track.h"
@@ -126,6 +127,14 @@ bool AnalyzerKey::shouldAnalyze(TrackPointer pTrack) const {
 
     const Keys keys = pTrack->getKeys();
     if (keys.getGlobalKey() != mixxx::track::io::key::INVALID) {
+        if (keys.getSubVersion() == mixxx::rekordboxconstants::keysSubversion) {
+            // Bite DJ: the key rekordbox exported for this track is what the
+            // player was asked to show. Bite DJ's own is detected only when a
+            // player asks for it ([ChannelN],analysis_source), which takes
+            // this key off the track first.
+            qDebug() << "Track has a key imported from Rekordbox. Not analyzing.";
+            return false;
+        }
         QString version = keys.getVersion();
         QString subVersion = keys.getSubVersion();
 
@@ -182,6 +191,11 @@ void AnalyzerKey::storeResults(TrackPointer tio) {
             m_pluginId, m_bPreferencesFastAnalysisEnabled);
     Keys track_keys = KeyFactory::makePreferredKeys(
             key_changes, extraVersionInfo, m_sampleRate, m_totalFrames);
+    if (tio->getKeys().getSubVersion() == mixxx::rekordboxconstants::keysSubversion) {
+        // The player switched back to rekordbox's key while this ran.
+        qDebug() << "Key detection finished after a Rekordbox key was put back. Discarded.";
+        return;
+    }
     tio->setKeys(track_keys);
 }
 

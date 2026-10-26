@@ -17,6 +17,16 @@ class SearchQueryParser {
 
     void setSearchColumns(QStringList searchColumns);
 
+    /// Bite DJ: the columns the searched table really has. External library
+    /// tables (Rekordbox, Serato) have only a subset of Mixxx's, e.g. no
+    /// album_artist, composer or key_id, and a filter naming a missing column
+    /// would fail the whole query and empty the view. Filters are narrowed to
+    /// the columns given; a filter left with none matches no track (or every
+    /// track, for the explicit-empty `field:""` search), and key filters match
+    /// the key text when there is no key_id. Not calling this keeps the stock
+    /// behaviour of assuming Mixxx's own library columns.
+    void restrictToTableColumns(const QStringList& tableColumns);
+
     std::unique_ptr<QueryNode> parseQuery(
             const QString& query,
             const QString& extraFilter) const;
@@ -32,6 +42,9 @@ class SearchQueryParser {
 
     std::unique_ptr<AndNode> parseAndNode(const QString& query) const;
     std::unique_ptr<OrNode> parseOrNode(const QString& query) const;
+
+    bool isFieldUnavailable(const QString& field) const;
+    static std::unique_ptr<QueryNode> unavailableFieldNode(const QString& argument);
 
     struct TextArgumentResult {
         QString argument;
@@ -49,6 +62,8 @@ class SearchQueryParser {
     QStringList m_numericFilters;
     QStringList m_specialFilters;
     QHash<QString, QStringList> m_fieldToSqlColumns;
+    bool m_restrictedToTableColumns;
+    bool m_keyIdAvailable;
 
     QRegularExpression m_textFilterMatcher;
     QRegularExpression m_crateFilterMatcher;

@@ -27,8 +27,10 @@
 #include "library/librarycontrol.h"
 #include "library/libraryfeature.h"
 #include "library/mixxxlibraryfeature.h"
+#include "library/harmonicmatch.h"
 #include "library/playedtracks.h"
 #include "library/rekordbox/rekordboxfeature.h"
+#include "library/rekordbox/rekordboxkeydisplay.h"
 #include "library/rhythmbox/rhythmboxfeature.h"
 #include "library/serato/seratofeature.h"
 #include "library/sidebarmodel.h"
@@ -128,6 +130,37 @@ Library::Library(
             &ControlPushButton::valueChanged,
             this,
             &Library::slotResetPlayedTracks);
+
+    // Bite DJ: Settings -> Library -> Match. A four-state TOGGLE button so the
+    // skin's tap-to-cycle PushButton walks OFF -> KEY -> ±1 -> ±2 and reads its
+    // label off the state; see HarmonicMatch::Mode.
+    m_pKeyMatch.reset(new ControlPushButton(
+            mixxx::library::prefs::kKeyMatchConfigKey));
+    m_pKeyMatch->setButtonMode(ControlPushButton::TOGGLE);
+    m_pKeyMatch->setStates(HarmonicMatch::kModeCount);
+    m_pKeyMatch->set(m_pConfig->getValue(
+            mixxx::library::prefs::kKeyMatchConfigKey,
+            static_cast<int>(HarmonicMatch::kModeDefault)));
+    connect(m_pKeyMatch.data(),
+            &ControlPushButton::valueChanged,
+            this,
+            &Library::slotKeyMatchChanged);
+    // ControlObject::set() doesn't notify its owner, so apply the loaded value.
+    slotKeyMatchChanged(m_pKeyMatch->get());
+
+    // Bite DJ: Settings -> Library -> Key -> RB. On by default: the library
+    // shows rekordbox's key for a track an export knows, as a deck on RB plays
+    // it; see RekordboxKeyDisplay.
+    m_pRekordboxKey.reset(new ControlPushButton(
+            mixxx::library::prefs::kRekordboxKeyConfigKey));
+    m_pRekordboxKey->setButtonMode(ControlPushButton::TOGGLE);
+    m_pRekordboxKey->set(m_pConfig->getValue(
+            mixxx::library::prefs::kRekordboxKeyConfigKey, true));
+    connect(m_pRekordboxKey.data(),
+            &ControlPushButton::valueChanged,
+            this,
+            &Library::slotRekordboxKeyChanged);
+    slotRekordboxKeyChanged(m_pRekordboxKey->get());
 
     m_pClearCueOverrides.reset(new ControlPushButton(
             ConfigKey(QStringLiteral("[Library]"),
@@ -511,6 +544,10 @@ void Library::bindLibraryWidget(
             &WTrackTableView::trackSelected,
             this,
             &Library::trackSelected);
+    connect(pTrackTableView,
+            &WTrackTableView::relatedTrackSearchesChanged,
+            this,
+            &Library::relatedTrackSearchesChanged);
 
     connect(this,
             &Library::setTrackTableFont,
@@ -841,6 +878,14 @@ void Library::searchTracksInCollection(const QString& query) {
     m_pSidebarModel->activateDefaultSelection();
 }
 
+void Library::searchInCurrentView(const QString& query) {
+    // The search box takes the text without searching (restoreSearch blocks
+    // its signals), and the view gets the search directly: the same pair of
+    // steps a view switch makes, minus the switch.
+    emit restoreSearch(query);
+    emit search(query);
+}
+
 #ifdef __ENGINEPRIME__
 std::unique_ptr<mixxx::LibraryExporter> Library::makeLibraryExporter(
         QWidget* parent) {
@@ -1142,6 +1187,21 @@ void Library::slotResetPlayedTracks(double value) {
                 Notifications::Severity::Info);
     }
     kLogger.info() << "Reset played track markers for this session";
+}
+
+void Library::slotKeyMatchChanged(double value) {
+    int mode = static_cast<int>(value);
+    if (mode < 0 || mode >= HarmonicMatch::kModeCount) {
+        mode = static_cast<int>(HarmonicMatch::kModeDefault);
+    }
+    HarmonicMatch::instance().setMode(static_cast<HarmonicMatch::Mode>(mode));
+    m_pConfig->setValue(mixxx::library::prefs::kKeyMatchConfigKey, mode);
+}
+
+void Library::slotRekordboxKeyChanged(double value) {
+    const bool enabled = value != 0.0;
+    RekordboxKeyDisplay::instance().setEnabled(enabled);
+    m_pConfig->setValue(mixxx::library::prefs::kRekordboxKeyConfigKey, enabled);
 }
 
 LibraryTableModel* Library::trackTableModel() const {

@@ -3,9 +3,35 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <QSortFilterProxyModel>
+#include <QStandardItemModel>
 #include <QtDebug>
 #include "proto/headers.pb.h"
+#include "widget/wlibrarytableview.h"
 #include "widget/wtracktableviewheader.h"
+
+namespace {
+
+class TestLibraryTableView final : public WLibraryTableView {
+  public:
+    TestLibraryTableView()
+            : WLibraryTableView(nullptr, UserSettingsPointer()) {
+    }
+
+    void onShow() override {
+    }
+
+    bool hasFocus() const override {
+        return QWidget::hasFocus();
+    }
+
+  protected:
+    QString getModelStateKey() const override {
+        return QStringLiteral("test-model");
+    }
+};
+
+} // namespace
 
 class HeaderViewStateTest : public testing::Test {
 };
@@ -68,4 +94,59 @@ TEST_F(HeaderViewStateTest, GoodHeaderState) {
 TEST_F(HeaderViewStateTest, BadHeaderState) {
     HeaderViewState view_state("BLAHBLAHBLAHBAD");
     ASSERT_FALSE(view_state.healthy());
+}
+
+// A drive re-plugged under the same name rebuilds the model behind the same
+// proxy and state key. The saved selection must be rebuilt from row numbers:
+// the proxy indexes taken before the reset point into freed mapping data.
+TEST(LibraryTableViewStateTest, RestoreAfterProxyResetUsesFreshIndexes) {
+    QStandardItemModel sourceModel(3, 2);
+    QSortFilterProxyModel proxyModel;
+    proxyModel.setSourceModel(&sourceModel);
+
+    TestLibraryTableView tableView;
+    tableView.setModel(&proxyModel);
+
+    tableView.selectionModel()->select(proxyModel.index(1, 0),
+            QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    tableView.selectionModel()->setCurrentIndex(
+            proxyModel.index(1, 1), QItemSelectionModel::NoUpdate);
+    tableView.saveTrackModelState(&proxyModel, QStringLiteral("usb-device"));
+
+    sourceModel.clear();
+    sourceModel.setColumnCount(2);
+    sourceModel.setRowCount(4);
+
+    ASSERT_TRUE(tableView.restoreTrackModelState(
+            &proxyModel, QStringLiteral("usb-device")));
+    const QModelIndexList restoredRows = tableView.selectionModel()->selectedRows();
+    ASSERT_EQ(1, restoredRows.size());
+    EXPECT_EQ(1, restoredRows.first().row());
+    EXPECT_EQ(&proxyModel, restoredRows.first().model());
+    EXPECT_EQ(1, tableView.currentIndex().row());
+    EXPECT_EQ(1, tableView.currentIndex().column());
+}
+
+// Selected rows past the end of a model that came back shorter are dropped,
+// and the current row is clamped to the last one.
+TEST(LibraryTableViewStateTest, RestoreIntoShorterModelSkipsMissingRows) {
+    QStandardItemModel model(6, 2);
+    TestLibraryTableView tableView;
+    tableView.setModel(&model);
+
+    QItemSelection selection(model.index(1, 0), model.index(1, 1));
+    selection.select(model.index(4, 0), model.index(5, 1));
+    tableView.selectionModel()->select(selection,
+            QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    tableView.selectionModel()->setCurrentIndex(
+            model.index(5, 0), QItemSelectionModel::NoUpdate);
+    tableView.saveTrackModelState(&model, QStringLiteral("usb-device"));
+
+    model.setRowCount(3);
+
+    ASSERT_TRUE(tableView.restoreTrackModelState(&model, QStringLiteral("usb-device")));
+    const QModelIndexList restoredRows = tableView.selectionModel()->selectedRows();
+    ASSERT_EQ(1, restoredRows.size());
+    EXPECT_EQ(1, restoredRows.first().row());
+    EXPECT_EQ(2, tableView.currentIndex().row());
 }

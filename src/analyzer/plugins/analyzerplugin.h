@@ -76,6 +76,12 @@ class AnalyzerBeatsPlugin : public AnalyzerPlugin {
     virtual QVector<mixxx::audio::FramePos> getBeats() const {
         return {};
     }
+    /// Bite DJ: the beats tracked in the audio processed so far, without
+    /// finalizing, so a grid can show while the analysis is still running.
+    /// Empty if the plugin can't tell yet (or at all).
+    virtual QVector<mixxx::audio::FramePos> getProvisionalBeats() const {
+        return {};
+    }
 };
 
 class AnalyzerKeyPlugin : public AnalyzerPlugin {

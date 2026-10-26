@@ -1,0 +1,141 @@
+{
+  "description": "RELATED's D1 | D2 sources on a fake Serato stick, deck 1 holding the 8A reference (decks/reference_124.flac: the 8A fixture over a 124 BPM kick, so the deck has a BPM) and deck 2 empty: D2 is greyed out. Selecting Far Away (2A, 140) shows its chips; D1 lights in deck 1's blue and swaps them for deck 1's playing KEY and BPM only, packed to the left. KEY narrows the drive to the harmonic matches (Far Away's 2A drops out) and D1 stays lit even though the table moved its selection to another row; selecting a track by hand does not take the chips back either. Tapping the lit D1 does: the chips are the selected track's again, the KEY search still running. D1 again at the 480x420 design floor, then ejecting deck 1 hands the chips back to the selection and greys D1 out.",
+  "size": [
+    800,
+    480
+  ],
+  "drives": {
+    "SERATO": {
+      "_Serato_/database V2": "drives/serato/database V2",
+      "_Serato_/Subcrates/Warmup.crate": "drives/serato/Warmup.crate",
+      "Music/reference.flac": "media/reference.flac",
+      "Music/same.flac": "media/same.flac",
+      "Music/up1.flac": "media/up1.flac",
+      "Music/relative.flac": "media/relative.flac",
+      "Music/far.flac": "media/far.flac",
+      "Music/down1.flac": "media/down1.flac"
+    }
+  },
+  "steps": [
+    {
+      "load": "decks/reference_124.flac",
+      "group": "[Channel1]"
+    },
+    {
+      "waitFor": "[Channel1],track_loaded",
+      "value": 1
+    },
+    {
+      "waitForAnalysis": true
+    },
+    {
+      "wait": 2000
+    },
+    {
+      "set": "[Tab],library",
+      "value": 1
+    },
+    {
+      "sidebar": [
+        "Serato",
+        "/media/SERATO",
+        "All Tracks"
+      ],
+      "timeout": 30000
+    },
+    {
+      "wait": 1000
+    },
+    {
+      "set": "[Skin],show_related",
+      "value": 1
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "related_search_deck_no_selection"
+    },
+    {
+      "selectRow": "Far Away"
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_deck_selection"
+    },
+    {
+      "click": "RelatedSearchSource",
+      "text": "D1"
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "related_search_deck_d1"
+    },
+    {
+      "click": "RelatedSearchChip",
+      "text": "KEY"
+    },
+    {
+      "wait": 1000
+    },
+    {
+      "snapshot": "related_search_deck_d1_key"
+    },
+    {
+      "selectRow": "Up One"
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_deck_d1_sticky"
+    },
+    {
+      "click": "RelatedSearchSource",
+      "text": "D1"
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "related_search_deck_back_to_selection"
+    },
+    {
+      "click": "RelatedSearchSource",
+      "text": "D1"
+    },
+    {
+      "wait": 300
+    },
+    {
+      "resize": [
+        480,
+        420
+      ]
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_deck_floor"
+    },
+    {
+      "set": "[Channel1],eject",
+      "value": 1
+    },
+    {
+      "waitFor": "[Channel1],track_loaded",
+      "value": 0
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "related_search_deck_ejected"
+    }
+  ]
+}

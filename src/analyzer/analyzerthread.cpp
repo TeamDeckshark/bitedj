@@ -141,7 +141,11 @@ void AnalyzerThread::doRun() {
     // BPM detection might be disabled in the config, but can be overridden
     // and enabled by explicitly setting the mode flag.
     const bool enforceBpmDetection = (m_modeFlags & AnalyzerModeFlags::WithBeats) != 0;
-    m_analyzers.push_back(AnalyzerWithState(std::make_unique<AnalyzerBeats>(m_pConfig, enforceBpmDetection)));
+    // Bite DJ: on-load analysis (the only kind without LowPriority) shows the
+    // grid growing while it runs.
+    const bool provisionalBeats = (m_modeFlags & AnalyzerModeFlags::LowPriority) == 0;
+    m_analyzers.push_back(AnalyzerWithState(std::make_unique<AnalyzerBeats>(
+            m_pConfig, enforceBpmDetection, provisionalBeats)));
     m_analyzers.push_back(AnalyzerWithState(std::make_unique<AnalyzerKey>(m_pConfig)));
     m_analyzers.push_back(AnalyzerWithState(std::make_unique<AnalyzerSilence>(m_pConfig)));
     DEBUG_ASSERT(!m_analyzers.empty());

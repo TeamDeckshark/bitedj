@@ -736,6 +736,15 @@ QString parseDatabase(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dat
         }
     }
 
+    // Bite DJ: every track in the database, first under it. The database row
+    // itself opens the same playlist, but once it has crates under it the
+    // touch sidebar treats a tap on it as expand/collapse, so this is the only
+    // way to reach (and search) the tracks that are in no crate.
+    if (trackCount > 0) {
+        databaseItem->appendChild(QObject::tr("All Tracks"),
+                QList<QVariant>{QVariant(databaseFilePath), QVariant(true)});
+    }
+
     for (const serato_crate_t& crate : crates) {
         QString crateName = insertCrate(
                 database,
@@ -1185,12 +1194,15 @@ void SeratoFeature::activateChild(const QModelIndex& index) {
     } else {
         qDebug() << "Activate Serato Playlist: " << playlist;
         emit saveModelState();
+        QElapsedTimer timer;
+        timer.start();
         m_pSeratoPlaylistModel->setPlaylist(playlist);
         // Playlist names are filesystem paths — the database file for the
         // device-level playlist, the .crate file for a crate — so they double
         // as the location tying this view to its (removable) drive.
         m_pSeratoPlaylistModel->setBackingLocation(playlist);
         emit showTrackModel(m_pSeratoPlaylistModel);
+        m_pSeratoPlaylistModel->warnIfSlowToShow(playlist, timer);
     }
 }
 

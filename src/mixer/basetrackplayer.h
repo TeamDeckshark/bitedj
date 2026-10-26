@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "engine/channels/enginechannel.h"
+#include "library/rekordbox/rekordboxanalysis.h"
 #include "mixer/baseplayer.h"
 #include "preferences/colorpalettesettings.h"
 #include "preferences/usersettings.h"
@@ -54,6 +55,9 @@ class BaseTrackPlayer : public BasePlayer {
 
   signals:
     void newTrackLoaded(TrackPointer pLoadedTrack);
+    /// The loaded track needs analysing again although it was not reloaded:
+    /// the player switched it to an analysis it does not have yet.
+    void analysisRequested(TrackPointer pTrack);
     void trackUnloaded(TrackPointer pUnloadedTrack);
     void loadingTrack(TrackPointer pNewTrack, TrackPointer pOldTrack);
     void playerEmpty();
@@ -129,6 +133,8 @@ class BaseTrackPlayerImpl : public BaseTrackPlayer {
     void slotShiftCuesMillis(double milliseconds);
     void slotShiftCuesMillisButton(double value, double milliseconds);
     void slotUpdateReplayGainFromPregain(double pressed);
+    void slotAnalysisSourceChanged(double value);
+    void slotLoadedTrackBeatsUpdated();
 
   private:
     void setReplayGain(double value);
@@ -148,6 +154,10 @@ class BaseTrackPlayerImpl : public BaseTrackPlayer {
     void connectLoadedTrack();
     void disconnectLoadedTrack();
 
+    /// Bite DJ: show what RekordboxAnalysis did with the loaded track on
+    /// [ChannelN],analysis_source and analysis_source_available.
+    void showAnalysisSource(const RekordboxAnalysis::Result& result);
+
     UserSettingsPointer m_pConfig;
     EngineMixer* m_pEngineMixer;
     TrackPointer m_pLoadedTrack;
@@ -162,6 +172,9 @@ class BaseTrackPlayerImpl : public BaseTrackPlayer {
     PerformanceTimer m_ejectTimer;
 
     std::unique_ptr<ControlPushButton> m_pEject;
+
+    std::unique_ptr<ControlPushButton> m_pAnalysisSource;
+    std::unique_ptr<ControlObject> m_pAnalysisSourceAvailable;
 
     // Deck clone control
     std::unique_ptr<ControlObject> m_pCloneFromDeck;

@@ -13,6 +13,15 @@
 namespace {
 constexpr int kBeatsPerBar = 4;
 
+// Beat lines span this fraction of the waveform's breadth, centred on it.
+constexpr float kBeatLineLength = 0.8f;
+
+// Downbeat lines are this many pixels wide (beat lines are 1) and carry a
+// small arrow at each end pointing inward, so they read as bar marks.
+constexpr float kDownbeatLineWidth = 2.f;
+constexpr float kDownbeatArrowHalfWidth = 3.f;
+constexpr float kDownbeatArrowLength = 4.f;
+
 // Minimum distance in pixels between two drawn beat lines. When zooming out,
 // the grid is decimated by powers of two to keep at least this much space
 // between lines, so the lines never outnumber the waveform they annotate.
@@ -162,7 +171,8 @@ void WaveformRenderBeat::paintGL() {
     // The lines halfway between the kept ones, drawn while fading out.
     const int fadingOffset = stride / 2;
 
-    const int reserved = numBeatsInRange * numVerticesPerLine;
+    // A downbeat is a line plus two arrow triangles: twice a line's vertices.
+    const int reserved = numBeatsInRange * numVerticesPerLine * 2;
     m_vertices.clear();
     m_vertices.reserve(reserved);
     m_fadingVertices.clear();
@@ -186,8 +196,15 @@ void WaveformRenderBeat::paintGL() {
     const auto anchor = trackBeats->iteratorFrom(
             trackBeats->downbeatAnchorAt(startPosition));
     int beatIndex = it - anchor;
+    // A later anchor inside the view (a bar rekordbox restarts mid-track)
+    // restarts the count on the beat it marks.
+    const auto& anchors = trackBeats->getDownbeatAnchors();
+    auto nextAnchor = std::upper_bound(anchors.cbegin(), anchors.cend(), startPosition);
 
     for (; it != trackBeats->cend() && *it <= endPosition; ++it, ++beatIndex) {
+        for (; nextAnchor != anchors.cend() && *it >= *nextAnchor; ++nextAnchor) {
+            beatIndex = it - trackBeats->iteratorFrom(*nextAnchor);
+        }
         const int strideOffset = positiveModulo(beatIndex, stride);
         if (strideOffset != 0 && strideOffset != fadingOffset) {
             // Decimated away at this zoom level.
@@ -215,7 +232,21 @@ void WaveformRenderBeat::paintGL() {
         VertexData& target = isDownbeat
                 ? (isFading ? m_fadingDownbeatVertices : m_downbeatVertices)
                 : (isFading ? m_fadingVertices : m_vertices);
-        target.addRectangle(x1, 0.f, x2, y2);
+        if (isDownbeat) {
+            // Widen the line evenly on both sides of the beat.
+            const float grow = (kDownbeatLineWidth - (x2 - x1)) / 2;
+            target.addRectangle(x1 - grow, 0.f, x2 + grow, y2);
+            const float xMid = (x1 + x2) / 2;
+            target.addTriangle({xMid - kDownbeatArrowHalfWidth, 0.f},
+                    {xMid + kDownbeatArrowHalfWidth, 0.f},
+                    {xMid, kDownbeatArrowLength});
+            target.addTriangle({xMid - kDownbeatArrowHalfWidth, y2},
+                    {xMid + kDownbeatArrowHalfWidth, y2},
+                    {xMid, y2 - kDownbeatArrowLength});
+        } else {
+            const float inset = y2 * (1.f - kBeatLineLength) / 2;
+            target.addRectangle(x1, inset, x2, y2 - inset);
+        }
     }
 
     DEBUG_ASSERT(reserved >=

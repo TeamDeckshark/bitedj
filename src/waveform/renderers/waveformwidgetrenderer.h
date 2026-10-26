@@ -112,7 +112,9 @@ class WaveformWidgetRenderer {
     double getZoomFactor() const {
         return m_zoomFactor;
     }
-    double getGain(bool applyCompensation) const {
+    // applyTrackGain false stands in unity for total_gain (trim x replay
+    // gain), for the "Wave Follows: Trim" setting being off.
+    double getGain(bool applyCompensation, bool applyTrackGain = true) const {
         // m_gain was always multiplied by 2.0, according to a comment:
         //
         //   "This gain adjustment compensates for an arbitrary /2 gain chop in
@@ -126,7 +128,8 @@ class WaveformWidgetRenderer {
         // optional we move the decision to each renderer whether to apply the
         // compensation or not, in order to have a more similar amplitude across
         // waveform renderers
-        return applyCompensation ? m_gain * 2.f : m_gain;
+        const double gain = applyTrackGain ? m_gain : 1.0;
+        return applyCompensation ? gain * 2.f : gain;
     }
     double getTrackSamples() const {
         return m_trackSamples;

@@ -23,6 +23,7 @@
 #include "sources/soundsourceproxy.h"
 #include "util/cmdlineargs.h"
 #include "util/console.h"
+#include "util/guistallwatchdog.h"
 #include "util/logging.h"
 #include "util/rtscheduling.h"
 #include "util/sandbox.h"
@@ -99,6 +100,9 @@ int runMixxx(MixxxApplication* pApp, const CmdlineArgs& args) {
             mainWindow.show();
 
             qDebug() << "Running Mixxx";
+            // Startup and shutdown may take their time; only the running
+            // event loop is watched.
+            mixxx::GuiStallWatchdog guiStallWatchdog;
             exitCode = pApp->exec();
         }
     }

@@ -69,7 +69,9 @@ const QRegularExpression kSplitOnOrOperatorRegexp = QRegularExpression(
 
 SearchQueryParser::SearchQueryParser(TrackCollection* pTrackCollection, QStringList searchColumns)
         : m_pTrackCollection(pTrackCollection),
-          m_searchCrates(false) {
+          m_searchCrates(false),
+          m_restrictedToTableColumns(false),
+          m_keyIdAvailable(true) {
     setSearchColumns(std::move(searchColumns));
 
     m_textFilters << "artist"
@@ -140,6 +142,40 @@ void SearchQueryParser::setSearchColumns(QStringList searchColumns) {
     }
 }
 
+void SearchQueryParser::restrictToTableColumns(const QStringList& tableColumns) {
+    if (tableColumns.isEmpty()) {
+        return;
+    }
+    const QSet<QString> available(tableColumns.cbegin(), tableColumns.cend());
+    for (auto it = m_fieldToSqlColumns.begin(); it != m_fieldToSqlColumns.end(); ++it) {
+        it.value().removeIf([&available](const QString& column) {
+            return !available.contains(column);
+        });
+    }
+    m_keyIdAvailable = available.contains(QStringLiteral("key_id"));
+    m_restrictedToTableColumns = true;
+}
+
+// A filter on a field no track in the table has: an explicit-empty search
+// matches all of them, anything else none. A bare `field:` (still being typed)
+// filters nothing, as it does everywhere else.
+std::unique_ptr<QueryNode> SearchQueryParser::unavailableFieldNode(
+        const QString& argument) {
+    if (argument.isEmpty()) {
+        return {};
+    }
+    return std::make_unique<SqlNode>(argument == kMissingFieldSearchTerm
+                    ? QStringLiteral("1")
+                    : QStringLiteral("0"));
+}
+
+bool SearchQueryParser::isFieldUnavailable(const QString& field) const {
+    // crate: is answered from the crate tables, not from a column.
+    return m_restrictedToTableColumns &&
+            field != QStringLiteral("crate") &&
+            m_fieldToSqlColumns.value(field).isEmpty();
+}
+
 SearchQueryParser::TextArgumentResult SearchQueryParser::getTextArgument(QString argument,
         QStringList* tokens,
         bool removeLeadingEqualsSign) const {
@@ -186,7 +222,9 @@ void SearchQueryParser::parseTokens(QStringList tokens,
             QString field = textFilterMatch.captured(1);
             auto [argument, matchMode] = getTextArgument(textFilterMatch.captured(2), &tokens);
 
-            if (argument == kMissingFieldSearchTerm) {
+            if (isFieldUnavailable(field)) {
+                pNode = unavailableFieldNode(argument);
+            } else if (argument == kMissingFieldSearchTerm) {
                 qDebug() << "argument explicit empty";
                 if (field == "crate") {
                     pNode = std::make_unique<NoCrateFilterNode>(
@@ -213,7 +251,9 @@ void SearchQueryParser::parseTokens(QStringList tokens,
             QString field = numericFilterMatch.captured(1);
             QString argument = getTextArgument(numericFilterMatch.captured(2), &tokens).argument;
 
-            if (!argument.isEmpty()) {
+            if (isFieldUnavailable(field)) {
+                pNode = unavailableFieldNode(argument);
+            } else if (!argument.isEmpty()) {
                 if (argument == kMissingFieldSearchTerm) {
                     pNode = std::make_unique<NullNumericFilterNode>(
                          m_fieldToSqlColumns[field]);
@@ -228,8 +268,15 @@ void SearchQueryParser::parseTokens(QStringList tokens,
             QString field = specialFilterMatch.captured(1);
             auto [argument, matchMode] = getTextArgument(
                     specialFilterMatch.captured(2), &tokens);
+            if (field == "date_added" ||
+                    field == "added" ||
+                    field == "dateadded") {
+                field = "datetime_added";
+            }
 
-            if (!argument.isEmpty()) {
+            if (isFieldUnavailable(field)) {
+                pNode = unavailableFieldNode(argument);
+            } else if (!argument.isEmpty()) {
                 if (field == "key") {
                     mixxx::track::io::key::ChromaticKey key =
                             KeyUtils::guessKeyFromText(argument);
@@ -242,7 +289,8 @@ void SearchQueryParser::parseTokens(QStringList tokens,
                                     m_pTrackCollection->database(), m_fieldToSqlColumns[field], argument);
                         }
                     } else {
-                        pNode = std::make_unique<KeyFilterNode>(key, fuzzy);
+                        pNode = std::make_unique<KeyFilterNode>(
+                                key, fuzzy, !m_keyIdAvailable);
                     }
                 } else if (field == "duration") {
                     pNode = std::make_unique<DurationFilterNode>(
@@ -250,11 +298,7 @@ void SearchQueryParser::parseTokens(QStringList tokens,
                 } else if (field == "year") {
                     pNode = std::make_unique<YearFilterNode>(
                             m_fieldToSqlColumns[field], argument);
-                } else if (field == "date_added" ||
-                        field == "datetime_added" ||
-                        field == "added" ||
-                        field == "dateadded") {
-                    field = "datetime_added";
+                } else if (field == "datetime_added") {
                     pNode = std::make_unique<DateAddedFilterNode>(argument);
                 } else if (field == "bpm") {
                     if (matchMode == StringMatch::Equals) {

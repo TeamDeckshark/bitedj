@@ -76,7 +76,19 @@ bool AnalyzerQueenMaryBeats::processSamples(const CSAMPLE* pIn, SINT iLen) {
 
 bool AnalyzerQueenMaryBeats::finalize() {
     m_helper.finalize();
+    m_resultBeats = trackBeats();
+    m_pDetectionFunction.reset();
+    return true;
+}
 
+QVector<mixxx::audio::FramePos> AnalyzerQueenMaryBeats::getProvisionalBeats() const {
+    // The tempo tracker is offline (it runs over the whole detection
+    // function), so this tracks the detection results so far from scratch.
+    // The samples still buffered in m_helper are simply not included yet.
+    return trackBeats();
+}
+
+QVector<mixxx::audio::FramePos> AnalyzerQueenMaryBeats::trackBeats() const {
     int nonZeroCount = static_cast<int>(m_detectionResults.size());
     while (nonZeroCount > 0 && m_detectionResults.at(nonZeroCount - 1) <= 0.0) {
         --nonZeroCount;
@@ -102,17 +114,16 @@ bool AnalyzerQueenMaryBeats::finalize() {
     std::vector<double> beats;
     tt.calculateBeats(df, beatPeriod, beats);
 
-    m_resultBeats.reserve(static_cast<int>(beats.size()));
+    QVector<mixxx::audio::FramePos> resultBeats;
+    resultBeats.reserve(static_cast<int>(beats.size()));
     for (size_t i = 0; i < beats.size(); ++i) {
         // we add the halve m_stepSizeFrames here, because the beat
         // is detected between the two samples.
         const auto result = mixxx::audio::FramePos(
                 (beats.at(i) * m_stepSizeFrames) + m_stepSizeFrames / 2);
-        m_resultBeats.push_back(result);
+        resultBeats.push_back(result);
     }
-
-    m_pDetectionFunction.reset();
-    return true;
+    return resultBeats;
 }
 
 } // namespace mixxx

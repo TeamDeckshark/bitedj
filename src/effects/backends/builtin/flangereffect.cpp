@@ -28,6 +28,7 @@ EffectManifestPointer FlangerEffect::getManifest() {
     pManifest->setShortName(QObject::tr("Flanger"));
     pManifest->setAuthor("The Mixxx Team");
     pManifest->setVersion("1.0");
+    pManifest->setMetaknobDefault(1.0);
     pManifest->setDescription(
             QObject::tr("Mixes the input with a delayed, pitch modulated copy "
                         "of itself to create comb filtering"));

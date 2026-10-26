@@ -1,12 +1,14 @@
 #include <gtest/gtest.h>
 
 #include <QDir>
+#include <QSqlQuery>
 #include <QtDebug>
 
 #include "library/searchquery.h"
 #include "library/searchqueryparser.h"
 #include "library/trackset/crate/crate.h"
 #include "test/librarytest.h"
+#include "track/keyutils.h"
 #include "track/track.h"
 #include "util/assert.h"
 
@@ -1390,4 +1392,75 @@ TEST_F(SearchQueryParserTest, QuotedOrOperator) {
     pTrackI->setTitle("a | contrived|example and more");
     pTrackI->setComment("house");
     EXPECT_TRUE(pQuery->match(pTrackI));
+}
+
+// Bite DJ: an external library table (Rekordbox here) has only some of Mixxx's
+// columns. Filters must stay within them, or the query fails and the view
+// shows nothing.
+TEST_F(SearchQueryParserTest, RestrictedToTableColumns) {
+    m_parser.restrictToTableColumns({"id",
+            "artist",
+            "title",
+            "album",
+            "genre",
+            "location",
+            "bpm",
+            "key",
+            "rating"});
+
+    // artist: also searches album_artist, which this table does not have.
+    EXPECT_STREQ(
+            qPrintable(QString("artist IS NOT NULL AND artist LIKE '%daft punk%'")),
+            qPrintable(m_parser.parseQuery("artist:\"Daft Punk\"", QString())
+                               ->toSql()));
+
+    // A field the table lacks entirely matches no track...
+    EXPECT_STREQ("0",
+            qPrintable(m_parser.parseQuery("composer:Bach", QString())->toSql()));
+    EXPECT_STREQ("0",
+            qPrintable(m_parser.parseQuery("played:>2", QString())->toSql()));
+    EXPECT_STREQ("0",
+            qPrintable(m_parser.parseQuery("added:2020", QString())->toSql()));
+    // ...every track when asked for the ones without it...
+    EXPECT_STREQ("1",
+            qPrintable(m_parser.parseQuery("composer:\"\"", QString())->toSql()));
+    // ...and nothing at all while it is still being typed.
+    EXPECT_STREQ("",
+            qPrintable(m_parser.parseQuery("composer:", QString())->toSql()));
+
+    // With no key_id, the key filter parses the key text instead.
+    QStringList keyIds;
+    for (const auto key : KeyUtils::getCompatibleKeys(mixxx::track::io::key::A_MINOR)) {
+        keyIds << QString::number(key);
+    }
+    EXPECT_STREQ(
+            qPrintable(QString("key_text_id(key) IN (%1)").arg(keyIds.join(','))),
+            qPrintable(m_parser.parseQuery("~key:8A", QString())->toSql()));
+
+    // Filters on columns the table has are untouched.
+    const SearchQueryParser unrestricted(internalCollection(), QStringList());
+    const QString query = QStringLiteral("bpm:>=120 bpm:<=130 title:x genre:house");
+    EXPECT_STREQ(
+            qPrintable(unrestricted.parseQuery(query, QString())->toSql()),
+            qPrintable(m_parser.parseQuery(query, QString())->toSql()));
+}
+
+TEST_F(SearchQueryParserTest, UnrestrictedKeepsKeyId) {
+    EXPECT_STREQ(
+            qPrintable(QString("key_id IS %1")
+                               .arg(QString::number(mixxx::track::io::key::A_MINOR))),
+            qPrintable(m_parser.parseQuery("key:8A", QString())->toSql()));
+}
+
+TEST_F(SearchQueryParserTest, KeyTextIdSqlFunction) {
+    QSqlQuery query(internalCollection()->database());
+    ASSERT_TRUE(query.exec(QStringLiteral(
+            "SELECT key_text_id('Am'), key_text_id('8A'), "
+            "key_text_id('Dbm'), key_text_id('nonsense'), key_text_id(NULL)")));
+    ASSERT_TRUE(query.next());
+    EXPECT_EQ(mixxx::track::io::key::A_MINOR, query.value(0).toInt());
+    EXPECT_EQ(mixxx::track::io::key::A_MINOR, query.value(1).toInt());
+    EXPECT_EQ(mixxx::track::io::key::C_SHARP_MINOR, query.value(2).toInt());
+    EXPECT_TRUE(query.value(3).isNull());
+    EXPECT_TRUE(query.value(4).isNull());
 }

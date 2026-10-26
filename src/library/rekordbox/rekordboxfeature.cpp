@@ -7,14 +7,19 @@
 #include <rekordbox_pdb.h>
 
 #include <QDir>
+#include <QFileInfo>
+#include <QHash>
 #include <QMap>
 #include <QMessageBox>
+#include <QMutex>
 #include <QSet>
 #include <QSettings>
 #include <QString>
 #include <QStringList>
 #include <QTextCodec>
 #include <QtDebug>
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 #include "engine/engine.h"
@@ -23,7 +28,9 @@
 #include "library/dao/trackschema.h"
 #include "library/library.h"
 #include "library/queryutil.h"
+#include "library/rekordbox/rekordboxanalysis.h"
 #include "library/rekordbox/rekordboxconstants.h"
+#include "library/rekordbox/rekordboxkeydisplay.h"
 #include "library/rekordbox/rekordboxpagechain.h"
 #include "library/starrating.h"
 #include "library/trackcollection.h"
@@ -456,11 +463,34 @@ int findTrackId(QSqlDatabase& database, int rbID, const QString& device) {
     return finderQuery.value(finderQuery.record().indexOf("id")).toInt();
 }
 
-bool insertTrack(
+int findTrackIdByLocation(QSqlDatabase& database, const QString& location, const QString& device) {
+    QSqlQuery finderQuery(database);
+    finderQuery.prepare("select id from " + kRekordboxLibraryTable +
+            " where location=:location and device=:device");
+    finderQuery.bindValue(":location", location);
+    finderQuery.bindValue(":device", device);
+
+    if (!finderQuery.exec()) {
+        LOG_FAILED_QUERY(finderQuery)
+                << "location:" << location
+                << "device:" << device;
+        return -1;
+    }
+
+    if (!finderQuery.next()) {
+        return -1;
+    }
+
+    return finderQuery.value(finderQuery.record().indexOf("id")).toInt();
+}
+
+// Returns the id of the library row `track` resolved to, or -1. Sets
+// `*pSharedFile` when that row was made for an earlier track ID of the same
+// file, so the caller lists the file once.
+int insertTrack(
         QSqlDatabase& database,
         rekordbox_pdb_t::track_row_t* track,
         QSqlQuery& query,
-        QSqlQuery& queryInsertIntoDevicePlaylistTracks,
         QMap<uint32_t, QString>& artistsMap,
         QMap<uint32_t, QString>& albumsMap,
         QMap<uint32_t, QString>& genresMap,
@@ -468,7 +498,8 @@ bool insertTrack(
         const QString& devicePath,
         const QString& device,
         const FsMetaOverrideStore::MountRatings& storedRatings,
-        int audioFilesCount) {
+        bool* pSharedFile) {
+    *pSharedFile = false;
     int rbID = static_cast<int>(track->id());
     QString title = getText(track->title());
     QString artist = artistsMap[track->artist_id()];
@@ -512,30 +543,31 @@ bool insertTrack(
 
     if (!query.exec()) {
         LOG_FAILED_QUERY(query);
-        return false;
+        return -1;
     }
 
     const int trackID = findTrackId(database, rbID, device);
-    if (trackID < 0) {
-        qWarning() << "Skipping Rekordbox track without a valid local row"
-                   << "rbID:" << rbID
-                   << "device:" << device
-                   << "location:" << location;
-        return false;
+    if (trackID >= 0) {
+        return trackID;
     }
 
-    // Insert into device all tracks playlist
-    queryInsertIntoDevicePlaylistTracks.bindValue(":track_id", trackID);
-    queryInsertIntoDevicePlaylistTracks.bindValue(":position", audioFilesCount);
-
-    if (!queryInsertIntoDevicePlaylistTracks.exec()) {
-        LOG_FAILED_QUERY(queryInsertIntoDevicePlaylistTracks)
-                << "trackID:" << trackID
-                << "position:" << audioFilesCount;
-        return false;
+    // rekordbox exports one row per collection entry, and a file the DJ
+    // imported more than once is several entries: several track IDs, any of
+    // which a playlist may name, for one file on the stick. `location` is
+    // UNIQUE, so the insert above was ignored for every copy after the first,
+    // and dropping the copies dropped those songs from their playlists. They
+    // are that first row.
+    const int sharedTrackID = findTrackIdByLocation(database, location, device);
+    if (sharedTrackID >= 0) {
+        *pSharedFile = true;
+        return sharedTrackID;
     }
 
-    return true;
+    qWarning() << "Skipping Rekordbox track without a valid local row"
+               << "rbID:" << rbID
+               << "device:" << device
+               << "location:" << location;
+    return -1;
 }
 
 void buildPlaylistTree(
@@ -546,6 +578,7 @@ void buildPlaylistTree(
         QMap<uint32_t, bool>& playlistIsFolderMap,
         QMap<uint32_t, QMap<uint32_t, uint32_t>>& playlistTreeMap,
         QMap<uint32_t, QMap<uint32_t, uint32_t>>& playlistTrackMap,
+        const QHash<uint32_t, int>& trackIdsByRbId,
         const QString& playlistPath,
         const QString& device,
         QSet<uint32_t> ancestors = {});
@@ -765,25 +798,54 @@ QString parseDeviceDB(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dev
 
     queryInsertIntoDevicePlaylistTracks.bindValue(":playlist_id", playlistID);
 
+    // The library row each rekordbox track ID resolved to, for the playlist
+    // entries below: one lookup here instead of a query per entry, and the
+    // only place a track ID that shares its file with another one is known.
+    QHash<uint32_t, int> trackIdsByRbId;
+    trackIdsByRbId.reserve(static_cast<int>(trackRows.size()));
     int audioFilesCount = 0;
     for (rekordbox_pdb_t::track_row_t* trackRow : trackRows) {
-        if (insertTrack(database,
-                    trackRow,
-                    query,
-                    queryInsertIntoDevicePlaylistTracks,
-                    artistsMap,
-                    albumsMap,
-                    genresMap,
-                    keysMap,
-                    devicePath,
-                    device,
-                    storedRatings,
-                    audioFilesCount)) {
-            audioFilesCount++;
+        bool sharedFile = false;
+        const int trackID = insertTrack(database,
+                trackRow,
+                query,
+                artistsMap,
+                albumsMap,
+                genresMap,
+                keysMap,
+                devicePath,
+                device,
+                storedRatings,
+                &sharedFile);
+        if (trackID < 0) {
+            continue;
         }
+        trackIdsByRbId.insert(trackRow->id(), trackID);
+        if (sharedFile) {
+            // Already in the device's all tracks playlist once.
+            continue;
+        }
+
+        queryInsertIntoDevicePlaylistTracks.bindValue(":track_id", trackID);
+        queryInsertIntoDevicePlaylistTracks.bindValue(":position", audioFilesCount);
+        if (!queryInsertIntoDevicePlaylistTracks.exec()) {
+            LOG_FAILED_QUERY(queryInsertIntoDevicePlaylistTracks)
+                    << "trackID:" << trackID
+                    << "position:" << audioFilesCount;
+            continue;
+        }
+        audioFilesCount++;
     }
 
     if (audioFilesCount > 0 || folderOrPlaylistFound) {
+        // Bite DJ: every track on the device, first under it. The device row
+        // itself opens the same playlist, but once it has children the touch
+        // sidebar treats a tap on it as expand/collapse, so this is the only
+        // way to reach (and search) the tracks that are in no playlist.
+        if (audioFilesCount > 0) {
+            deviceItem->appendChild(QObject::tr("All Tracks"),
+                    QVariant(QList<QString>{devicePath, IS_NOT_RECORDBOX_DEVICE}));
+        }
         // If we have found anything, recursively build playlist/folder TreeItem children
         // for the original device TreeItem
         buildPlaylistTree(database,
@@ -793,6 +855,7 @@ QString parseDeviceDB(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* dev
                 playlistIsFolderMap,
                 playlistTreeMap,
                 playlistTrackMap,
+                trackIdsByRbId,
                 devicePath,
                 device);
     }
@@ -812,6 +875,7 @@ void buildPlaylistTree(
         QMap<uint32_t, bool>& playlistIsFolderMap,
         QMap<uint32_t, QMap<uint32_t, uint32_t>>& playlistTreeMap,
         QMap<uint32_t, QMap<uint32_t, uint32_t>>& playlistTrackMap,
+        const QHash<uint32_t, int>& trackIdsByRbId,
         const QString& playlistPath,
         const QString& device,
         QSet<uint32_t> ancestors) {
@@ -899,8 +963,7 @@ void buildPlaylistTree(
             for (const uint32_t rbTrackID : entries) {
                 ++position;
 
-                const int trackID = findTrackId(
-                        database, static_cast<int>(rbTrackID), device);
+                const int trackID = trackIdsByRbId.value(rbTrackID, -1);
                 if (trackID < 0) {
                     qWarning() << "Skipping Rekordbox playlist entry without a valid track"
                                << "rbTrackID:" << rbTrackID
@@ -931,6 +994,7 @@ void buildPlaylistTree(
                     playlistIsFolderMap,
                     playlistTreeMap,
                     playlistTrackMap,
+                    trackIdsByRbId,
                     currentPath,
                     device,
                     ancestors);
@@ -996,6 +1060,10 @@ void clearDeviceTables(QSqlDatabase& database, TreeItem* child) {
     }
 
     transaction.commit();
+
+    // The library views may be showing this device's keys (see
+    // RekordboxKeyDisplay).
+    RekordboxKeyDisplay::instance().exportChanged();
 }
 
 void setHotCue(TrackPointer track,
@@ -1045,10 +1113,211 @@ void setHotCue(TrackPointer track,
 namespace mixxx {
 namespace rekordbox {
 
+namespace {
+
+/// Rekordbox's bars on `pBeats`. Every PQTZ beat carries its place in its bar
+/// (1-4), but a Beats object only knows beat positions and counts bars from
+/// its own first beat, which rekordbox is free to start on any beat of a bar.
+/// Anchor the count on rekordbox's beat 1s instead: the first one, and every
+/// later one that is not a whole number of bars after the previous anchor (a
+/// bar restarted by hand in rekordbox).
+///
+/// Each anchor is the grid's own beat nearest to rekordbox's beat 1, so bar
+/// counts measured from it are exact even where the grid's beats are evenly
+/// spaced and PQTZ's are rounded to whole milliseconds.
+BeatsPointer withRekordboxDownbeats(const BeatsPointer& pBeats,
+        const std::vector<std::unique_ptr<rekordbox_anlz_t::beat_grid_beat_t>>& gridBeats,
+        const QVector<audio::FramePos>& beatPositions) {
+    constexpr int kBeatsPerBar = 4;
+    if (!pBeats) {
+        return pBeats;
+    }
+    std::vector<audio::FramePos> anchors;
+    std::optional<Beats::ConstIterator> previousAnchor;
+    for (std::size_t i = 0; i < gridBeats.size(); ++i) {
+        if (gridBeats[i]->beat_number() != 1) {
+            continue;
+        }
+        const audio::FramePos position = beatPositions[static_cast<int>(i)];
+        auto it = pBeats->iteratorFrom(position);
+        if (it == pBeats->cend()) {
+            continue;
+        }
+        const auto previous = std::prev(it);
+        if (position - *previous < *it - position) {
+            it = previous;
+        }
+        if (previousAnchor && (it - *previousAnchor) % kBeatsPerBar == 0) {
+            continue;
+        }
+        anchors.push_back(*it);
+        previousAnchor = it;
+    }
+    if (anchors.empty()) {
+        return pBeats;
+    }
+    return BeatsPointer(new Beats(pBeats->getMarkers(),
+            pBeats->getLastMarkerPosition(),
+            pBeats->getLastMarkerBpm(),
+            pBeats->getSampleRate(),
+            pBeats->getSubVersion(),
+            std::move(anchors)));
+}
+
+BeatsPointer beatsFromGridTag(rekordbox_anlz_t::beat_grid_tag_t* pBeatGridTag,
+        audio::SampleRate sampleRate,
+        int timingOffset) {
+    const double sampleRateKhz = sampleRate / 1000.0;
+    const auto& gridBeats = *pBeatGridTag->beats();
+
+    QVector<audio::FramePos> beats;
+    for (const auto& beat : gridBeats) {
+        int time = static_cast<int>(beat->time()) - timingOffset;
+        // Ensure no offset times are less than 1
+        if (time < 1) {
+            time = 1;
+        }
+        // A Beats object keeps its markers on whole frames, and at 44.1 kHz
+        // most whole milliseconds are not.
+        beats << audio::FramePos(sampleRateKhz * static_cast<double>(time))
+                         .toNearestFrameBoundary();
+    }
+
+    // PQTZ times are whole milliseconds, so at a constant 122.00 BPM the
+    // intervals alternate between 491 and 492 ms. Taken one by one, every
+    // beat then starts a new marker with its own tempo, and the BPM display
+    // and SYNC chase that rounding noise. When every beat carries the same
+    // exported tempo (in hundredths of a BPM) and sits within the rounding
+    // of the constant grid it implies, use that exact tempo instead. Real
+    // tempo changes and hand-edited grids keep their positions.
+    if (gridBeats.size() >= 2 && gridBeats.front()->tempo() > 0) {
+        const uint16_t tempo = gridBeats.front()->tempo();
+        const double firstMs = gridBeats.front()->time();
+        const double beatLengthMs = 6000000.0 / tempo;
+        constexpr double kRoundingToleranceMs = 1.1;
+        bool constantTempo = true;
+        for (std::size_t i = 0; i < gridBeats.size() && constantTempo; ++i) {
+            constantTempo = gridBeats[i]->tempo() == tempo &&
+                    std::fabs(gridBeats[i]->time() - firstMs - i * beatLengthMs) <=
+                            kRoundingToleranceMs;
+        }
+        if (constantTempo) {
+            return withRekordboxDownbeats(
+                    Beats::fromConstTempo(sampleRate,
+                            beats.front(),
+                            Bpm(tempo / 100.0),
+                            rekordboxconstants::beatsSubversion),
+                    gridBeats,
+                    beats);
+        }
+    }
+
+    return withRekordboxDownbeats(
+            Beats::fromBeatPositions(
+                    sampleRate,
+                    beats,
+                    rekordboxconstants::beatsSubversion),
+            gridBeats,
+            beats);
+}
+
+} // anonymous namespace
+
+BeatsPointer readBeatGrid(const QString& anlzPath,
+        audio::SampleRate sampleRate,
+        int timingOffset) {
+    if (!sampleRate.isValid() || !QFileInfo(anlzPath).isFile()) {
+        return nullptr;
+    }
+    std::ifstream ifs(anlzPath.toStdString(), std::ifstream::binary);
+    kaitai::kstream ks(&ifs);
+    rekordbox_anlz_t anlz = rekordbox_anlz_t(&ks);
+    for (const auto& section : *anlz.sections()) {
+        if (section->fourcc() == rekordbox_anlz_t::SECTION_TAGS_BEAT_GRID) {
+            return beatsFromGridTag(
+                    static_cast<rekordbox_anlz_t::beat_grid_tag_t*>(
+                            section->body()),
+                    sampleRate,
+                    timingOffset);
+        }
+    }
+    return nullptr;
+}
+
+int timingOffsetForFile(const QString& location) {
+    // The following code accounts for timing offsets required to
+    // correctly align timing information (cue points, loops, beatgrids)
+    // exported from Rekordbox. This is caused by different MP3
+    // decoders treating MP3s encoded in a variety of different cases
+    // differently. The mp3guessenc library is used to determine which
+    // case the MP3 is classified in. See the following PR for more
+    // detailed information:
+    // https://github.com/mixxxdj/mixxx/pull/2119
+    //
+    // Bite DJ: the cue import and the grid import both need this for the
+    // same load, and mp3guessenc walks the file's frames to answer, so the
+    // answer is kept per location. The audio behind a location does not
+    // change while the drive is in.
+    static QMutex s_mutex;
+    static QHash<QString, int> s_offsets;
+    {
+        const QMutexLocker locker(&s_mutex);
+        const auto it = s_offsets.constFind(location);
+        if (it != s_offsets.constEnd()) {
+            return it.value();
+        }
+    }
+
+    int timingOffset = 0;
+
+    if (location.endsWith(".mp3", Qt::CaseInsensitive)) {
+        int timingShiftCase = mp3guessenc_timing_shift_case(location.toStdString().c_str());
+
+        qDebug() << "Timing shift case:" << timingShiftCase << "for MP3 file:" << location;
+
+        switch (timingShiftCase) {
+#ifdef __COREAUDIO__
+        case EXIT_CODE_CASE_A:
+            timingOffset = 12;
+            break;
+        case EXIT_CODE_CASE_B:
+            timingOffset = 13;
+            break;
+        case EXIT_CODE_CASE_C:
+            timingOffset = 26;
+            break;
+        case EXIT_CODE_CASE_D:
+            timingOffset = 50;
+            break;
+#elif defined(__MAD__)
+        case EXIT_CODE_CASE_A:
+        case EXIT_CODE_CASE_D:
+            timingOffset = 26;
+            break;
+#elif defined(__FFMPEG__)
+        case EXIT_CODE_CASE_D:
+            timingOffset = 26;
+            break;
+#endif
+        }
+    }
+
+#ifdef __COREAUDIO__
+    if (location.toLower().endsWith(".m4a")) {
+        timingOffset = 48;
+    }
+#endif
+
+    const QMutexLocker locker(&s_mutex);
+    s_offsets.insert(location, timingOffset);
+    return timingOffset;
+}
+
 QStringList readAnalyzeFiles(TrackPointer track,
         mixxx::audio::SampleRate sampleRate,
         int timingOffset,
-        const QString& anlzPath) {
+        const QString& anlzPath,
+        bool importBeats) {
     QStringList failedPaths;
     const auto importFile = [&](const QString& filePath, bool beatsOnly) {
         // isFile(), not exists(): a track rekordbox never analysed has an
@@ -1067,7 +1336,9 @@ QStringList readAnalyzeFiles(TrackPointer track,
     };
     // The grid is only correct in the legacy .DAT. An export without an .EXT
     // still needs both passes over the .DAT, or it loads with no grid.
-    importFile(anlzPath, true);
+    if (importBeats) {
+        importFile(anlzPath, true);
+    }
     const QString extPath = anlzPath.left(anlzPath.length() - 3) + "EXT";
     importFile(QFileInfo(extPath).isFile() ? extPath : anlzPath, false);
     failedPaths.removeDuplicates();
@@ -1109,26 +1380,11 @@ void readAnalyze(TrackPointer track,
                 break;
             }
 
-            auto* beatGridTag =
+            track->trySetBeats(beatsFromGridTag(
                     static_cast<rekordbox_anlz_t::beat_grid_tag_t*>(
-                            section->body());
-
-            QVector<mixxx::audio::FramePos> beats;
-
-            for (const auto& beat : *beatGridTag->beats()) {
-                int time = static_cast<int>(beat->time()) - timingOffset;
-                // Ensure no offset times are less than 1
-                if (time < 1) {
-                    time = 1;
-                }
-                beats << mixxx::audio::FramePos(sampleRateKhz * static_cast<double>(time));
-            }
-
-            const auto pBeats = mixxx::Beats::fromBeatPositions(
+                            section->body()),
                     sampleRate,
-                    beats,
-                    mixxx::rekordboxconstants::beatsSubversion);
-            track->trySetBeats(pBeats);
+                    timingOffset));
         } break;
         case rekordbox_anlz_t::SECTION_TAGS_CUES: {
             if (ignoreCues) {
@@ -1499,54 +1755,7 @@ TrackPointer RekordboxPlaylistModel::getTrack(const QModelIndex& index) const {
     // the rekordbox import would erase it before it was ever saved.
     FsCueOverrideStore::flushIfChanged(*track);
 
-    // The following code accounts for timing offsets required to
-    // correctly align timing information (cue points, loops, beatgrids)
-    // exported from Rekordbox. This is caused by different MP3
-    // decoders treating MP3s encoded in a variety of different cases
-    // differently. The mp3guessenc library is used to determine which
-    // case the MP3 is classified in. See the following PR for more
-    // detailed information:
-    // https://github.com/mixxxdj/mixxx/pull/2119
-
-    int timingOffset = 0;
-
-    if (location.endsWith(".mp3", Qt::CaseInsensitive)) {
-        int timingShiftCase = mp3guessenc_timing_shift_case(location.toStdString().c_str());
-
-        qDebug() << "Timing shift case:" << timingShiftCase << "for MP3 file:" << location;
-
-        switch (timingShiftCase) {
-#ifdef __COREAUDIO__
-        case EXIT_CODE_CASE_A:
-            timingOffset = 12;
-            break;
-        case EXIT_CODE_CASE_B:
-            timingOffset = 13;
-            break;
-        case EXIT_CODE_CASE_C:
-            timingOffset = 26;
-            break;
-        case EXIT_CODE_CASE_D:
-            timingOffset = 50;
-            break;
-#elif defined(__MAD__)
-        case EXIT_CODE_CASE_A:
-        case EXIT_CODE_CASE_D:
-            timingOffset = 26;
-            break;
-#elif defined(__FFMPEG__)
-        case EXIT_CODE_CASE_D:
-            timingOffset = 26;
-            break;
-#endif
-        }
-    }
-
-#ifdef __COREAUDIO__
-    if (location.toLower().endsWith(".m4a")) {
-        timingOffset = 48;
-    }
-#endif
+    const int timingOffset = mixxx::rekordbox::timingOffsetForFile(location);
 
     mixxx::audio::SampleRate sampleRate = track->getSampleRate();
 
@@ -1555,8 +1764,13 @@ TrackPointer RekordboxPlaylistModel::getTrack(const QModelIndex& index) const {
                     .toString();
     // A corrupt or half-copied ANLZ file must not take the load down with it:
     // the audio is fine, it just arrives without that part of the analysis.
+    //
+    // Cues only. The grid and the key are not this view's to decide: the
+    // player the track lands in picks between rekordbox's analysis and Bite
+    // DJ's own ([ChannelN],analysis_source), and imports them itself through
+    // RekordboxAnalysis — for a track from any view, not just this one.
     if (!mixxx::rekordbox::readAnalyzeFiles(
-                track, sampleRate, timingOffset, anlzPath)
+                track, sampleRate, timingOffset, anlzPath, false)
                     .isEmpty()) {
         if (Notifications* pNotifications = Notifications::tryInstance()) {
             pNotifications->publish(
@@ -1573,19 +1787,6 @@ TrackPointer RekordboxPlaylistModel::getTrack(const QModelIndex& index) const {
     // Likewise the rating: the stars this view shows come from the drive once
     // the DJ has changed them, so a deck loaded from here shows the same ones.
     FsMetaOverrideStore::applyOverrides(track.get());
-
-    // Assume that the key of the file the has been analyzed in Recordbox is correct
-    // and prevent the AnalyzerKey from re-analyzing.
-    // Form 5.4.3 Key format depends on the preferences option:
-    // Classic: Abm,B,Ebm,F#,Bbm,Db,Fm,Ab,…,F#m,A,Dbm,E
-    // Alphanumeric (Camelot): 1A,1B,2A,2B,3A,3B,4A,4B,…,11A,11B,12A,12B
-    // Not reckognized: 1m, 01A
-    // Earlier versions allow any format
-    // Decision: We normalize the KeyText here to not write garbage to the
-    // file metadata and it is unlikely to loose extra info.
-    track->setKeys(KeyFactory::makeBasicKeysNormalized(
-            getFieldVariant(index, ColumnCache::COLUMN_LIBRARYTABLE_KEY).toString(),
-            mixxx::track::io::key::USER));
 
     track->setColor(mixxx::RgbColor::fromQVariant(
             getFieldVariant(index, ColumnCache::COLUMN_LIBRARYTABLE_COLOR)));
@@ -1755,6 +1956,27 @@ RekordboxFeature::RekordboxFeature(
     // initialize the model
     m_pSidebarModel->setRootItem(TreeItem::newRoot(this));
 
+    // Bite DJ: players import rekordbox's grid and key for any track a
+    // scanned export has, whichever view it was loaded from. The scanned
+    // tables are the only place that knows which tracks those are. Asked on
+    // the GUI thread, where this connection lives; an eject drops the rows.
+    RekordboxAnalysis::setLookup([this](const QString& location)
+                                         -> std::optional<RekordboxAnalysis::Entry> {
+        QSqlQuery query(m_pTrackCollection->database());
+        query.prepare("SELECT analyze_path, key FROM " + kRekordboxLibraryTable +
+                " WHERE location = :location");
+        query.bindValue(":location", location);
+        if (!query.exec()) {
+            LOG_FAILED_QUERY(query);
+            return std::nullopt;
+        }
+        if (!query.next()) {
+            return std::nullopt;
+        }
+        return RekordboxAnalysis::Entry{
+                query.value(0).toString(), query.value(1).toString()};
+    });
+
     // Background polling: surface mounted Rekordbox drives and pre-parse
     // their PDB without requiring a user tap. Wired after foreground
     // watcher connections so the first tick always finds connections in
@@ -1785,6 +2007,7 @@ RekordboxFeature::~RekordboxFeature() {
     // all four futures before dropping the tables — a still-running
     // parseDeviceDB() would otherwise write into tables about to be dropped.
     m_bgPollTimer.stop();
+    RekordboxAnalysis::setLookup({});
     m_devicesFuture.waitForFinished();
     m_tracksFuture.waitForFinished();
     m_bgDevicesFuture.waitForFinished();
@@ -2019,9 +2242,12 @@ void RekordboxFeature::activateChild(const QModelIndex& index) {
         item->setData(QVariant(data));
     } else {
         qDebug() << "Activate Rekordbox Playlist: " << playlist;
+        QElapsedTimer timer;
+        timer.start();
         m_pRekordboxPlaylistModel->setPlaylist(playlist);
         m_pRekordboxPlaylistModel->setBackingLocation(devicePathOfPlaylist(playlist));
         emit showTrackModel(m_pRekordboxPlaylistModel);
+        m_pRekordboxPlaylistModel->warnIfSlowToShow(playlist, timer);
     }
 }
 
@@ -2059,6 +2285,7 @@ void RekordboxFeature::mergeFoundDevicesIntoSidebar(
             createPlaylistTracksTable(database, kRekordboxPlaylistTracksTable);
 
             transaction.commit();
+            RekordboxKeyDisplay::instance().exportChanged();
         } else if (++m_bgConsecutiveEmptyScans < kBgEmptyScansBeforeRemoval) {
             // Background poll: a single empty enumeration is often a transient
             // hiccup right after a (re)mount. Wait for several consecutive
@@ -2324,6 +2551,8 @@ void RekordboxFeature::onTracksFound() {
     }
 
     qDebug() << "Show Rekordbox Device Playlist: " << devicePlaylist;
+    // Its tracks are in the scanned tables now (see RekordboxKeyDisplay).
+    RekordboxKeyDisplay::instance().exportChanged();
 
     m_pRekordboxPlaylistModel->setPlaylist(devicePlaylist);
     m_pRekordboxPlaylistModel->setBackingLocation(devicePathOfPlaylist(devicePlaylist));
@@ -2382,6 +2611,9 @@ void RekordboxFeature::onBackgroundTracksFound() {
     } else if (StagedDevice* pStagedDevice = findStagedDevice(label)) {
         pStagedDevice->parsed = true;
     }
+
+    // Its tracks are in the scanned tables now (see RekordboxKeyDisplay).
+    RekordboxKeyDisplay::instance().exportChanged();
 
     // The device enters the sidebar only now, with its playlists attached —
     // and only once every other volume of the same drive is parsed too.

@@ -6,6 +6,7 @@
 #include "control/controlproxy.h"
 #include "control/pollingcontrolproxy.h"
 #include "library/dao/playlistdao.h"
+#include "library/relatedtracksearch.h"
 #include "library/trackmodel.h" // Can't forward declare enums
 #include "preferences/usersettings.h"
 #include "util/duration.h"
@@ -102,6 +103,13 @@ class WTrackTableView : public WLibraryTableView {
 
   signals:
     void trackMenuVisible(bool visible);
+    /// Bite DJ: the related searches for a newly selected single row, for the
+    /// in-skin chip row, and whether this view can run them at all. Not
+    /// emitted when the selection is cleared, so the chips stay on the last
+    /// track while its related search narrows the view.
+    void relatedTrackSearchesChanged(
+            const QList<mixxx::library::RelatedTrackSearch>& searches,
+            bool available);
     void focusBorderColorChanged(QColor col);
     void trackPlayedColorChanged(QColor col);
     void trackMissingColorChanged(QColor col);

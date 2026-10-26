@@ -325,6 +325,16 @@ void EffectSlot::switchEffectRemembering(const EffectManifestPointer pManifest) 
         loadEffectInner(pManifest, pPreset, true);
     } else {
         loadEffectWithDefaults(pManifest);
+        // First time this effect is picked: start at its manifest metaknob
+        // default rather than inheriting the slot's current meta (0 at
+        // startup, or the previous effect's position). Inheriting 0 forces
+        // linked knobs like Echo's send or Flanger's mix to zero, so the
+        // effect stays inaudible however far the unit mix knob is turned.
+        if (pManifest) {
+            const double meta = pManifest->metaknobDefault();
+            m_pControlMetaParameter->set(meta);
+            slotEffectMetaParameter(meta, true);
+        }
     }
 }
 

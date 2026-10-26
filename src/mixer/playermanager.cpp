@@ -193,6 +193,10 @@ void PlayerManager::bindToLibrary(Library* pLibrary) {
     foreach (Deck* pDeck, m_decks) {
         connect(pDeck, &BaseTrackPlayer::newTrackLoaded, this, &PlayerManager::slotAnalyzeTrack);
         connect(pDeck,
+                &BaseTrackPlayer::analysisRequested,
+                this,
+                &PlayerManager::slotAnalyzeTrack);
+        connect(pDeck,
                 &BaseTrackPlayer::loadingTrack,
                 this,
                 &PlayerManager::slotCancelReplacedTrackAnalysis);
@@ -377,6 +381,10 @@ void PlayerManager::addDeckInner() {
     if (m_pTrackAnalysisScheduler) {
         connect(pDeck,
                 &BaseTrackPlayer::newTrackLoaded,
+                this,
+                &PlayerManager::slotAnalyzeTrack);
+        connect(pDeck,
+                &BaseTrackPlayer::analysisRequested,
                 this,
                 &PlayerManager::slotAnalyzeTrack);
         connect(pDeck,

@@ -113,7 +113,7 @@
         <Channel><Variable name="channel"/></Channel>
         <DisableSeek>true</DisableSeek>
         <BgColor>#000</BgColor>
-        <BeatColor>#fff</BeatColor>
+        <BeatColor>#999</BeatColor>
         <BeatDownbeatColor>#f15921</BeatDownbeatColor>
         <PlayPosColor>#fff</PlayPosColor>
         <SignalColor>#32323c</SignalColor>

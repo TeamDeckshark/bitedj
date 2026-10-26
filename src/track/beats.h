@@ -337,6 +337,14 @@ class Beats : private std::enable_shared_from_this<Beats> {
     /// the closest beat in the track, or an invalid position if none exists.
     audio::FramePos findClosestBeat(audio::FramePos position) const;
 
+    /// Starting from frame position `position`, return the frame position of
+    /// the closest downbeat, or an invalid position if none exists. Bars are
+    /// counted in `beatsPerBar` beats from `downbeatAnchorAt(position)` and
+    /// restart on every later anchor, the same way the waveform renderers pick
+    /// the beats they draw as downbeats.
+    audio::FramePos findClosestDownbeat(
+            audio::FramePos position, int beatsPerBar = 4) const;
+
     /// Find the Nth beat from frame position `position`. Works with both
     /// positive and negative values of n. Calling findNthBeat with `n=0` is
     /// invalid and always returns an invalid frame position. Calling
@@ -423,6 +431,9 @@ class Beats : private std::enable_shared_from_this<Beats> {
     /// Returns a pointer to the modified beats object, or `nullopt` on
     /// failure.
     std::optional<BeatsPointer> trySetBpm(mixxx::Bpm bpm) const;
+
+    /// Bite DJ: the same grid under another sub-version.
+    BeatsPointer withSubVersion(const QString& subVersion) const;
 
   protected:
     /// Type tag for making public constructors of derived classes inaccessible.

@@ -110,17 +110,20 @@ class AnlzBuilder {
     }
 
     /// PQTZ beat grid, one beat per entry at the given millisecond times.
-    void addBeatGridTag(const QList<uint32_t>& beatTimesMs) {
+    /// Bars run 1-4 from the first beat unless `beatNumbers` says otherwise.
+    void addBeatGridTag(const QList<uint32_t>& beatTimesMs,
+            const QList<uint16_t>& beatNumbers = {},
+            uint16_t tempo = 12000) {
         QByteArray body;
         appendU32(&body, 0);
         appendU32(&body, 0x80000);
         appendU32(&body, static_cast<uint32_t>(beatTimesMs.size()));
-        uint16_t beatNumber = 1;
-        for (const uint32_t timeMs : beatTimesMs) {
-            appendU16(&body, beatNumber);
-            appendU16(&body, 12000); // tempo, BPM * 100
-            appendU32(&body, timeMs);
-            beatNumber = beatNumber % 4 + 1;
+        for (int i = 0; i < beatTimesMs.size(); ++i) {
+            appendU16(&body,
+                    beatNumbers.isEmpty() ? static_cast<uint16_t>(i % 4 + 1)
+                                          : beatNumbers[i]);
+            appendU16(&body, tempo); // BPM * 100
+            appendU32(&body, beatTimesMs[i]);
         }
         addSection("PQTZ", body);
     }
@@ -599,6 +602,81 @@ TEST_F(RekordboxAnlzTest, NoAnalysisIsNotAFailure) {
             0,
             m_tempDir.filePath(QStringLiteral("missing.DAT")))
                     .isEmpty());
+}
+
+/// Which of the `count` beats from `firstBeatMs` on are bar starts, counted
+/// the way the waveforms count them: from the downbeat anchor at or before
+/// each beat.
+QList<bool> downbeatsOf(const mixxx::BeatsPointer& pBeats, uint32_t firstBeatMs, int count) {
+    QList<bool> downbeats;
+    auto it = pBeats->iteratorFrom(
+            mixxx::audio::FramePos((kSampleRate / 1000.0) * firstBeatMs - 1));
+    for (int i = 0; i < count; ++i, ++it) {
+        const int index = it - pBeats->iteratorFrom(pBeats->downbeatAnchorAt(*it));
+        downbeats << (((index % 4) + 4) % 4 == 0);
+    }
+    return downbeats;
+}
+
+QList<bool> isBeatOne(const QList<uint16_t>& beatNumbers) {
+    QList<bool> beatOnes;
+    for (const uint16_t beatNumber : beatNumbers) {
+        beatOnes << (beatNumber == 1);
+    }
+    return beatOnes;
+}
+
+// rekordbox may start its grid on any beat of a bar. The bars are its beat 1s,
+// not every fourth beat from wherever the grid happens to begin.
+TEST_F(RekordboxAnlzTest, BarsFollowRekordboxBeatNumbers) {
+    const QList<uint16_t> beatNumbers = {3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2};
+    QList<uint32_t> times;
+    for (int i = 0; i < beatNumbers.size(); ++i) {
+        times << static_cast<uint32_t>(500 + 500 * i);
+    }
+    AnlzBuilder builder;
+    builder.addBeatGridTag(times, beatNumbers);
+    const auto pBeats = mixxx::rekordbox::readBeatGrid(
+            writeFile(QStringLiteral("bars.DAT"), builder.build()), kSampleRate, 0);
+    ASSERT_TRUE(pBeats);
+    // One anchor is enough while the bars run on unbroken.
+    EXPECT_EQ(1, pBeats->getDownbeatAnchors().size());
+    EXPECT_EQ(isBeatOne(beatNumbers), downbeatsOf(pBeats, times.front(), beatNumbers.size()));
+}
+
+// At 122 BPM PQTZ rounds every beat to a whole millisecond, while the grid
+// built from it is evenly spaced. The bars must land on the grid's own beats
+// all the same, not one beat either side of rekordbox's.
+TEST_F(RekordboxAnlzTest, BarsSurviveMillisecondRounding) {
+    QList<uint16_t> beatNumbers;
+    QList<uint32_t> times;
+    for (int i = 0; i < 64; ++i) {
+        beatNumbers << static_cast<uint16_t>((i + 1) % 4 + 1);
+        times << static_cast<uint32_t>(std::lround(137 + i * 60000.0 / 122));
+    }
+    AnlzBuilder builder;
+    builder.addBeatGridTag(times, beatNumbers, 12200);
+    const auto pBeats = mixxx::rekordbox::readBeatGrid(
+            writeFile(QStringLiteral("rounded.DAT"), builder.build()), kSampleRate, 0);
+    ASSERT_TRUE(pBeats);
+    ASSERT_TRUE(pBeats->getMarkers().empty()); // the constant tempo grid
+    EXPECT_EQ(isBeatOne(beatNumbers), downbeatsOf(pBeats, times.front(), beatNumbers.size()));
+}
+
+// A bar restarted by hand in rekordbox restarts the count there.
+TEST_F(RekordboxAnlzTest, RestartedBarReanchorsTheCount) {
+    const QList<uint16_t> beatNumbers = {1, 2, 3, 4, 1, 2, 1, 2, 3, 4, 1, 2, 3, 4};
+    QList<uint32_t> times;
+    for (int i = 0; i < beatNumbers.size(); ++i) {
+        times << static_cast<uint32_t>(500 + 500 * i);
+    }
+    AnlzBuilder builder;
+    builder.addBeatGridTag(times, beatNumbers);
+    const auto pBeats = mixxx::rekordbox::readBeatGrid(
+            writeFile(QStringLiteral("restart.DAT"), builder.build()), kSampleRate, 0);
+    ASSERT_TRUE(pBeats);
+    EXPECT_EQ(2, pBeats->getDownbeatAnchors().size());
+    EXPECT_EQ(isBeatOne(beatNumbers), downbeatsOf(pBeats, times.front(), beatNumbers.size()));
 }
 
 TEST(RekordboxPageChainGuardTest, RejectsCyclesAndOutOfRangePages) {

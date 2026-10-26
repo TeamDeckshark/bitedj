@@ -433,6 +433,20 @@ bool Track::trySetAndLockBeats(mixxx::BeatsPointer pBeats) {
     return trySetBeatsMarkDirtyAndUnlock(&locked, pBeats, true);
 }
 
+bool Track::trySetBeatsDiscardingUndo(mixxx::BeatsPointer pBeats) {
+    auto locked = lockMutex(&m_qMutex);
+    // Keeps the grid being replaced off the undo stack.
+    m_undoingBeatsChange = true;
+    const bool dirty = trySetBeatsWhileLocked(pBeats, false);
+    m_undoingBeatsChange = false;
+    if (!dirty) {
+        return false;
+    }
+    m_pBeatsUndoStack.clear();
+    afterBeatsAndBpmUpdated(&locked);
+    return true;
+}
+
 bool Track::setBeatsWhileLocked(mixxx::BeatsPointer pBeats) {
     if (m_pBeats == pBeats) {
         return false;

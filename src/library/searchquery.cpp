@@ -765,7 +765,9 @@ QString BpmFilterNode::toSql() const {
 }
 
 KeyFilterNode::KeyFilterNode(mixxx::track::io::key::ChromaticKey key,
-        bool fuzzy) {
+        bool fuzzy,
+        bool matchKeyText)
+        : m_matchKeyText(matchKeyText) {
     if (fuzzy) {
         m_matchKeys = KeyUtils::getCompatibleKeys(key);
     } else {
@@ -778,6 +780,16 @@ bool KeyFilterNode::match(const TrackPointer& pTrack) const {
 }
 
 QString KeyFilterNode::toSql() const {
+    if (m_matchKeyText) {
+        // key_text_id() is the Bite DJ SQLite function that parses a key text
+        // in any notation, registered in DbConnection's initDatabase().
+        QStringList keyIds;
+        for (const auto& matchKey : m_matchKeys) {
+            keyIds << QString::number(matchKey);
+        }
+        return QStringLiteral("key_text_id(key) IN (%1)")
+                .arg(keyIds.join(QChar(',')));
+    }
     QStringList searchClauses;
     for (const auto& matchKey : m_matchKeys) {
         searchClauses << QString("key_id IS %1").arg(QString::number(matchKey));

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QHash>
 #include <QObject>
 #include <QString>
@@ -29,6 +30,15 @@ class BaseExternalPlaylistModel : public BaseSqlTableModel {
     void setBackingLocation(const QString& location) {
         m_backingLocation = location;
     }
+
+    /// Bite DJ: logs a warning if showing `playlist` held the GUI thread for
+    /// long. Call it right after the feature emits showTrackModel(), with
+    /// `timer` started before setPlaylist(): it reports the time until then
+    /// and, from a zero-length timer, until the event loop is free again,
+    /// which takes in the table view's own reset. Release builds drop the
+    /// debug timings, so without this a frozen screen leaves no trace in the
+    /// device's log.
+    void warnIfSlowToShow(const QString& playlist, const QElapsedTimer& timer);
 
     TrackPointer getTrack(const QModelIndex& index) const override;
     TrackId getTrackId(const QModelIndex& index) const override;

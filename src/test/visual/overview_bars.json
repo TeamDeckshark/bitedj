@@ -1,0 +1,24 @@
+{
+  "description": "Deck strip overview waveform bar lines: deck 1 on rekordbox's 90 BPM grid, then on BITE, which Bite DJ has not analysed yet so the switch re-analyses the track and the bars must move once it finishes, then back on RB.",
+  "size": [800, 480],
+  "rekordbox": [
+    {"file": "../sine-30.wav", "key": "8A", "anlz": "anlz/beatgrid_90.DAT"}
+  ],
+  "steps": [
+    {"load": "../sine-30.wav", "group": "[Channel1]"},
+    {"waitFor": "[Channel1],track_loaded", "value": 1},
+    {"waitFor": "[Channel1],analysis_source_available", "value": 1},
+    {"waitForAnalysis": true},
+    {"wait": 2000},
+    {"set": "[Tab],overview", "value": 1},
+    {"wait": 500},
+    {"snapshot": "overview_bars_rb"},
+    {"set": "[Channel1],analysis_source", "value": 0},
+    {"waitForAnalysis": true},
+    {"wait": 500},
+    {"snapshot": "overview_bars_bite"},
+    {"set": "[Channel1],analysis_source", "value": 1},
+    {"wait": 500},
+    {"snapshot": "overview_bars_rb_again"}
+  ]
+}

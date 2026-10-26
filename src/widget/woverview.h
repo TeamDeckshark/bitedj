@@ -72,6 +72,7 @@ class WOverview : public WWidget, public TrackDropTarget {
     void receiveCuesUpdated();
 
     void slotWaveformSummaryUpdated();
+    void slotBeatsUpdated();
     void slotCueMenuPopupAboutToHide();
 
     void slotTypeControlChanged(double v);
@@ -95,6 +96,8 @@ class WOverview : public WWidget, public TrackDropTarget {
     void drawAxis(QPainter* pPainter);
     void drawWaveformPixmap(QPainter* pPainter);
     void drawPlayedOverlay(QPainter* pPainter);
+    void drawBeats(QPainter* pPainter, const float offset, const float gain);
+    void updateBeats(double trackSamples);
     void drawPlayPosition(QPainter* pPainter);
     void drawEndOfTrackFrame(QPainter* pPainter);
     void drawAnalyzerProgress(QPainter* pPainter);
@@ -191,6 +194,19 @@ class WOverview : public WWidget, public TrackDropTarget {
 
     QImage m_waveformSourceImage;
     QImage m_waveformImageScaled;
+
+    struct GridBeat {
+        double samplePosition;
+        // Counted from the downbeat anchor the beat is measured from, so
+        // index % 4 == 0 is a downbeat and thinning keeps whole bars.
+        int index;
+    };
+    // The track's beat grid, rebuilt on the next paint after it changes
+    // (m_beatsDirty). Empty without a grid.
+    std::vector<GridBeat> m_beats;
+    bool m_beatsDirty;
+    QColor m_beatColor;
+    QColor m_downbeatColor;
 
     WaveformSignalColors m_signalColors;
 

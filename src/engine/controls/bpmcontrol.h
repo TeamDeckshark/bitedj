@@ -112,6 +112,7 @@ class BpmControl : public EngineControl {
     void slotUpdateRateSlider(double v = 0.0);
     void slotUpdateEngineBpm(double v = 0.0);
     void slotBeatsTranslate(double);
+    void slotBeatsTranslateDownbeat(double);
     void slotBeatsTranslateMatchAlignment(double);
     void slotToggleBpmLock(double);
     void slotBeatsUndoAdjustment(double value);
@@ -172,6 +173,7 @@ class BpmControl : public EngineControl {
     // Button that translates the beats so the nearest beat is on the current
     // playposition.
     std::unique_ptr<ControlPushButton> m_pTranslateBeats;
+    std::unique_ptr<ControlPushButton> m_pTranslateBeatsDownbeat;
     // Button that translates beats to match another playing deck
     std::unique_ptr<ControlPushButton> m_pBeatsTranslateMatchAlignment;
 

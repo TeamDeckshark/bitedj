@@ -110,4 +110,7 @@ class SoundDevicePortAudio : public SoundDevice {
     std::mutex m_finishedMutex;
     std::condition_variable m_finishedCV;
     bool m_bFinished;
+    // False for the blocking (callback-less) streams the secondary devices
+    // use in "Experimental (no delay)" mode.
+    bool m_bHasCallback;
 };

@@ -1,0 +1,147 @@
+{
+  "description": "USB library search (issue #2) on a fake Serato stick: the drive gets an All Tracks entry above its crates, listing all six tracks on the stick where the Warmup crate holds two; the library top bar carries the search box and RELATED, which opens a chip row for the selected track (KEY, BPM 124, ARTIST Kalo, GENRE House, ALBUM Night Bus; KEY and BPM keep their width, the name chips elide). ARTIST narrows to the three Kalo tracks with the chip lit and the query in the search box; the chips AND together: KEY then adds the harmonic matches of 8A (8A, 9A, 7A and the relative 8B, not 2A; Serato stores key text with no key_id) to the artist search with both chips lit, GENRE adds the genre on top, tapping the lit ARTIST and GENRE takes them out again and leaves KEY alone, and tapping KEY clears the search. The last grab is the same screen at the 480x420 design floor.",
+  "size": [
+    800,
+    480
+  ],
+  "drives": {
+    "SERATO": {
+      "_Serato_/database V2": "drives/serato/database V2",
+      "_Serato_/Subcrates/Warmup.crate": "drives/serato/Warmup.crate",
+      "Music/reference.flac": "media/reference.flac",
+      "Music/same.flac": "media/same.flac",
+      "Music/up1.flac": "media/up1.flac",
+      "Music/relative.flac": "media/relative.flac",
+      "Music/far.flac": "media/far.flac",
+      "Music/down1.flac": "media/down1.flac"
+    }
+  },
+  "steps": [
+    {
+      "wait": 2000
+    },
+    {
+      "set": "[Tab],library",
+      "value": 1
+    },
+    {
+      "sidebar": [
+        "Serato",
+        "/media/SERATO",
+        "Warmup"
+      ],
+      "expand": true,
+      "timeout": 30000
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "related_search_sidebar"
+    },
+    {
+      "sidebar": [
+        "Serato",
+        "/media/SERATO",
+        "All Tracks"
+      ]
+    },
+    {
+      "wait": 1000
+    },
+    {
+      "snapshot": "related_search_all_tracks"
+    },
+    {
+      "set": "[Skin],show_related",
+      "value": 1
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "related_search_no_selection"
+    },
+    {
+      "selectRow": "Reference"
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_chips"
+    },
+    {
+      "click": "RelatedSearchChip",
+      "text": "ARTIST"
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_artist"
+    },
+    {
+      "click": "RelatedSearchChip",
+      "text": "KEY"
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_artist_key"
+    },
+    {
+      "click": "RelatedSearchChip",
+      "text": "GENRE"
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_artist_key_genre"
+    },
+    {
+      "click": "RelatedSearchChip",
+      "text": "ARTIST"
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_key_genre"
+    },
+    {
+      "click": "RelatedSearchChip",
+      "text": "GENRE"
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_key"
+    },
+    {
+      "click": "RelatedSearchChip",
+      "text": "KEY"
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_cleared"
+    },
+    {
+      "resize": [
+        480,
+        420
+      ]
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "related_search_floor"
+    }
+  ]
+}

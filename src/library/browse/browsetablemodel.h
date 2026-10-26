@@ -123,6 +123,10 @@ class BrowseTableModel final : public QStandardItemModel, public virtual TrackMo
     /// Repaint the rows after the set of tracks played this session changed
     /// (a track started playing, or the session was reset).
     void slotPlayedTracksChanged();
+    /// Repaint the title column after the audible key or the match range
+    /// changed (see HarmonicMatch).
+    void slotHarmonicMatchChanged();
+    void slotRekordboxKeysChanged();
     void trackChanged(const QString& group, TrackPointer pNewTrack, TrackPointer pOldTrack);
 
   private:

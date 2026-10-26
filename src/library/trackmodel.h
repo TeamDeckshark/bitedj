@@ -233,6 +233,14 @@ class TrackModel {
     virtual bool setModelSetting(const QString& name, const QVariant& value) {
         SettingsDAO settings(m_db);
         QString key = m_settingsNamespace + "." + name;
+        // Bite DJ: every view a playlist is shown in stores its sort and header
+        // state again, nearly always unchanged, from the GUI thread. A write
+        // waits behind any other writer -- a stick being parsed, an analysis
+        // being saved -- for up to the 5 s busy timeout, freezing the screen,
+        // where a read never waits (the database is in WAL mode).
+        if (settings.getValue(key) == value.toString()) {
+            return true;
+        }
         return settings.setValue(key, value);
     }
 

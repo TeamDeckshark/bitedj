@@ -472,6 +472,9 @@
             <SignalMidColor>#007de1</SignalMidColor>
             <SignalHighColor>#007de1</SignalHighColor>
             <PlayedOverlayColor>#40ffffff</PlayedOverlayColor>
+            <!-- Beat grid, in the scrolling waveform's colours (waveform.xml). -->
+            <BeatColor>#999</BeatColor>
+            <BeatDownbeatColor>#f15921</BeatDownbeatColor>
             <Mark>
               <Control>cue_point</Control>
               <Color>#eb870f</Color>

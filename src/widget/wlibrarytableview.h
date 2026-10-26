@@ -3,6 +3,7 @@
 #include <QCache>
 #include <QString>
 #include <QTableView>
+#include <QVector>
 
 #include "library/library_decl.h"
 #include "library/libraryview.h"
@@ -14,11 +15,15 @@ class QFont;
 class WLibraryTableView : public QTableView, public virtual LibraryView {
     Q_OBJECT
 
+    // Rows and columns, not QModelIndexes: the model behind a view can be
+    // reset and repopulated (a re-plugged USB drive) while its state is
+    // cached, and a stale proxy index then points into freed mapping data.
     struct ModelState {
-        int horizontalScrollPosition;
-        int verticalScrollPosition;
-        QModelIndexList selectedRows;
-        QModelIndex currentIndex;
+        int horizontalScrollPosition{0};
+        int verticalScrollPosition{0};
+        QVector<int> selectedRows; // sorted, unique
+        int currentRow{-1};
+        int currentColumn{-1};
     };
 
   public:

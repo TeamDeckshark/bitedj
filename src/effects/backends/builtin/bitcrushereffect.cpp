@@ -17,6 +17,7 @@ EffectManifestPointer BitCrusherEffect::getManifest() {
     pManifest->setShortName(QObject::tr("Bitcrusher"));
     pManifest->setAuthor("The Mixxx Team");
     pManifest->setVersion("1.0");
+    pManifest->setMetaknobDefault(0.5);
     pManifest->setDescription(QObject::tr(
             "Adds noise by the reducing the bit depth and sample rate"));
     pManifest->setEffectRampsFromDry(true);

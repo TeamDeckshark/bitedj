@@ -6,6 +6,7 @@
 #include <QStringList>
 #include <QThread>
 #include <QtGlobal>
+#include <algorithm>
 #include <cstring> // for memcpy and strcmp
 
 #include "control/controlobject.h"
@@ -227,6 +228,15 @@ void SoundManager::closeDevices(bool sleepAfterClosing) {
     stopDeviceWatchdog();
 
     bool closed = false;
+    // Stop the clock reference first. Its callback runs the engine and reads
+    // and writes every other open device's FIFOs, which close() frees, so a
+    // secondary device closed while the clock still runs can be touched
+    // after its FIFO is gone.
+    if (m_pClkRefDevice && m_pClkRefDevice->isOpen()) {
+        m_pClkRefDevice->close();
+        closed = true;
+    }
+    m_pClkRefDevice.clear();
     for (const auto& pDevice : std::as_const(m_devices)) {
         if (pDevice->isOpen()) {
             // NOTE(rryan): As of 2009 (?) it has been safe to close() a SoundDevice
@@ -406,12 +416,6 @@ SoundDeviceStatus SoundManager::setupDevices() {
     qDebug() << "SoundManager::setupDevices()";
     m_pControlObjectSoundStatusCO->set(SOUNDMANAGER_CONNECTING);
     SoundDeviceStatus status = SoundDeviceStatus::Ok;
-    // NOTE(rryan): Do not clear m_pClkRefDevice here. If we didn't touch the
-    // SoundDevice that is the clock reference, then it is safe to leave it as
-    // it was. Clearing it causes the engine to stop being processed which
-    // results in a stuttering noise (sometimes a loud buzz noise at low
-    // latencies) when changing devices.
-    //m_pClkRefDevice = NULL;
     m_pErrorDevice.clear();
     int outputDevicesOpened = 0;
     int inputDevicesOpened = 0;
@@ -429,8 +433,7 @@ SoundDeviceStatus SoundManager::setupDevices() {
     // callback from the logic in SoundDevicePortAudio. They should communicate
     // via message passing over a request/response FIFO.
 
-    // Instead of clearing m_pClkRefDevice and then assigning it directly,
-    // compute the new one then atomically hand off below.
+    // Chosen while the devices are configured, then opened last (below).
     SoundDevicePointer pNewMainClockRef;
 
     m_audioLatencyOverloadCount.set(0);
@@ -531,18 +534,33 @@ SoundDeviceStatus SoundManager::setupDevices() {
         }
     }
 
+    // If we have not yet set a clock source then we use the first output
+    // device
+    if (pNewMainClockRef.isNull()) {
+        const auto clockMode = std::find_if(toOpen.cbegin(),
+                toOpen.cend(),
+                [haveOutput](const DeviceMode& mode) {
+                    return !haveOutput || mode.isOutput;
+                });
+        if (clockMode != toOpen.cend()) {
+            pNewMainClockRef = clockMode->pDevice;
+            qWarning() << "Output sound device clock reference not set! Using"
+                       << pNewMainClockRef->getDisplayName();
+        }
+    }
+    // Open the clock reference last: its callback starts running the engine
+    // straight away, and must not reach a secondary device whose FIFOs open()
+    // is still setting up.
+    std::stable_partition(toOpen.begin(),
+            toOpen.end(),
+            [&pNewMainClockRef](const DeviceMode& mode) {
+                return mode.pDevice != pNewMainClockRef;
+            });
+    m_pClkRefDevice = pNewMainClockRef;
+
     for (const auto& mode: toOpen) {
         SoundDevicePointer pDevice = mode.pDevice;
         m_pErrorDevice = pDevice;
-
-        // If we have not yet set a clock source then we use the first
-        // output pDevice
-        if (pNewMainClockRef.isNull() &&
-                (!haveOutput || mode.isOutput)) {
-            pNewMainClockRef = pDevice;
-            qWarning() << "Output sound device clock reference not set! Using"
-                       << pDevice->getDisplayName();
-        }
 
         int syncBuffers = m_config.getSyncBuffers();
         // If we are in safe mode and using experimental polling support, use

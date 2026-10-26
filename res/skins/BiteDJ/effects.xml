@@ -29,10 +29,18 @@
   persisted — the panel opens on FX, on deck 1, every launch.
 -->
 <Template>
+  <!--
+    Fixed width, not a minimum. A minimum let each page widen the panel to
+    whatever its buttons and labels asked for, so the waveforms beside it
+    jumped on every FX / KEY / GRID switch, and again when GRID flipped
+    between RB's read-only note and BITE's edit buttons. 224px is what the
+    widest page, GRID under BITE, needs to lay out unsquashed (its deck bar
+    and button rows); the other pages fit inside it.
+  -->
   <WidgetGroup>
     <ObjectName>BeatFX_Container</ObjectName>
     <Layout>vertical</Layout>
-    <Size>180max,0me</Size>
+    <Size>224f,0me</Size>
     <Children>
 
       <WidgetGroup>
@@ -107,7 +115,7 @@
         ~5px off the deck strip and made the bottom of the screen jump
         between FX and KEY — and again whenever an effect with a bucket row
         was loaded. Ignored drops the stack out of the minimum-height
-        calculation, so this 180px side panel is sized purely by the
+        calculation, so this fixed-width side panel is sized purely by the
         waveform column beside it. Pages are AlignTop, so content that
         outgrows the panel packs from the top instead of shoving the rest of
         the layout around.

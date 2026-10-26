@@ -182,6 +182,9 @@ void WTrackTableView::slotGuiTick50ms(double /*unused*/) {
                     TrackPointer pTrack =
                             GlobalTrackCacheLocker().lookupTrackByRef(trackRef);
                     emit trackSelected(pTrack);
+                    emit relatedTrackSearchesChanged(
+                            mixxx::library::relatedTrackSearchesForRow(index),
+                            mixxx::library::supportsRelatedTrackSearch(index));
                 }
             } else {
                 // None or multiple tracks have been selected

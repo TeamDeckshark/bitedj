@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# resolve-branding.sh [-n] [--keep ours|theirs] [--mode auto|conflict|staged] [file ...]
+# resolve-branding.sh [-n] [--keep ours|theirs] [--mode auto|conflict|staged]
+#                     [--learn-from REV] [file ...]
 #
 # Pre-pass for a merge between origin/main and bitedj/main, in either
 # direction.  Both directions have the same job: keep the branding of the
@@ -60,6 +61,15 @@
 #                      worktree when the merge is what added them, so the
 #                      commit that follows does not carry them over.
 #
+#   --learn-from REV   learn the swaps from REV against HEAD instead of from
+#                      the staged diff.  For a squash merged on the base it
+#                      was last squashed from (tools/squash-to-bitedj.sh), REV
+#                      being that base: the lines HEAD repainted are then not
+#                      in the staged diff at all, so it has only main's new
+#                      rules to learn from, which name main's colours and
+#                      nothing else.  REV's file is main's palette and HEAD's
+#                      is ours, so their diff is the repaint itself.
+#
 # A merge that conflicts in some files and takes the incoming side cleanly in
 # others is both cases at once: resolve the conflicts, then run again with
 # --mode staged to catch the branding that never conflicted.
@@ -99,6 +109,7 @@ MAIN_ONLY_PATHS=(
 keep=ours
 dryrun=0
 mode=auto
+learn_from=''
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -107,6 +118,8 @@ while [[ $# -gt 0 ]]; do
         --keep=*)     keep=${1#*=}; shift ;;
         --mode)       mode=${2:-}; shift 2 ;;
         --mode=*)     mode=${1#*=}; shift ;;
+        --learn-from) learn_from=${2:-}; shift 2 ;;
+        --learn-from=*) learn_from=${1#*=}; shift ;;
         -h|--help)    sed -n '2,/^set -uo/p' "$0" | sed 's/^# \{0,1\}//; $d'; exit 0 ;;
         --)           shift; break ;;
         -*)           echo "resolve-branding: unknown option $1" >&2; exit 64 ;;
@@ -332,13 +345,23 @@ AWK
     # Rewrites every colour literal the learner mapped, anywhere in the file,
     # including in lines the merge added.  Walks the literals rather than
     # running gsub per pair so a colour is only ever substituted once.
+    #
+    # With --learn-from, only the lines the merge added: everything else is
+    # HEAD's own text, already in the release palette, and HEAD still uses
+    # some of main's colours on purpose -- 30 #488ab3 in style.qss at 1.0-3,
+    # against the 4 lines its repaint changed.  `only` is the ","-joined list
+    # of those line numbers; empty means every line.
 
     IFS='' read -r -d '' repaint_colors <<'AWK' || true
 BEGIN {
     n = split(map, pairs, ";")
     for (i = 1; i <= n; i++)
         if (split(pairs[i], p, ">") == 2) to[p[1]] = p[2]
+    n = split(only, a, ",")
+    for (i = 1; i <= n; i++) pick[a[i]] = 1
 }
+
+only != "" && !(FNR in pick) { print; next }
 
 {
     line = $0
@@ -375,15 +398,23 @@ AWK
 
         elif matches "$f" "${COLOR_FILES[@]}"; then
             git diff --cached --quiet -- "$f" && { untouched+=("$f"); continue; }
-            if ! git cat-file -e "HEAD:$f" 2>/dev/null || [[ ! -f $f ]]; then
+            if ! git cat-file -e "HEAD:$f" 2>/dev/null || [[ ! -f $f ]] ||
+                    { [[ -n $learn_from ]] && ! git cat-file -e "$learn_from:$f" 2>/dev/null; }; then
                 untouched+=("$f")
                 continue
             fi
             printf '\n\033[1m%s\033[0m\n' "$f"
 
-            theirs_set=$(gawk "$awk_color_lib$list_colors" "$f")
+            # The learner reads "-" lines as ours and "+" lines as theirs.
+            if [[ -n $learn_from ]]; then
+                theirs_set=$(git show "$learn_from:$f" | gawk "$awk_color_lib$list_colors")
+                learn_diff=(git diff -U0 HEAD "$learn_from" -- "$f")
+            else
+                theirs_set=$(gawk "$awk_color_lib$list_colors" "$f")
+                learn_diff=(git diff --cached -U0 -- "$f")
+            fi
             mapfile -t swaps < <(
-                git diff --cached -U0 -- "$f" |
+                "${learn_diff[@]}" |
                     gawk -v theirs_set="$theirs_set" \
                         "$awk_color_lib$learn_swaps")
             if [[ ${#swaps[@]} -eq 0 ]]; then
@@ -393,7 +424,15 @@ AWK
             fi
 
             joined=$(IFS=';'; echo "${swaps[*]}")
-            if ! gawk -v map="$joined" "$awk_color_lib$repaint_colors" "$f" > "$tmp"; then
+            only=''
+            if [[ -n $learn_from ]]; then
+                only=$(git diff --cached -U0 HEAD -- "$f" | gawk '
+                    /^@@/ { match($0, /\+([0-9]+)(,([0-9]+))?/, m)
+                            c = (m[3] == "") ? 1 : m[3]
+                            for (i = 0; i < c; i++) printf "%s%d", (k++ ? "," : ""), m[1] + i }')
+                [[ -n $only ]] || only=0
+            fi
+            if ! gawk -v map="$joined" -v only="$only" "$awk_color_lib$repaint_colors" "$f" > "$tmp"; then
                 echo "  could not repaint, left as merged" >&2
                 broken+=("$f")
                 continue

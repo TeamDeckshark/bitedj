@@ -796,6 +796,10 @@ rekordbox_pdb_t::row_ref_t::row_ref_t(uint16_t p_row_index, kaitai::kstream* p__
     m__parent = p__parent;
     m__root = p__root;
     m_row_index = p_row_index;
+    // Bite DJ local patch (keep when regenerating): body() sets f_body before
+    // it assigns m_body, so if seeking to or constructing the row throws on a
+    // corrupt export, _clean_up() would delete an uninitialized pointer.
+    m_body = 0;
     f_body = false;
     f_ofs_row = false;
     f_present = false;

@@ -1,5 +1,7 @@
 #include "widget/wlibrarytableview.h"
 
+#include <algorithm>
+
 #include <QApplication>
 #include <QFocusEvent>
 #include <QFontMetrics>
@@ -82,14 +84,20 @@ void WLibraryTableView::saveTrackModelState(
     state->verticalScrollPosition = verticalScrollBar()->value();
     state->horizontalScrollPosition = horizontalScrollBar()->value();
 
-    state->selectedRows = selectionModel()->selectedRows();
+    state->selectedRows.clear();
+    const QModelIndexList selectedRows = selectionModel()->selectedRows();
+    state->selectedRows.reserve(selectedRows.size());
+    for (const QModelIndex& index : selectedRows) {
+        state->selectedRows.append(index.row());
+    }
+    std::sort(state->selectedRows.begin(), state->selectedRows.end());
+    state->selectedRows.erase(
+            std::unique(state->selectedRows.begin(), state->selectedRows.end()),
+            state->selectedRows.end());
 
     const QModelIndex currIndex = selectionModel()->currentIndex();
-    if (currIndex.isValid()) {
-        state->currentIndex = currIndex;
-    } else {
-        state->currentIndex = QModelIndex();
-    }
+    state->currentRow = currIndex.isValid() ? currIndex.row() : -1;
+    state->currentColumn = currIndex.isValid() ? currIndex.column() : -1;
 
     m_modelStateCache.insert(key, state, 1);
 }
@@ -98,7 +106,7 @@ bool WLibraryTableView::restoreTrackModelState(
         const QAbstractItemModel* model, const QString& key) {
     //qDebug() << "restoreTrackModelState:" << model << key;
     //qDebug() << m_modelStateCache.keys();
-    if (model == nullptr) {
+    if (model == nullptr || model != this->model()) {
         return false;
     }
 
@@ -120,42 +128,46 @@ bool WLibraryTableView::restoreTrackModelState(
     QItemSelectionModel* pSelectionModel = selectionModel();
     pSelectionModel->clearSelection();
     QItemSelection newSelection;
-    QModelIndexList selectedRows = state->selectedRows;
     QModelIndex topLeft;
     QModelIndex bottomRight;
-    if (!selectedRows.isEmpty()) {
-        // In saveTrackModelState() we fill state->selectedRows with the sorted
-        // rows, hence no need to sort here.
-        for (const QModelIndex& index : std::as_const(selectedRows)) {
-            if (!topLeft.isValid()) {
-                // start new range. only done once for first row
-                topLeft = index;
-                bottomRight = index;
-                continue;
-            }
-
-            if (index.row() == bottomRight.row() + 1) {
-                // continuous range
-                bottomRight = index;
-                continue;
-            } else {
-                // prev index was end of range, add current range to selection
-                // and start a new one
-                newSelection.select(topLeft, bottomRight);
-                topLeft = index;
-                bottomRight = index;
-            }
+    const int rowCount = model->rowCount();
+    // Rebuild the indexes from the model as it is now. Rows that have gone
+    // since the state was saved are skipped.
+    for (const int row : std::as_const(state->selectedRows)) {
+        if (row >= rowCount) {
+            break;
+        }
+        const QModelIndex index = model->index(row, 0);
+        if (!topLeft.isValid()) {
+            // start new range. only done once for first row
+            topLeft = index;
+            bottomRight = index;
+            continue;
         }
 
-        // If we reached end, submit the last selection
-        if (bottomRight == selectedRows.last()) {
+        if (row == bottomRight.row() + 1) {
+            // continuous range
+            bottomRight = index;
+        } else {
+            // prev index was end of range, add current range to selection
+            // and start a new one
             newSelection.select(topLeft, bottomRight);
+            topLeft = index;
+            bottomRight = index;
         }
+    }
+    // Submit the last range
+    if (topLeft.isValid()) {
+        newSelection.select(topLeft, bottomRight);
     }
     pSelectionModel->select(newSelection,
             QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
-    QModelIndex currIndex = state->currentIndex;
+    QModelIndex currIndex;
+    if (state->currentRow >= 0 && state->currentColumn >= 0 && rowCount > 0) {
+        currIndex = model->index(std::min(state->currentRow, rowCount - 1),
+                std::min(state->currentColumn, model->columnCount() - 1));
+    }
     restoreCurrentIndex(currIndex);
 
     // reinsert the state into the cache

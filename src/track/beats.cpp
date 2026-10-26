@@ -755,6 +755,15 @@ std::optional<BeatsPointer> Beats::trySetBpm(mixxx::Bpm bpm) const {
     return BeatsPointer(new Beats({}, *it, bpm, m_sampleRate, m_subVersion, m_downbeatAnchors));
 }
 
+BeatsPointer Beats::withSubVersion(const QString& subVersion) const {
+    return BeatsPointer(new Beats(m_markers,
+            m_lastMarkerPosition,
+            m_lastMarkerBpm,
+            m_sampleRate,
+            subVersion,
+            m_downbeatAnchors));
+}
+
 bool Beats::isValid() const {
     if (!m_lastMarkerPosition.isValid() || !m_lastMarkerBpm.isValid()) {
         return false;
@@ -834,6 +843,34 @@ audio::FramePos Beats::findClosestBeat(audio::FramePos position) const {
     return (nextBeatPosition - position > position - prevBeatPosition)
             ? prevBeatPosition
             : nextBeatPosition;
+}
+
+audio::FramePos Beats::findClosestDownbeat(
+        audio::FramePos position, int beatsPerBar) const {
+    if (!isValid() || !position.isValid() || beatsPerBar <= 0) {
+        return audio::kInvalidFramePos;
+    }
+    const auto anchor = iteratorFrom(downbeatAnchorAt(position));
+    // The first beat at or after `position`, then on to the next downbeat.
+    auto next = iteratorFrom(position);
+    const int barOffset = static_cast<int>(
+            ((next - anchor) % beatsPerBar + beatsPerBar) % beatsPerBar);
+    if (barOffset != 0) {
+        next += beatsPerBar - barOffset;
+    }
+    auto prev = next;
+    prev -= beatsPerBar;
+    // A later anchor before that bar line restarts the count on its own beat,
+    // as in the waveform renderers.
+    const auto laterAnchor = std::upper_bound(
+            m_downbeatAnchors.cbegin(), m_downbeatAnchors.cend(), position);
+    if (laterAnchor != m_downbeatAnchors.cend()) {
+        const auto anchorBeat = iteratorFrom(*laterAnchor);
+        if (*anchorBeat < *next) {
+            next = anchorBeat;
+        }
+    }
+    return (*next - position > position - *prev) ? *prev : *next;
 }
 
 } // namespace mixxx

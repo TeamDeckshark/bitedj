@@ -190,6 +190,9 @@ void ControllerManager::slotShutdown() {
     auto locker = lockMutex(&m_mutex);
     QList<ControllerEnumerator*> enumerators = m_enumerators;
     m_enumerators.clear();
+    // The enumerators own the devices, so the list is about to dangle. A
+    // preferences page torn down after this must not be handed it.
+    m_controllers.clear();
     locker.unlock();
 
     // Delete enumerators and they'll delete their Devices

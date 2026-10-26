@@ -635,4 +635,90 @@ TEST(BeatsTest, IteratorFromFloorUndershoot) {
     EXPECT_LT(std::prev(it)->value(), position.value());
 }
 
+#define EXPECT_FRAMEPOS_EQ(pos1, pos2)             \
+    ASSERT_TRUE((pos2).isValid());                 \
+    EXPECT_DOUBLE_EQ((pos1).value(), (pos2).value())
+
+TEST(BeatsTest, FindClosestDownbeatWithoutAnchorCountsFromMarker) {
+    // No anchors: bars count from the marker, beat 0.
+    const auto beatLength = kSampleRate.value() * 60.0 / kBpm.value();
+    const auto downbeat0 = kStartPosition;
+    const auto downbeat4 = kStartPosition + 4 * beatLength;
+    const auto downbeatMinus4 = kStartPosition - 4 * beatLength;
+
+    EXPECT_FRAMEPOS_EQ(downbeat0, kConstTempoBeats.findClosestDownbeat(downbeat0));
+    // Beat 1.5 is nearer bar line 0 than bar line 4, although beats 1 and 2
+    // are nearer still.
+    EXPECT_FRAMEPOS_EQ(downbeat0,
+            kConstTempoBeats.findClosestDownbeat(kStartPosition + 1.5 * beatLength));
+    EXPECT_FRAMEPOS_EQ(downbeat4,
+            kConstTempoBeats.findClosestDownbeat(kStartPosition + 2.6 * beatLength));
+    EXPECT_FRAMEPOS_EQ(downbeat4, kConstTempoBeats.findClosestDownbeat(downbeat4));
+    // Before the marker too.
+    EXPECT_FRAMEPOS_EQ(downbeatMinus4,
+            kConstTempoBeats.findClosestDownbeat(kStartPosition - 3.2 * beatLength));
+}
+
+TEST(BeatsTest, FindClosestDownbeatCountsFromAnchor) {
+    // The analyzer put the drop on beat 2: that and every 4th beat from it are
+    // the downbeats, before the anchor as well as after it.
+    const auto beatLength = kSampleRate.value() * 60.0 / kBpm.value();
+    const auto anchor = kStartPosition + 2 * beatLength;
+    const auto pBeats = Beats::fromConstTempo(
+            kSampleRate, kStartPosition, kBpm, QString(), {anchor});
+
+    EXPECT_FRAMEPOS_EQ(anchor,
+            pBeats->findClosestDownbeat(kStartPosition + 0.9 * beatLength));
+    EXPECT_FRAMEPOS_EQ(anchor - 4 * beatLength,
+            pBeats->findClosestDownbeat(kStartPosition - 0.1 * beatLength));
+    EXPECT_FRAMEPOS_EQ(anchor + 4 * beatLength,
+            pBeats->findClosestDownbeat(anchor + 3 * beatLength));
+}
+
+TEST(BeatsTest, FindClosestDownbeatRestartsOnLaterAnchor) {
+    // A bar restarted on beat 6 (rekordbox lets the DJ do that): bar lines
+    // at 0 and 4, a short bar, then every 4th beat from 6 — never at 8.
+    const auto beatLength = kSampleRate.value() * 60.0 / kBpm.value();
+    const auto pBeats = Beats::fromConstTempo(kSampleRate,
+            kStartPosition,
+            kBpm,
+            QString(),
+            {kStartPosition, kStartPosition + 6 * beatLength});
+
+    EXPECT_FRAMEPOS_EQ(kStartPosition + 4 * beatLength,
+            pBeats->findClosestDownbeat(kStartPosition + 2.9 * beatLength));
+    // Counting on from 4, the next bar line would be 8 and 4 would win.
+    EXPECT_FRAMEPOS_EQ(kStartPosition + 6 * beatLength,
+            pBeats->findClosestDownbeat(kStartPosition + 5.2 * beatLength));
+    EXPECT_FRAMEPOS_EQ(kStartPosition + 10 * beatLength,
+            pBeats->findClosestDownbeat(kStartPosition + 8.5 * beatLength));
+}
+
+TEST(BeatsTest, FindClosestDownbeatSurvivesTranslate) {
+    // Align moves the closest downbeat onto the playhead; it must still be a
+    // downbeat there afterwards.
+    const auto beatLength = kSampleRate.value() * 60.0 / kBpm.value();
+    const auto anchor = kStartPosition + 2 * beatLength;
+    const auto pBeats = Beats::fromConstTempo(
+            kSampleRate, kStartPosition, kBpm, QString(), {anchor});
+    const auto playPosition = (anchor + 1.3 * beatLength).toLowerFrameBoundary();
+    const auto downbeat = pBeats->findClosestDownbeat(playPosition);
+    const auto translated = pBeats->tryTranslate(playPosition - downbeat);
+    ASSERT_TRUE(translated);
+    EXPECT_FRAMEPOS_EQ(playPosition, (*translated)->findClosestDownbeat(playPosition));
+}
+
+TEST(BeatsTest, WithSubVersionKeepsTheGrid) {
+    const auto beatLength = kSampleRate.value() * 60.0 / kBpm.value();
+    const auto pBeats = Beats::fromConstTempo(kSampleRate,
+            kStartPosition,
+            kBpm,
+            QStringLiteral("a"),
+            {kStartPosition + 2 * beatLength});
+    const auto pRetagged = pBeats->withSubVersion(QStringLiteral("b"));
+    EXPECT_EQ(QStringLiteral("b"), pRetagged->getSubVersion());
+    EXPECT_EQ(pBeats->getDownbeatAnchors(), pRetagged->getDownbeatAnchors());
+    EXPECT_EQ(*pBeats, *pRetagged);
+}
+
 } // namespace

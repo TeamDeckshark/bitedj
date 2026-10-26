@@ -64,6 +64,20 @@ bool promoteCurrentThreadToRealtime(int priority, const char* threadName) {
 #endif
 }
 
+bool setCurrentThreadRealtimeQuietly(bool realtime, int priority) {
+#ifdef __LINUX__
+    sched_param param{};
+    param.sched_priority = realtime ? priority : 0;
+    return pthread_setschedparam(pthread_self(),
+                   realtime ? SCHED_FIFO : SCHED_OTHER,
+                   &param) == 0;
+#else
+    Q_UNUSED(realtime);
+    Q_UNUSED(priority);
+    return false;
+#endif
+}
+
 bool demoteCurrentThreadToIdle(const char* threadName) {
 #if defined(__LINUX__) && defined(SCHED_IDLE)
     sched_param param{};

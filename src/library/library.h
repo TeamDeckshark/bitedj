@@ -7,6 +7,7 @@
 
 #include "analyzer/trackanalysisscheduler.h"
 #include "library/library_decl.h"
+#include "library/relatedtracksearch.h"
 #ifdef __ENGINEPRIME__
 #include "library/trackset/crate/crateid.h"
 #endif
@@ -104,6 +105,11 @@ class Library: public QObject {
     /// and shows the results by switching the view.
     void searchTracksInCollection(const QString& query);
 
+    /// Bite DJ: runs `query` in the view that is showing, as if it had been
+    /// typed into the search box, and puts it there. Unlike
+    /// searchTracksInCollection() it stays in the open playlist or device.
+    void searchInCurrentView(const QString& query);
+
     bool requestAddDir(const QString& directory);
     bool requestRemoveDir(const QString& directory, LibraryRemovalType removalType);
     bool requestRelocateDir(const QString& previousDirectory, const QString& newDirectory);
@@ -139,6 +145,10 @@ class Library: public QObject {
     void enableCoverArtDisplay(bool);
     void selectTrack(const TrackId&);
     void trackSelected(TrackPointer pTrack);
+    // Bite DJ: forwarded from WTrackTableView, for the related-search chips.
+    void relatedTrackSearchesChanged(
+            const QList<mixxx::library::RelatedTrackSearch>& searches,
+            bool available);
     void analyzeTracks(const QList<AnalyzerScheduledTrack>& tracks);
 #ifdef __ENGINEPRIME__
     void exportLibrary();
@@ -178,6 +188,8 @@ class Library: public QObject {
       /// the 'played' tint from every library view. Bound to
       /// [Library],reset_played_tracks (Settings -> General -> Played).
       void slotResetPlayedTracks(double value);
+      void slotKeyMatchChanged(double value);
+      void slotRekordboxKeyChanged(double value);
       /// Bite DJ: delete the cues this unit stored on every connected USB
       /// drive, handing the tracks back to whatever rekordbox exported for
       /// them, and take those cues off the tracks that are still loaded so the
@@ -218,6 +230,8 @@ class Library: public QObject {
     QScopedPointer<ControlObject> m_pKeyNotation;
     QScopedPointer<ControlPushButton> m_pClearCachedWaveforms;
     QScopedPointer<ControlPushButton> m_pResetPlayedTracks;
+    QScopedPointer<ControlPushButton> m_pKeyMatch;
+    QScopedPointer<ControlPushButton> m_pRekordboxKey;
     QScopedPointer<ControlPushButton> m_pClearCueOverrides;
     QScopedPointer<ControlPushButton> m_pClearMetaOverrides;
 };

@@ -266,6 +266,31 @@ void sqliteKeyTextSortOrder(sqlite3_context* context,
             KeyUtils::keyToCircleOfFifthsOrder(key, notation));
 }
 
+// Bite DJ: SQLite scalar mapping a free-form key text to its ChromaticKey
+// id, or NULL when it does not parse. The key search (KeyFilterNode) uses it
+// on the same external library tables as key_text_sort_order, which have a
+// `key` text column and no `key_id` to compare against.
+void sqliteKeyTextId(sqlite3_context* context,
+        int argc,
+        sqlite3_value** argv) {
+    VERIFY_OR_DEBUG_ASSERT(argc == 1) {
+        sqlite3_result_null(context);
+        return;
+    }
+    const auto* pKeyText = sqlite3_value_text(argv[0]);
+    if (!pKeyText) {
+        sqlite3_result_null(context);
+        return;
+    }
+    const auto key = KeyUtils::guessKeyFromText(QString::fromUtf8(
+            reinterpret_cast<const char*>(pKeyText)));
+    if (key == mixxx::track::io::key::INVALID) {
+        sqlite3_result_null(context);
+        return;
+    }
+    sqlite3_result_int64(context, key);
+}
+
 #endif // __SQLITE3__
 
 // Bite DJ: put the database in write-ahead-log mode.
@@ -386,6 +411,22 @@ bool initDatabase(const QSqlDatabase& database, mixxx::StringCollator* pCollator
     VERIFY_OR_DEBUG_ASSERT(result == SQLITE_OK) {
         kLogger.warning()
                 << "Failed to install key_text_sort_order function for SQLite3:"
+                << result;
+    }
+
+    // Bite DJ: see sqliteKeyTextId.
+    result = sqlite3_create_function(
+            handle,
+            "key_text_id",
+            1,
+            SQLITE_UTF8 | SQLITE_DETERMINISTIC,
+            nullptr,
+            sqliteKeyTextId,
+            nullptr,
+            nullptr);
+    VERIFY_OR_DEBUG_ASSERT(result == SQLITE_OK) {
+        kLogger.warning()
+                << "Failed to install key_text_id function for SQLite3:"
                 << result;
     }
 #else

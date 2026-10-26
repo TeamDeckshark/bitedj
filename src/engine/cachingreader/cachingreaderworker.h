@@ -17,10 +17,15 @@ class FIFO;
 // POD with trivial ctor/dtor/copy for passing through FIFO
 typedef struct CachingReaderChunkReadRequest {
     CachingReaderChunk* chunk;
+    // Bite DJ: requested while the deck was fast-searching (SHIFT+jog), where
+    // the playhead outruns the decoder and most of what is read is never
+    // heard. The worker decodes these off the RT ladder, see run().
+    bool speculative;
 
     void giveToWorker(CachingReaderChunkForOwner* chunkForOwner) {
         DEBUG_ASSERT(chunkForOwner);
         chunk = chunkForOwner;
+        speculative = false;
         chunkForOwner->giveToWorker();
     }
 } CachingReaderChunkReadRequest;
@@ -203,4 +208,8 @@ class CachingReaderWorker : public EngineWorker {
     mixxx::SampleBuffer m_tempReadBuffer;
 
     QAtomicInt m_stop;
+
+    // Whether run() got its SCHED_FIFO rung, i.e. whether there is a realtime
+    // priority to step down from for speculative reads (and back up to).
+    bool m_realtime;
 };

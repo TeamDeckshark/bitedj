@@ -29,6 +29,7 @@ class AudioDeviceSettings;
 class ControllerSettings;
 class SystemSettings;
 class CharacterPriority;
+class CrossfaderAssignLock;
 class HighContrast;
 
 namespace mixxx {
@@ -156,6 +157,7 @@ class CoreServices : public QObject {
     std::unique_ptr<RateRangeControl> m_pRateRangeControl;
     std::unique_ptr<Notifications> m_pNotifications;
     std::unique_ptr<AudioDeviceSettings> m_pAudioDeviceSettings;
+    std::unique_ptr<CrossfaderAssignLock> m_pCrossfaderAssignLock;
     std::unique_ptr<ControllerSettings> m_pControllerSettings;
     std::unique_ptr<SystemSettings> m_pSystemSettings;
     // Constructed after SystemSettings, which is what it enumerates and watches

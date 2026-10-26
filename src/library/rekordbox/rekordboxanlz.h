@@ -4,6 +4,7 @@
 #include <QStringList>
 
 #include "audio/types.h"
+#include "track/beats.h"
 #include "track/track_decl.h"
 
 namespace mixxx {
@@ -37,14 +38,32 @@ void readAnalyze(TrackPointer track,
 /// Run both `readAnalyze` passes for a track's `.DAT` path: beats from the
 /// `.DAT`, then cues from the `.EXT`, or from the `.DAT` again when the export
 /// has no `.EXT`. Each pass fails on its own, so a corrupt `.EXT` still leaves
-/// the grid and a corrupt `.DAT` still leaves the cues.
+/// the grid and a corrupt `.DAT` still leaves the cues. With `importBeats`
+/// false only the cue pass runs.
 ///
 /// Returns the paths that exist but could not be read. A track rekordbox never
 /// analysed has no ANLZ file at all, which is not a failure.
 QStringList readAnalyzeFiles(TrackPointer track,
         audio::SampleRate sampleRate,
         int timingOffset,
-        const QString& anlzPath);
+        const QString& anlzPath,
+        bool importBeats = true);
+
+/// The beat grid of the ANLZ file at `anlzPath` (the legacy `.DAT`, which is
+/// the only one whose grid is right), without touching any track. The grid is
+/// tagged with `rekordboxconstants::beatsSubversion`.
+///
+/// Returns null when there is no such file or it holds no grid (a track
+/// rekordbox never analysed). Throws if the file cannot be parsed.
+BeatsPointer readBeatGrid(const QString& anlzPath,
+        audio::SampleRate sampleRate,
+        int timingOffset);
+
+/// Milliseconds to take off every rekordbox timestamp (cues, loops, beats) for
+/// the audio file at `location`, because rekordbox's MP3 decoder and ours do
+/// not agree on where some files start. Zero for anything but those MP3s.
+/// Remembered per location, as finding out reads through the file.
+int timingOffsetForFile(const QString& location);
 
 } // namespace rekordbox
 } // namespace mixxx

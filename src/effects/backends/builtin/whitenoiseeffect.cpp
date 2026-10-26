@@ -20,6 +20,7 @@ EffectManifestPointer WhiteNoiseEffect::getManifest() {
     pManifest->setName(QObject::tr("White Noise"));
     pManifest->setAuthor("The Mixxx Team");
     pManifest->setVersion("1.0");
+    pManifest->setMetaknobDefault(1.0);
     pManifest->setDescription(QObject::tr("Mix white noise with the input signal"));
     pManifest->setEffectRampsFromDry(true);
 

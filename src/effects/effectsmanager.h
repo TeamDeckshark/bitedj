@@ -5,6 +5,7 @@
 #include <QSet>
 
 #include "control/controlpotmeter.h"
+#include "control/controlproxy.h"
 #include "control/controlpushbutton.h"
 #include "effects/backends/effectsbackendmanager.h"
 #include "effects/presets/effectchainpresetmanager.h"
@@ -121,6 +122,10 @@ class EffectsManager {
     // are instantiated during setup(), well before SystemSettings comes up;
     // creating it any later would leave those proxies pointing at nothing.
     std::unique_ptr<ControlPushButton> m_pEqMode;
+
+    // The master Graphic EQ's band gains, mirrored into mixxx.cfg as they
+    // change so they survive a power-off (see setup()).
+    std::vector<std::unique_ptr<ControlProxy>> m_masterEqBands;
 
     // This is set true when setup() is run. Then, the initial decks (their EQ
     // and QuickEffect chains) have been initialized, either with defaults or the

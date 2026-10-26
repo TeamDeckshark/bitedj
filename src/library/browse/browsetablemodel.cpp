@@ -13,7 +13,9 @@
 #include "library/browse/browsetablemodel.h"
 #include "library/browse/browsethread.h"
 #include "library/dao/trackschema.h"
+#include "library/harmonicmatch.h"
 #include "library/playedtracks.h"
+#include "library/rekordbox/rekordboxkeydisplay.h"
 #include "library/tabledelegates/defaultdelegate.h"
 #include "library/tabledelegates/previewbuttondelegate.h"
 #include "library/trackcollection.h"
@@ -22,6 +24,7 @@
 #include "mixer/playermanager.h"
 #include "moc_browsetablemodel.cpp"
 #include "recording/recordingmanager.h"
+#include "track/keyutils.h"
 #include "track/track.h"
 #include "util/clipboard.h"
 #include "widget/wlibrarytableview.h"
@@ -279,6 +282,16 @@ BrowseTableModel::BrowseTableModel(QObject* parent,
             &PlayedTracks::playedTracksChanged,
             this,
             &BrowseTableModel::slotPlayedTracksChanged);
+    // Bite DJ: repaint rows when the reference key or the match range changes.
+    connect(&HarmonicMatch::instance(),
+            &HarmonicMatch::matchChanged,
+            this,
+            &BrowseTableModel::slotHarmonicMatchChanged);
+    // Bite DJ: and when the Key column switches to or from rekordbox's keys.
+    connect(&RekordboxKeyDisplay::instance(),
+            &RekordboxKeyDisplay::changed,
+            this,
+            &BrowseTableModel::slotRekordboxKeysChanged);
     trackChanged(m_previewDeckGroup,
             PlayerInfo::instance().getTrackInfo(m_previewDeckGroup),
             TrackPointer());
@@ -389,6 +402,35 @@ QVariant BrowseTableModel::data(const QModelIndex& index, int role) const {
             if (playedTracks.isPlayed(location)) {
                 return QVariant::fromValue(kPlayedTrackColor);
             }
+        }
+        // Rows in a key that mixes with the reference deck's (see
+        // HarmonicMatch), green across the row like the tints above. File
+        // tags only carry the key as text, which the matcher parses; the
+        // rekordbox key the Key column may show instead goes first.
+        const HarmonicMatch& harmonicMatch = HarmonicMatch::instance();
+        if (harmonicMatch.isActive()) {
+            const auto rekordboxKey = RekordboxKeyDisplay::instance().keyFor(
+                    getTrackLocation(index));
+            const bool matches = rekordboxKey != mixxx::track::io::key::INVALID
+                    ? harmonicMatch.matchesKey(rekordboxKey)
+                    : harmonicMatch.matchesKeyText(
+                              index.sibling(index.row(), COLUMN_KEY)
+                                      .data(Qt::UserRole)
+                                      .toString());
+            if (matches) {
+                return QVariant::fromValue(HarmonicMatch::kMatchColor);
+            }
+        }
+    }
+    // A file a scanned rekordbox export knows shows rekordbox's key rather
+    // than its tags', when Settings -> Library -> Key -> RB is on. Sorting
+    // stays on the tag (Qt::UserRole).
+    if (index.column() == COLUMN_KEY &&
+            (role == Qt::DisplayRole || role == Qt::ToolTipRole)) {
+        const auto rekordboxKey = RekordboxKeyDisplay::instance().keyFor(
+                getTrackLocation(index));
+        if (rekordboxKey != mixxx::track::io::key::INVALID) {
+            return KeyUtils::keyToString(rekordboxKey);
         }
     }
     return QStandardItemModel::data(index, role);
@@ -538,6 +580,26 @@ void BrowseTableModel::slotPlayedTracksChanged() {
     emit dataChanged(index(0, 0),
             index(rows - 1, NUM_COLUMNS - 1),
             {Qt::ForegroundRole});
+}
+
+void BrowseTableModel::slotHarmonicMatchChanged() {
+    const int rows = rowCount();
+    if (rows <= 0) {
+        return;
+    }
+    emit dataChanged(index(0, 0),
+            index(rows - 1, columnCount() - 1),
+            {Qt::ForegroundRole});
+}
+
+void BrowseTableModel::slotRekordboxKeysChanged() {
+    const int rows = rowCount();
+    if (rows <= 0) {
+        return;
+    }
+    emit dataChanged(index(0, 0),
+            index(rows - 1, columnCount() - 1),
+            {Qt::DisplayRole, Qt::ToolTipRole, Qt::ForegroundRole});
 }
 
 void BrowseTableModel::slotClear(BrowseTableModel* caller_object, quint64 generation) {

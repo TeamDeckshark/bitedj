@@ -10,6 +10,8 @@
 #include <QtGlobal>
 #include <utility>
 
+#include "library/rekordbox/rekordboxanalysis.h"
+#include "library/rekordbox/rekordboxconstants.h"
 #include "preferences/waveformsettings.h"
 #include "track/keyfactory.h"
 
@@ -73,9 +75,15 @@ FsAnalysisCache::~FsAnalysisCache() {
     // Drop every connection this instance opened. Connections must be closed and
     // out of scope before removeDatabase(), so iterate over the stored names.
     QMutexLocker handlesLocker(&m_handlesMutex);
-    for (const auto& handle : std::as_const(m_handles)) {
-        QSqlDatabase::database(handle.connectionName, false).close();
-        QSqlDatabase::removeDatabase(handle.connectionName);
+    for (auto it = m_handles.begin(); it != m_handles.end();) {
+        const QString connectionName = it->connectionName;
+        it->db.close();
+        // The stored handle must be gone before removeDatabase(), or Qt warns
+        // that the connection is still in use.
+        it = m_handles.erase(it);
+        if (!connectionName.isEmpty()) {
+            QSqlDatabase::removeDatabase(connectionName);
+        }
     }
 }
 
@@ -114,10 +122,7 @@ QSqlDatabase FsAnalysisCache::databaseForTrack(
         if (pWritable) {
             *pWritable = it->writable;
         }
-        if (it->connectionName.isEmpty()) {
-            return QSqlDatabase();
-        }
-        return QSqlDatabase::database(it->connectionName);
+        return it->db;
     }
 
     const QDir cacheDir(rootPath + QDir::separator() + kCacheDirName);
@@ -126,12 +131,12 @@ QSqlDatabase FsAnalysisCache::databaseForTrack(
 
     // On a read-only filesystem we can only use an already-existing cache.
     if (!writable && !QFileInfo::exists(dbPath)) {
-        m_handles.insert(rootPath, FsHandle{QString(), false});
+        m_handles.insert(rootPath, FsHandle{QString(), QSqlDatabase(), false});
         return QSqlDatabase();
     }
     if (writable && !QDir().mkpath(cacheDir.absolutePath())) {
         qWarning() << "FsAnalysisCache: cannot create cache dir" << cacheDir.absolutePath();
-        m_handles.insert(rootPath, FsHandle{QString(), false});
+        m_handles.insert(rootPath, FsHandle{QString(), QSqlDatabase(), false});
         return QSqlDatabase();
     }
 
@@ -148,7 +153,7 @@ QSqlDatabase FsAnalysisCache::databaseForTrack(
     for (int attempt = 0; attempt < 2; ++attempt) {
         QSqlError error;
         if (openConnection(db, writable, &error)) {
-            m_handles.insert(rootPath, FsHandle{connectionName, writable});
+            m_handles.insert(rootPath, FsHandle{connectionName, db, writable});
             if (pWritable) {
                 *pWritable = writable;
             }
@@ -175,7 +180,7 @@ QSqlDatabase FsAnalysisCache::databaseForTrack(
 
     db.close();
     QSqlDatabase::removeDatabase(connectionName);
-    m_handles.insert(rootPath, FsHandle{QString(), false});
+    m_handles.insert(rootPath, FsHandle{QString(), QSqlDatabase(), false});
     return QSqlDatabase();
 }
 
@@ -210,6 +215,18 @@ bool FsAnalysisCache::openConnection(QSqlDatabase& db, bool writable, QSqlError*
                     "relpath TEXT NOT NULL PRIMARY KEY, "
                     "version TEXT, sub_version TEXT, "
                     "data_checksum INTEGER, data BLOB)"))) {
+            if (pError) {
+                *pError = query.lastError();
+            }
+            return false;
+        }
+        // Bite DJ: whose grid and key the DJ picked for a track a rekordbox
+        // export has analysed (RekordboxAnalysis::AnalysisSource values). No
+        // row is the default: rekordbox's, whenever its grid can be read.
+        if (!query.exec(QStringLiteral(
+                    "CREATE TABLE IF NOT EXISTS analysis_source ("
+                    "relpath TEXT NOT NULL PRIMARY KEY, "
+                    "source INTEGER NOT NULL)"))) {
             if (pError) {
                 *pError = query.lastError();
             }
@@ -365,6 +382,14 @@ bool FsAnalysisCache::saveTrackBeats(
         return false;
     }
 
+    // Bite DJ: rekordbox's grid is never stored where Bite DJ's goes. It is
+    // read from the drive's export on every load, it cannot be edited here
+    // (BpmControl refuses), and the slot below keeps Bite DJ's own analysis
+    // for the DJ to switch back to.
+    if (RekordboxAnalysis::isRekordboxBeats(pBeats)) {
+        return true;
+    }
+
     // A null pBeats means the track has no beat grid — delete any stored entry
     // so a stale one from an older analyzer run doesn't come back on next load.
     if (!pBeats) {
@@ -435,9 +460,62 @@ mixxx::BeatsPointer FsAnalysisCache::getTrackBeats(
             sampleRate, version, query.value(1).toString(), beatsBlob);
 }
 
+std::optional<int> FsAnalysisCache::getAnalysisSource(const QString& trackLocation) {
+    QMutexLocker locker(&m_handlesMutex);
+    QString relPath;
+    QSqlDatabase db = databaseForTrack(trackLocation, &relPath);
+    if (!db.isValid() || !db.isOpen()) {
+        return std::nullopt;
+    }
+
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+            "SELECT source FROM analysis_source WHERE relpath = :relpath"));
+    query.bindValue(QStringLiteral(":relpath"), relPath);
+    // A cache written by an older build has no such table, which fails the
+    // query: that is simply no choice made.
+    if (!query.exec() || !query.next()) {
+        return std::nullopt;
+    }
+    bool ok = false;
+    const int source = query.value(0).toInt(&ok);
+    if (!ok) {
+        return std::nullopt;
+    }
+    return source;
+}
+
+bool FsAnalysisCache::saveAnalysisSource(const QString& trackLocation, int source) {
+    QMutexLocker locker(&m_handlesMutex);
+    QString relPath;
+    bool writable = false;
+    QSqlDatabase db = databaseForTrack(trackLocation, &relPath, &writable);
+    if (!db.isValid() || !db.isOpen() || !writable) {
+        return false;
+    }
+
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+            "INSERT OR REPLACE INTO analysis_source (relpath, source) "
+            "VALUES (:relpath, :source)"));
+    query.bindValue(QStringLiteral(":relpath"), relPath);
+    query.bindValue(QStringLiteral(":source"), source);
+    if (!query.exec()) {
+        qWarning() << "FsAnalysisCache: cannot save the analysis source for"
+                   << relPath << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
 bool FsAnalysisCache::saveTrackKeys(
         const QString& trackLocation,
         const Keys& keys) {
+    // Bite DJ: same rule as for the grid. Rekordbox's key comes from the
+    // drive's export on every load and must not take the place of Bite DJ's.
+    if (keys.getSubVersion() == mixxx::rekordboxconstants::keysSubversion) {
+        return true;
+    }
     QMutexLocker locker(&m_handlesMutex);
     QString relPath;
     bool writable = false;
@@ -527,13 +605,18 @@ void FsAnalysisCache::releaseFilesystem(const QString& mountPoint) {
             continue;
         }
         const QString connectionName = it.value().connectionName;
+        // Close through the stored handle, not QSqlDatabase::database(): this
+        // usually runs on the GUI thread, and Qt refuses to hand out a
+        // connection another thread opened. m_handlesMutex, held here and by
+        // every cache operation, keeps the owning thread off it meanwhile.
+        it.value().db.close();
         // Forget the memoized handle either way; a later access reopens lazily.
+        // Erasing drops the stored handle, which removeDatabase() needs gone.
         it = m_handles.erase(it);
         if (connectionName.isEmpty()) {
             // Memoized "unavailable" marker, no connection/file descriptor to free.
             continue;
         }
-        QSqlDatabase::database(connectionName, false).close();
         QSqlDatabase::removeDatabase(connectionName);
         qInfo() << "FsAnalysisCache: closed cache connection on" << cleanedMount
                 << "for eject";

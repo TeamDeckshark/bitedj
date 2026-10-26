@@ -6,7 +6,9 @@
 #include "control/controlproxy.h"
 #include "library/dao/trackschema.h"
 #include "library/library_prefs.h"
+#include "library/harmonicmatch.h"
 #include "library/playedtracks.h"
+#include "library/rekordbox/rekordboxkeydisplay.h"
 #include "library/starrating.h"
 #include "library/tabledelegates/bpmdelegate.h"
 #include "library/tabledelegates/checkboxdelegate.h"
@@ -116,6 +118,18 @@ BaseTrackTableModel::BaseTrackTableModel(
             &PlayedTracks::playedTracksChanged,
             this,
             &BaseTrackTableModel::slotPlayedTracksChanged);
+    // Bite DJ: repaint rows when the reference key or the Settings -> Library
+    // -> Match range changes, so the 'compatible key' green follows.
+    connect(&HarmonicMatch::instance(),
+            &HarmonicMatch::matchChanged,
+            this,
+            &BaseTrackTableModel::slotHarmonicMatchChanged);
+    // Bite DJ: repaint keys (and their match tint) when Settings -> Library ->
+    // Key -> RB flips or a rekordbox export comes or goes.
+    connect(&RekordboxKeyDisplay::instance(),
+            &RekordboxKeyDisplay::changed,
+            this,
+            &BaseTrackTableModel::slotRekordboxKeysChanged);
     // Bite DJ: no CoverArtCache::coverFound connection — cover art is never
     // shown in the library here, so there's nothing to repaint when one loads.
     // Bite DJ: repaint the Key column when [Library],key_notation changes
@@ -471,6 +485,33 @@ QVariant BaseTrackTableModel::data(
                 return QVariant::fromValue(m_trackPlayedColor);
             }
         }
+        // Bite DJ: tracks in a key that mixes with the reference deck's, the
+        // whole row like the played and missing tints, and after 'played' so
+        // a spent track never gets suggested. Rows carry the key as a
+        // chromatic id (library) or only as text (Rekordbox/Serato), never via
+        // getTrack() — see the missing branch.
+        // Rekordbox's key goes first when the library shows it (see the Key
+        // column in roleValue()), so the tint agrees with the key on screen.
+        const HarmonicMatch& harmonicMatch = HarmonicMatch::instance();
+        if (harmonicMatch.isActive()) {
+            auto key = RekordboxKeyDisplay::instance().keyFor(getTrackLocation(index));
+            if (key == mixxx::track::io::key::INVALID) {
+                const auto keyId = rawSiblingValue(
+                        index, ColumnCache::COLUMN_LIBRARYTABLE_KEY_ID);
+                if (!keyId.isNull()) {
+                    key = KeyUtils::keyFromNumericValue(keyId.toInt());
+                }
+            }
+            const bool matches = key != mixxx::track::io::key::INVALID
+                    ? harmonicMatch.matchesKey(key)
+                    : harmonicMatch.matchesKeyText(
+                              rawSiblingValue(index,
+                                      ColumnCache::COLUMN_LIBRARYTABLE_KEY)
+                                      .toString());
+            if (matches) {
+                return QVariant::fromValue(HarmonicMatch::kMatchColor);
+            }
+        }
     }
 
     // Return the preferred (default) width of the Color column.
@@ -741,6 +782,14 @@ QVariant BaseTrackTableModel::roleValue(
             }
         }
         case ColumnCache::COLUMN_LIBRARYTABLE_KEY: {
+            // Bite DJ: a track a scanned rekordbox export knows shows the key
+            // rekordbox gave it, when Settings -> Library -> Key -> RB is on.
+            // Looked up by location, never via getTrack() (see data()).
+            const auto rekordboxKey =
+                    RekordboxKeyDisplay::instance().keyFor(getTrackLocation(index));
+            if (rekordboxKey != mixxx::track::io::key::INVALID) {
+                return KeyUtils::keyToString(rekordboxKey);
+            }
             const auto keyId = rawSiblingValue(
                     index, ColumnCache::COLUMN_LIBRARYTABLE_KEY_ID);
             // Bite DJ: stock keyFromKeyTextAndIdFields returns the raw text
@@ -1016,6 +1065,29 @@ void BaseTrackTableModel::slotPlayedTracksChanged() {
     emit dataChanged(index(0, 0),
             index(rows - 1, columns - 1),
             {Qt::ForegroundRole});
+}
+
+void BaseTrackTableModel::slotHarmonicMatchChanged() {
+    const int rows = rowCount();
+    const int columns = columnCount();
+    if (rows <= 0 || columns <= 0) {
+        return;
+    }
+    emit dataChanged(index(0, 0),
+            index(rows - 1, columns - 1),
+            {Qt::ForegroundRole});
+}
+
+void BaseTrackTableModel::slotRekordboxKeysChanged() {
+    const int rows = rowCount();
+    const int columns = columnCount();
+    if (rows <= 0 || columns <= 0) {
+        return;
+    }
+    // The Key column's text and every column's match tint.
+    emit dataChanged(index(0, 0),
+            index(rows - 1, columns - 1),
+            {Qt::DisplayRole, Qt::ToolTipRole, Qt::ForegroundRole});
 }
 
 void BaseTrackTableModel::slotRefreshAllRows() {

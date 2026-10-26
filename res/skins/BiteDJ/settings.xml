@@ -89,7 +89,11 @@
                        segments; folding them freed the left column's fifth
                        slot for On Air below, at the cost of no longer seeing
                        the three choices at once. "Thru" is the DJ's word for
-                       Mixxx's None: the deck bypasses the crossfader. -->
+                       Mixxx's None: the deck bypasses the crossfader.
+                       Both grey out while any deck is audible
+                       ([BiteDJ],xfader_assign_enabled, see
+                       CrossfaderAssignLock): re-assigning mid-mix jumps the
+                       level of what's on the speakers. -->
                   <WidgetGroup>
                     <ObjectName>SettingsRow</ObjectName>
                     <Layout>horizontal</Layout>
@@ -121,6 +125,11 @@
                           <EmitOnDownPress>true</EmitOnDownPress>
                           <ButtonState>LeftButton</ButtonState>
                         </Connection>
+                        <Connection>
+                          <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                          <ConfigKey>[BiteDJ],xfader_assign_enabled</ConfigKey>
+                          <BindProperty>enabled</BindProperty>
+                        </Connection>
                       </PushButton>
                       <WidgetGroup>
                         <Size>8f,0me</Size>
@@ -145,6 +154,11 @@
                           <ConfigKey>[Channel2],orientation</ConfigKey>
                           <EmitOnDownPress>true</EmitOnDownPress>
                           <ButtonState>LeftButton</ButtonState>
+                        </Connection>
+                        <Connection>
+                          <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                          <ConfigKey>[BiteDJ],xfader_assign_enabled</ConfigKey>
+                          <BindProperty>enabled</BindProperty>
                         </Connection>
                       </PushButton>
                     </Children>
@@ -380,6 +394,13 @@
                     </Children>
                   </WidgetGroup>
 
+                  <!-- What the scrolling waveform reacts to, as two
+                       independent toggles: EQ scales each band by the deck EQ
+                       knobs, Trim scales the whole wave by total_gain (trim x
+                       replay gain) - off draws it at 1x whatever the trim. Two
+                       settings in one row because this column is at its
+                       five-row height budget at the 420px floor; a lit chip
+                       means the wave follows that control. -->
                   <WidgetGroup>
                     <ObjectName>SettingsRow</ObjectName>
                     <Layout>horizontal</Layout>
@@ -387,7 +408,7 @@
                     <Children>
                       <Label>
                         <ObjectName>SettingsRowLabel</ObjectName>
-                        <Text>Apply Waveform EQ</Text>
+                        <Text>Wave Follows</Text>
                         <Size>0me,0me</Size>
                       </Label>
                       <WidgetGroup>
@@ -395,18 +416,40 @@
                         <Layout>horizontal</Layout>
                         <Size>110f,40f</Size>
                         <Children>
-                          <Template src="skin:templates/setting_segment_button.xml">
-                            <SetVariable name="ObjectName">SettingsSegmentLeft</SetVariable>
-                            <SetVariable name="Text">On</SetVariable>
-                            <SetVariable name="ConfigKey">[Waveform],apply_eq_to_waveform</SetVariable>
-                            <SetVariable name="Value">1</SetVariable>
-                          </Template>
-                          <Template src="skin:templates/setting_segment_button.xml">
-                            <SetVariable name="ObjectName">SettingsSegmentRight</SetVariable>
-                            <SetVariable name="Text">Off</SetVariable>
-                            <SetVariable name="ConfigKey">[Waveform],apply_eq_to_waveform</SetVariable>
-                            <SetVariable name="Value">0</SetVariable>
-                          </Template>
+                          <PushButton>
+                            <ObjectName>SettingsSegmentLeft</ObjectName>
+                            <Size>0me,0me</Size>
+                            <NumberStates>2</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>EQ</Text>
+                            </State>
+                            <State>
+                              <Number>1</Number>
+                              <Text>EQ</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[Waveform],apply_eq_to_waveform</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                            </Connection>
+                          </PushButton>
+                          <PushButton>
+                            <ObjectName>SettingsSegmentRight</ObjectName>
+                            <Size>0me,0me</Size>
+                            <NumberStates>2</NumberStates>
+                            <State>
+                              <Number>0</Number>
+                              <Text>Trim</Text>
+                            </State>
+                            <State>
+                              <Number>1</Number>
+                              <Text>Trim</Text>
+                            </State>
+                            <Connection>
+                              <ConfigKey>[Waveform],apply_trim_to_waveform</ConfigKey>
+                              <EmitOnDownPress>true</EmitOnDownPress>
+                            </Connection>
+                          </PushButton>
                         </Children>
                       </WidgetGroup>
                     </Children>
@@ -667,10 +710,76 @@
                 <Layout>vertical</Layout>
                 <SizePolicy>me,me</SizePolicy>
                 <Children>
-                  <Template src="skin:templates/library_column_row.xml">
-                    <SetVariable name="Label">Key</SetVariable>
-                    <SetVariable name="SizeConfigKey">[Library],column_size_key</SetVariable>
-                  </Template>
+                  <!-- The Key row is library_column_row.xml plus one button:
+                       RB, filled while the library shows rekordbox's key for
+                       a track a scanned export knows ([Library],rekordbox_key,
+                       owned by Library, see RekordboxKeyDisplay), outlined
+                       while it shows the view's own key (file tags in Browse).
+                       Which key a deck plays with is the GRID page's RB|BITE,
+                       per track; this is only what the track list shows.
+                       "KEY" is the shortest label on the page, so the extra
+                       40f only widens the middle column by ~12px of the ~25px
+                       slack noted above. -->
+                  <WidgetGroup>
+                    <ObjectName>LibraryColumnRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,48f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>LibraryColumnRowLabel</ObjectName>
+                        <Text>Key</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <PushButton>
+                        <ObjectName>RekordboxKeyButton</ObjectName>
+                        <Size>40f,40f</Size>
+                        <NumberStates>2</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>RB</Text>
+                        </State>
+                        <State>
+                          <Number>1</Number>
+                          <Text>RB</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[Library],rekordbox_key</ConfigKey>
+                          <EmitOnDownPress>true</EmitOnDownPress>
+                          <ButtonState>LeftButton</ButtonState>
+                        </Connection>
+                      </PushButton>
+                      <PushButton>
+                        <ObjectName>LibraryColumnSizeButton</ObjectName>
+                        <Size>56f,40f</Size>
+                        <NumberStates>5</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>OFF</Text>
+                        </State>
+                        <State>
+                          <Number>1</Number>
+                          <Text>XS</Text>
+                        </State>
+                        <State>
+                          <Number>2</Number>
+                          <Text>S</Text>
+                        </State>
+                        <State>
+                          <Number>3</Number>
+                          <Text>M</Text>
+                        </State>
+                        <State>
+                          <Number>4</Number>
+                          <Text>L</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[Library],column_size_key</ConfigKey>
+                          <EmitOnDownPress>true</EmitOnDownPress>
+                          <ButtonState>LeftButton</ButtonState>
+                        </Connection>
+                      </PushButton>
+                    </Children>
+                  </WidgetGroup>
                   <Template src="skin:templates/library_column_row.xml">
                     <SetVariable name="Label">Time</SetVariable>
                     <SetVariable name="SizeConfigKey">[Library],column_size_duration</SetVariable>
@@ -722,8 +831,8 @@
                        it earns the place on meaning too: every row here is
                        about what the track list shows, and this is the one that
                        decides whether it can be read at all. It rides in the
-                       third column, which carries four columns to the other
-                       two's five.
+                       third column, under its three column rows; Match below
+                       takes the last of the five slots.
 
                        Deliberately independent of the UI language: an English
                        UI over a Japanese collection is an ordinary setup, and
@@ -776,6 +885,55 @@
                         </State>
                         <Connection>
                           <ConfigKey>[BiteDJ],character_priority</ConfigKey>
+                          <EmitOnDownPress>true</EmitOnDownPress>
+                          <ButtonState>LeftButton</ButtonState>
+                        </Connection>
+                      </PushButton>
+                    </Children>
+                  </WidgetGroup>
+
+                  <!-- Harmonic match: while a deck holds a track, rows of
+                       tracks in a key that mixes with it turn green (the
+                       audible deck, else a playing one, else the one loaded
+                       last). KEY is the same key only; ±1 / ±2 widen it by
+                       that many steps round the Camelot wheel (same mode), and
+                       also take in the relative major/minor. Follows the
+                       deck's pitch-shifted key, not its file key. Played and missing tints win over
+                       it. Cycles like the rows above it, off [Library],key_match
+                       (HarmonicMatch::Mode). This fills the third column's
+                       fifth slot, so the page is now at its row budget. -->
+                  <WidgetGroup>
+                    <ObjectName>KeyMatchRow</ObjectName>
+                    <Layout>horizontal</Layout>
+                    <Size>0me,48f</Size>
+                    <Children>
+                      <Label>
+                        <ObjectName>LibraryColumnRowLabel</ObjectName>
+                        <Text>Match</Text>
+                        <Size>0me,0me</Size>
+                      </Label>
+                      <PushButton>
+                        <ObjectName>KeyMatchButton</ObjectName>
+                        <Size>56f,40f</Size>
+                        <NumberStates>4</NumberStates>
+                        <State>
+                          <Number>0</Number>
+                          <Text>Off</Text>
+                        </State>
+                        <State>
+                          <Number>1</Number>
+                          <Text>Key</Text>
+                        </State>
+                        <State>
+                          <Number>2</Number>
+                          <Text>±1</Text>
+                        </State>
+                        <State>
+                          <Number>3</Number>
+                          <Text>±2</Text>
+                        </State>
+                        <Connection>
+                          <ConfigKey>[Library],key_match</ConfigKey>
                           <EmitOnDownPress>true</EmitOnDownPress>
                           <ButtonState>LeftButton</ButtonState>
                         </Connection>

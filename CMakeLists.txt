@@ -668,12 +668,15 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/library/parsercsv.cpp
   src/library/parserm3u.cpp
   src/library/parserpls.cpp
+  src/library/harmonicmatch.cpp
   src/library/playedtracks.cpp
   src/library/playlisttablemodel.cpp
   src/library/proxytrackmodel.cpp
   src/library/recording/dlgrecording.cpp
   src/library/recording/dlgrecording.ui
   src/library/recording/recordingfeature.cpp
+  src/library/rekordbox/rekordboxanalysis.cpp
+  src/library/rekordbox/rekordboxkeydisplay.cpp
   src/library/rekordbox/rekordboxfeature.cpp
   src/library/rhythmbox/rhythmboxfeature.cpp
   src/library/scanner/importfilestask.cpp
@@ -682,6 +685,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/library/scanner/recursivescandirectorytask.cpp
   src/library/scanner/scannertask.cpp
   src/library/searchquery.cpp
+  src/library/relatedtracksearch.cpp
   src/library/searchqueryparser.cpp
   src/library/serato/seratofeature.cpp
   src/library/serato/seratoplaylistmodel.cpp
@@ -718,6 +722,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/mixer/auxiliary.cpp
   src/mixer/baseplayer.cpp
   src/mixer/basetrackplayer.cpp
+  src/mixer/crossfaderassignlock.cpp
   src/mixer/deck.cpp
   src/mixer/microphone.cpp
   src/mixer/playerinfo.cpp
@@ -881,6 +886,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/util/fileaccess.cpp
   src/util/fileinfo.cpp
   src/util/filename.cpp
+  src/util/guistallwatchdog.cpp
   src/util/imagefiledata.cpp
   src/util/imagefiledata.cpp
   src/util/imageutils.cpp
@@ -1033,6 +1039,7 @@ add_library(mixxx-lib STATIC EXCLUDE_FROM_ALL
   src/widget/wsofttakeoverindicator.cpp
   src/widget/wsplitter.cpp
   src/widget/wstarrating.cpp
+  src/widget/wrelatedsearch.cpp
   src/widget/wsamplerdrive.cpp
   src/widget/wusblist.cpp
   src/widget/wversionlabel.cpp
@@ -1523,6 +1530,7 @@ if(BUILD_TESTING)
   set(
     src-mixxx-test
     src/test/analyserwaveformtest.cpp
+    src/test/analyzerbeats_provisional_test.cpp
     src/test/analyzersilence_test.cpp
     src/test/audiotaperpot_test.cpp
     src/test/autodjprocessor_test.cpp
@@ -1532,6 +1540,7 @@ if(BUILD_TESTING)
     src/test/beatstranslatetest.cpp
     src/test/bpmtest.cpp
     src/test/bpmcontrol_test.cpp
+    src/test/cachingreader_test.cpp
     src/test/broadcastprofile_test.cpp
     src/test/broadcastsettings_test.cpp
     src/test/cache_test.cpp
@@ -1565,6 +1574,7 @@ if(BUILD_TESTING)
     #TODO: write useful tests for refactored effects system
     #src/test/effectchainslottest.cpp
     src/test/effectbeatperiod_test.cpp
+    src/test/effectmetaknobdefault_test.cpp
     src/test/enginebufferscalelineartest.cpp
     src/test/enginebuffertest.cpp
     src/test/enginefilterbiquadtest.cpp
@@ -1578,6 +1588,7 @@ if(BUILD_TESTING)
     src/test/foldertreemodel_test.cpp
     src/test/browsethread_test.cpp
     src/test/frametest.cpp
+    src/test/fsanalysiscache_test.cpp
     src/test/fscueoverridestore_test.cpp
     src/test/fshistorystore_test.cpp
     src/test/fshistoryworker_test.cpp
@@ -1612,6 +1623,9 @@ if(BUILD_TESTING)
     src/test/musicbrainzrecordingstasktest.cpp
     src/test/performancetimer_test.cpp
     src/test/playcountertest.cpp
+    src/test/harmonicmatch_test.cpp
+    src/test/crossfaderassignlock_test.cpp
+    src/test/levelspersistence_test.cpp
     src/test/playedtracks_test.cpp
     src/test/playermanagertest.cpp
     src/test/playlisttest.cpp
@@ -1620,7 +1634,10 @@ if(BUILD_TESTING)
     src/test/queryutiltest.cpp
     src/test/rangelist_test.cpp
     src/test/readaheadmanager_test.cpp
+    src/test/rekordboxanalysis_test.cpp
+    src/test/rekordboxkeydisplay_test.cpp
     src/test/rekordboxanlz_test.cpp
+    src/test/relatedtracksearch_test.cpp
     src/test/replaygaintest.cpp
     src/test/rescalertest.cpp
     src/test/rotary_test.cpp
@@ -1632,6 +1649,7 @@ if(BUILD_TESTING)
     src/test/seratomarkerstest.cpp
     src/test/seratomarkers2test.cpp
     src/test/seratotagstest.cpp
+    src/test/settingsgenerallayout_test.cpp
     src/test/signalpathtest.cpp
     src/test/skincontext_test.cpp
     src/test/softtakeover_test.cpp
@@ -1696,6 +1714,32 @@ if(BUILD_TESTING)
   )
 
   set_tests_properties(${testsuite} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+  # Screenshot tests: the whole application started headless at a fixed window
+  # size, driven by a scenario and compared against golden images
+  # (src/test/visual/README.md). One CTest test per scenario file.
+  add_executable(bitedj-visual-test
+    src/test/visual/main.cpp
+    src/test/visual/visualtestrunner.cpp
+    res/mixxx.qrc
+  )
+  set_target_properties(bitedj-visual-test PROPERTIES AUTOMOC ON AUTORCC ON)
+  target_compile_definitions(bitedj-visual-test PRIVATE
+    BITEDJ_VISUAL_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+  target_link_libraries(bitedj-visual-test PRIVATE mixxx-lib mixxx-gitinfostore)
+  file(GLOB VISUAL_TEST_SCENARIOS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/test/visual/*.json")
+  foreach(scenario ${VISUAL_TEST_SCENARIOS})
+    get_filename_component(scenario_name "${scenario}" NAME_WE)
+    add_test(NAME "VisualTest.${scenario_name}"
+      COMMAND bitedj-visual-test --out "${CMAKE_CURRENT_BINARY_DIR}/visual-test-output" "${scenario}"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+    # Each run opens the real default sound device; under ctest -j the
+    # instances that lose it show a sound device error and their decks never
+    # play, so the scenarios take turns.
+    set_tests_properties("VisualTest.${scenario_name}" PROPERTIES
+      LABELS visual TIMEOUT 120 RESOURCE_LOCK sound_device)
+  endforeach()
 
   if(BUILD_BENCH)
     # Benchmarking

@@ -349,6 +349,10 @@ class Track : public QObject {
     // Set the track's Beats if not locked
     bool trySetBeats(mixxx::BeatsPointer pBeats);
     bool trySetAndLockBeats(mixxx::BeatsPointer pBeats);
+    /// Bite DJ: replace the grid with one from another source (rekordbox's
+    /// export or Bite DJ's own analysis) and forget the undo history, which
+    /// belongs to the grid being replaced: Undo must never cross sources.
+    bool trySetBeatsDiscardingUndo(mixxx::BeatsPointer pBeats);
 
     void undoBeatsChange();
     bool canUndoBeatsChange() const {

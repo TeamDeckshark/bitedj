@@ -19,6 +19,7 @@ EffectManifestPointer ReverbEffect::getManifest() {
     pManifest->setName(QObject::tr("Reverb"));
     pManifest->setAuthor("The Mixxx Team, CAPS Plugins");
     pManifest->setVersion("1.0");
+    pManifest->setMetaknobDefault(0.5);
     pManifest->setDescription(QObject::tr(
             "Emulates the sound of the signal bouncing off the walls of a room"));
 

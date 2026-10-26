@@ -43,7 +43,8 @@ CachingReaderWorker::CachingReaderWorker(
           m_tag(QString("CachingReaderWorker %1").arg(m_group)),
           m_pChunkReadRequestFIFO(pChunkReadRequestFIFO),
           m_pReaderStatusFIFO(pReaderStatusFIFO),
-          m_gaveUpOnTrack(false) {
+          m_gaveUpOnTrack(false),
+          m_realtime(false) {
 }
 
 ReaderStatusUpdate CachingReaderWorker::processReadRequest(
@@ -199,7 +200,7 @@ void CachingReaderWorker::run() {
     // keep making progress and release the lock while this thread waits — and
     // a stall there delays a track *load*, not playback of the track already
     // running.
-    mixxx::promoteCurrentThreadToRealtime(
+    m_realtime = mixxx::promoteCurrentThreadToRealtime(
             mixxx::kRtPrioTrackReader, "CachingReaderWorker");
 
     Event::start(m_tag);
@@ -222,8 +223,29 @@ void CachingReaderWorker::run() {
                 unloadTrack();
             }
         } else if (m_pChunkReadRequestFIFO->read(&request, 1) == 1) {
+            // Bite DJ: everything above about yielding the CPU stops being
+            // true while a deck is fast-searching. SHIFT+jog runs the playhead
+            // at tens of times normal speed, so every chunk is a fresh seek
+            // plus a decode -- an MP3 seek decodes ~30 frames of preroll on
+            // top -- and the decoder never catches up: the read is pure CPU,
+            // back to back, for as long as the wheel turns. At FIFO 60 on the
+            // housekeeping cores (with RT throttling off on the appliance)
+            // that took a whole core per searching deck away from the GUI,
+            // the controller thread (the FLX4 keepalive lapsed: LEDs flicker),
+            // sway, and the kworkers doing the USB reads the *playing* deck
+            // depends on (crackle). Those chunks are mostly passed before they
+            // are decoded anyway, so they get no claim on RT priority: decode
+            // them on SCHED_OTHER and step back up before the next request,
+            // which may be the deck resuming normal playback.
+            const bool demote = m_realtime && request.speculative &&
+                    mixxx::setCurrentThreadRealtimeQuietly(
+                            false, mixxx::kRtPrioTrackReader);
             // Read the requested chunk and send the result
             const ReaderStatusUpdate update = processReadRequest(request);
+            if (demote) {
+                mixxx::setCurrentThreadRealtimeQuietly(
+                        true, mixxx::kRtPrioTrackReader);
+            }
             m_pReaderStatusFIFO->writeBlocking(&update, 1);
             if (m_gaveUpOnTrack) {
                 // Only after the chunk has been handed back: the engine owns

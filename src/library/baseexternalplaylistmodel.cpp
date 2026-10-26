@@ -1,5 +1,7 @@
 #include "library/baseexternalplaylistmodel.h"
 
+#include <QTimer>
+
 #include "library/dao/trackschema.h"
 #include "library/queryutil.h"
 #include "library/trackcollection.h"
@@ -13,6 +15,9 @@
 namespace {
 
 const QString kModelName = "external:";
+
+// Long enough that only a stall a DJ would notice is logged.
+constexpr qint64 kSlowToShowMs = 250;
 
 } // anonymous namespace
 
@@ -168,6 +173,21 @@ void BaseExternalPlaylistModel::setPlaylistById(int playlistId) {
             Qt::AscendingOrder);
     // Restore search text
     setSearch(m_searchTexts.value(m_currentPlaylistId));
+}
+
+void BaseExternalPlaylistModel::warnIfSlowToShow(
+        const QString& playlist, const QElapsedTimer& timer) {
+    const qint64 shownMs = timer.elapsed();
+    QTimer::singleShot(0, this, [this, playlist, timer, shownMs]() {
+        const qint64 idleMs = timer.elapsed();
+        if (idleMs < kSlowToShowMs) {
+            return;
+        }
+        qWarning() << "Slow to show playlist" << playlist
+                   << "rows:" << rowCount()
+                   << "shown after:" << shownMs << "ms"
+                   << "GUI free after:" << idleMs << "ms";
+    });
 }
 
 TrackId BaseExternalPlaylistModel::doGetTrackId(const TrackPointer& pTrack) const {

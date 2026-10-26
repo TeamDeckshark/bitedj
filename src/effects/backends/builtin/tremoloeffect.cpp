@@ -18,6 +18,7 @@ EffectManifestPointer TremoloEffect::getManifest() {
     pManifest->setShortName(QObject::tr("Tremolo"));
     pManifest->setAuthor("The Mixxx Team");
     pManifest->setVersion("1.0");
+    pManifest->setMetaknobDefault(1.0);
     pManifest->setDescription(QObject::tr(
             "Cycles the volume up and down"));
 

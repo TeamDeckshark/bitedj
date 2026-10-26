@@ -177,6 +177,9 @@ class SoundManager : public QObject {
     bool m_paInitialized;
     mixxx::audio::SampleRate m_jackSampleRate;
     QList<SoundDevicePointer> m_devices;
+    // The open device whose callback drives the engine. closeDevices() closes
+    // it first and setupDevices() opens it last.
+    SoundDevicePointer m_pClkRefDevice;
     QList<mixxx::audio::SampleRate> m_samplerates;
     QList<CSAMPLE*> m_inputBuffers;
 

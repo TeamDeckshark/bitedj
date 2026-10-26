@@ -1,0 +1,22 @@
+{
+  "description": "GRID page: the RB | BITE analysis source toggle for a rekordbox-analysed track on deck 1. RB (the default) hides the grid edit buttons behind a read-only note; BITE shows them.",
+  "size": [800, 480],
+  "rekordbox": [
+    {"file": "../sine-30.wav", "key": "8A", "anlz": "anlz/beatgrid_90.DAT"}
+  ],
+  "steps": [
+    {"load": "../sine-30.wav", "group": "[Channel1]"},
+    {"waitFor": "[Channel1],track_loaded", "value": 1},
+    {"waitFor": "[Channel1],analysis_source_available", "value": 1},
+    {"waitForAnalysis": true},
+    {"set": "[Tab],overview", "value": 1},
+    {"set": "[FxPanel],grid", "value": 1},
+    {"set": "[Skin],grid_deck1", "value": 1},
+    {"wait": 500},
+    {"snapshot": "grid_analysis_source_rb"},
+    {"set": "[Channel1],analysis_source", "value": 0},
+    {"waitForAnalysis": true},
+    {"wait": 500},
+    {"snapshot": "grid_analysis_source_bite"}
+  ]
+}

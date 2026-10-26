@@ -1,5 +1,8 @@
 #include "library/basetrackcache.h"
 
+#include <QSqlQuery>
+#include <QSqlRecord>
+
 #include "library/queryutil.h"
 #include "library/searchquery.h"
 #include "library/searchqueryparser.h"
@@ -236,6 +239,25 @@ bool BaseTrackCache::updateIndexWithQuery(const QString& queryString) {
 void BaseTrackCache::buildIndex() {
     if (sDebug) {
         qDebug() << this << "buildIndex()";
+    }
+
+    // Bite DJ: let the search know which columns this table really has, so a
+    // filter on one it lacks (an external library has no album_artist or
+    // key_id, say) cannot fail the whole query. Read here rather than in the
+    // constructor because the external features create their tables after
+    // their track cache.
+    {
+        QSqlQuery tableInfo(m_database);
+        QStringList tableColumns;
+        if (tableInfo.exec(QStringLiteral("PRAGMA table_info(%1)").arg(m_tableName))) {
+            const int nameColumn = tableInfo.record().indexOf(QStringLiteral("name"));
+            while (tableInfo.next()) {
+                tableColumns << tableInfo.value(nameColumn).toString();
+            }
+        } else {
+            LOG_FAILED_QUERY(tableInfo);
+        }
+        m_pQueryParser->restrictToTableColumns(tableColumns);
     }
 
     QString queryString = QString("SELECT %1 FROM %2")

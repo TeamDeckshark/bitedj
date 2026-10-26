@@ -235,13 +235,19 @@ class BpmFilterNode : public QueryNode {
 
 class KeyFilterNode : public QueryNode {
   public:
-    KeyFilterNode(mixxx::track::io::key::ChromaticKey key, bool fuzzy);
+    /// Bite DJ: `matchKeyText` matches the `key` text column instead of
+    /// `key_id`, for external library tables that store only the text (see
+    /// SearchQueryParser::restrictToTableColumns).
+    KeyFilterNode(mixxx::track::io::key::ChromaticKey key,
+            bool fuzzy,
+            bool matchKeyText = false);
 
     bool match(const TrackPointer& pTrack) const override;
     QString toSql() const override;
 
   private:
     QList<mixxx::track::io::key::ChromaticKey> m_matchKeys;
+    bool m_matchKeyText;
 };
 
 class SqlNode : public QueryNode {

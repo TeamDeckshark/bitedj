@@ -54,6 +54,7 @@ class DlgPrefControllers : public DlgPreferencePage, public Ui::DlgPrefControlle
     QTreeWidgetItem* m_pControllersRootItem;
     QList<DlgPrefController*> m_controllerPages;
     QList<QTreeWidgetItem*> m_controllerTreeItems;
+    QList<QMetaObject::Connection> m_controllerConnections;
 
     const parented_ptr<ControlProxy> m_pNumDecks;
     const parented_ptr<ControlProxy> m_pNumSamplers;

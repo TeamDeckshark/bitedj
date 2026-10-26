@@ -1,0 +1,17 @@
+{
+  "description": "Deck strip overview waveform bar lines on a rekordbox grid that starts on the third beat of a bar: the orange bar lines fall on rekordbox's beat 1s (the grid's third beat and every fourth after it), not on every fourth beat from the start of the grid. Compare overview_bars_rb, the same 90 BPM grid starting on beat 1.",
+  "size": [800, 480],
+  "rekordbox": [
+    {"file": "../sine-30.wav", "key": "8A", "anlz": "anlz/beatgrid_90_bar3.DAT"}
+  ],
+  "steps": [
+    {"load": "../sine-30.wav", "group": "[Channel1]"},
+    {"waitFor": "[Channel1],track_loaded", "value": 1},
+    {"waitFor": "[Channel1],analysis_source_available", "value": 1},
+    {"waitForAnalysis": true},
+    {"wait": 2000},
+    {"set": "[Tab],overview", "value": 1},
+    {"wait": 500},
+    {"snapshot": "rekordbox_downbeats"}
+  ]
+}

@@ -16,6 +16,7 @@
 			<attribute persist="true" config_key="[Skin],show_preview_decks">0</attribute>
 			<attribute persist="true" config_key="[Skin],show_library_coverart">0</attribute>
 			<attribute config_key="[Sidebar],sidebar_visible">1</attribute>
+			<attribute config_key="[Skin],show_related">0</attribute>
 		</attributes>
 	</manifest>
 
@@ -40,7 +41,7 @@
         max-height: 8px;
 	  }
 	  QProgressBar::chunk {
-	    background-color: #08537c;
+	    background-color: #c9372c;
 	  }
 	</LaunchImageStyle>
 

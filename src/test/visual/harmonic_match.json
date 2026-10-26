@@ -1,0 +1,1253 @@
+{
+  "description": "Settings -> Library -> Match (OFF | KEY | \u00b11 | \u00b12) and the green compatible-key rows it gives Browse while deck 1 plays Reference 8A: KEY greens 8A, \u00b11 adds 9A, 7A and the relative 8B, \u00b12 adds 10A; 9B (other mode, a step away) and 2A never match, the playing track keeps its played tint, and pausing the deck keeps them, since the paused deck is still loaded. With the deck's fader pulled down, as this fork starts it, it is never audible, and playing it still drives the greens. PlayerInfo polls the audible deck every 2 s, hence the 2.5 s waits after play and pause. The deck's running clock and overview strip are masked. Every Browse grab is followed by textColor checks on every visible column of each row: green #6ee128 for a match, white otherwise, and the played blue #4aa3e0 on Reference 8A, which wins over its own match.",
+  "size": [
+    800,
+    480
+  ],
+  "config": {
+    "[Browse],QuickLinks": "{scenario}/media/"
+  },
+  "steps": [
+    {
+      "load": "media/reference.flac",
+      "group": "[Channel1]"
+    },
+    {
+      "waitFor": "[Channel1],track_loaded",
+      "value": 1
+    },
+    {
+      "waitForAnalysis": true
+    },
+    {
+      "set": "[Channel1],volume",
+      "value": 1
+    },
+    {
+      "set": "[Channel1],play",
+      "value": 1
+    },
+    {
+      "wait": 2500
+    },
+    {
+      "set": "[SettingsTab],columns",
+      "value": 1
+    },
+    {
+      "set": "[Tab],settings",
+      "value": 1
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "harmonic_match_settings_off",
+      "masks": [
+        [
+          296,
+          402,
+          104,
+          26
+        ],
+        [
+          0,
+          428,
+          400,
+          52
+        ]
+      ]
+    },
+    {
+      "set": "[Library],key_match",
+      "value": 1
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "harmonic_match_settings_key",
+      "masks": [
+        [
+          296,
+          402,
+          104,
+          26
+        ],
+        [
+          0,
+          428,
+          400,
+          52
+        ]
+      ]
+    },
+    {
+      "set": "[Library],key_match",
+      "value": 2
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "harmonic_match_settings_pm1",
+      "masks": [
+        [
+          296,
+          402,
+          104,
+          26
+        ],
+        [
+          0,
+          428,
+          400,
+          52
+        ]
+      ]
+    },
+    {
+      "set": "[Library],key_match",
+      "value": 3
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "harmonic_match_settings_pm2",
+      "masks": [
+        [
+          296,
+          402,
+          104,
+          26
+        ],
+        [
+          0,
+          428,
+          400,
+          52
+        ]
+      ]
+    },
+    {
+      "set": "[Library],key_match",
+      "value": 0
+    },
+    {
+      "set": "[Tab],library",
+      "value": 1
+    },
+    {
+      "sidebar": [
+        "Computer",
+        "Quick Links",
+        "media"
+      ]
+    },
+    {
+      "wait": 1000
+    },
+    {
+      "snapshot": "harmonic_match_browse_off",
+      "masks": [
+        [
+          296,
+          402,
+          104,
+          26
+        ],
+        [
+          0,
+          428,
+          400,
+          52
+        ]
+      ]
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Title",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Artist",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Time",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Key",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "set": "[Library],key_match",
+      "value": 1
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "harmonic_match_browse_key",
+      "masks": [
+        [
+          296,
+          402,
+          104,
+          26
+        ],
+        [
+          0,
+          428,
+          400,
+          52
+        ]
+      ]
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Title",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Artist",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Time",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Key",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "set": "[Library],key_match",
+      "value": 2
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "harmonic_match_browse_pm1",
+      "masks": [
+        [
+          296,
+          402,
+          104,
+          26
+        ],
+        [
+          0,
+          428,
+          400,
+          52
+        ]
+      ]
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Title",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Artist",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Time",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Key",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "set": "[Library],key_match",
+      "value": 3
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "harmonic_match_browse_pm2",
+      "masks": [
+        [
+          296,
+          402,
+          104,
+          26
+        ],
+        [
+          0,
+          428,
+          400,
+          52
+        ]
+      ]
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Title",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Artist",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Time",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Key",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "set": "[Channel1],play",
+      "value": 0
+    },
+    {
+      "wait": 2500
+    },
+    {
+      "snapshot": "harmonic_match_browse_pm2_paused",
+      "masks": [
+        [
+          296,
+          402,
+          104,
+          26
+        ],
+        [
+          0,
+          428,
+          400,
+          52
+        ]
+      ]
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Title",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Artist",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Time",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Key",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "set": "[Channel1],volume",
+      "value": 0
+    },
+    {
+      "set": "[Channel1],play",
+      "value": 1
+    },
+    {
+      "wait": 2500
+    },
+    {
+      "snapshot": "harmonic_match_browse_fader_down",
+      "masks": [
+        [
+          296,
+          402,
+          104,
+          26
+        ],
+        [
+          0,
+          428,
+          400,
+          52
+        ]
+      ]
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Title",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Artist",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Time",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Reference 8A",
+      "column": "Key",
+      "color": "#4aa3e0"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Same Key 8A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Up 9A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "One Down 7A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Relative 8B",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Title",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Artist",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Time",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Two Up 10A",
+      "column": "Key",
+      "color": "#6ee128"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Major Neighbour 9B",
+      "column": "Key",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Title",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Artist",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Time",
+      "color": "#ffffff"
+    },
+    {
+      "textColor": "Far Away 2A",
+      "column": "Key",
+      "color": "#ffffff"
+    }
+  ]
+}

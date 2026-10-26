@@ -126,3 +126,34 @@ TEST_F(BeatsTranslateTest, BeatsUndoTest) {
     pBeats = m_pTrack1->getBeats();
     EXPECT_FRAMEPOS_EQ(origin123, pBeats->findClosestBeat(mixxx::audio::kStartFramePos));
 }
+
+TEST_F(BeatsTranslateTest, TranslateCurPosDownbeat) {
+    ControlObject::set(ConfigKey(m_sGroup1, QStringLiteral("quantize")), 0);
+    const auto bpm = mixxx::Bpm(60.0);
+    const auto sampleRate = m_pTrack1->getSampleRate();
+    auto grid = mixxx::Beats::fromConstTempo(
+            sampleRate, mixxx::audio::kStartFramePos, bpm);
+    m_pTrack1->trySetBeats(grid);
+
+    // 2.7 beats in: beat 3 is the closest beat, but the closest downbeat is
+    // beat 4 (bar line 0 is 2.7 beats away).
+    const auto seekPosition = mixxx::audio::FramePos{2.7 * sampleRate.value()};
+    m_pChannel1->getEngineBuffer()->seekAbs(seekPosition);
+    ProcessBuffer(); // first process to schedule seek in a stopped deck
+    ProcessBuffer(); // then seek
+    const auto playPosition =
+            m_pChannel1->getEngineBuffer()->getExactPlayPos().toLowerFrameBoundary();
+
+    auto pTranslate = std::make_unique<ControlProxy>(
+            m_sGroup1, "beats_translate_curpos_downbeat");
+    pTranslate->set(1.0);
+    pTranslate->set(0.0);
+
+    const mixxx::BeatsPointer pBeats = m_pTrack1->getBeats();
+    EXPECT_FRAMEPOS_EQ(playPosition, pBeats->findClosestDownbeat(playPosition));
+    // Moved back by 1.3 beats, not forward by the 0.3 aligning beat 3 takes:
+    // the bar line that was at 0 is now at -1.3 beats.
+    EXPECT_NEAR(playPosition.value() - 4 * sampleRate.value(),
+            pBeats->findClosestDownbeat(mixxx::audio::kStartFramePos).value(),
+            1.0);
+}

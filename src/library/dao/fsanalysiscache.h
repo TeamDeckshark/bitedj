@@ -63,6 +63,8 @@ class FsAnalysisCache {
     /// Persist the beat grid for the track at `trackLocation` to its filesystem's
     /// cache. A null `pBeats` clears any stored entry. Returns false and logs on
     /// a hard failure; a read-only filesystem is silent (expected on locked sticks).
+    /// A rekordbox grid is never stored: it is read from the drive's export on
+    /// every load (see RekordboxAnalysis).
     bool saveTrackBeats(
             const QString& trackLocation,
             const mixxx::BeatsPointer& pBeats);
@@ -76,8 +78,17 @@ class FsAnalysisCache {
             const QString& trackLocation,
             mixxx::audio::SampleRate sampleRate);
 
+    /// The analysis source (RekordboxAnalysis's AnalysisSource, as an int) the
+    /// DJ picked for the track at `trackLocation`, or nullopt if none was.
+    std::optional<int> getAnalysisSource(const QString& trackLocation);
+
+    /// Remember on the track's drive which analysis source the DJ picked for
+    /// it. Returns false (and logs a failed write) when it cannot be stored.
+    bool saveAnalysisSource(const QString& trackLocation, int source);
+
     /// Persist the detected keys for the track at `trackLocation` to its
     /// filesystem's cache. An empty `keys.getVersion()` clears any stored entry.
+    /// A rekordbox key (rekordboxconstants::keysSubversion) is not stored.
     /// Returns false and logs on a hard failure; a read-only filesystem is silent.
     bool saveTrackKeys(
             const QString& trackLocation,
@@ -133,6 +144,12 @@ class FsAnalysisCache {
 
     struct FsHandle {
         QString connectionName;
+        // The open connection itself, kept so the eject path can close it from
+        // the GUI thread: looking it up by name with QSqlDatabase::database()
+        // there is refused, as the connection belongs to the thread that opened
+        // it (an analyzer worker, for instance). Invalid for an "unavailable"
+        // marker.
+        QSqlDatabase db;
         bool writable = false;
     };
 

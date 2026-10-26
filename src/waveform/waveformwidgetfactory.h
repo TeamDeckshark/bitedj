@@ -18,6 +18,7 @@
 #include "waveform/widgets/waveformwidgettype.h"
 
 class ControlObject;
+class ControlPushButton;
 class WVuMeterLegacy;
 class WVuMeterBase;
 class WWaveformViewer;
@@ -159,6 +160,11 @@ class WaveformWidgetFactory : public QObject, public Singleton<WaveformWidgetFac
         return m_applyEqToWaveform;
     }
 
+    void setApplyTrimToWaveform(bool apply);
+    bool isTrimAppliedToWaveform() const {
+        return m_applyTrimToWaveform;
+    }
+
     const QVector<WaveformWidgetAbstractHandle>& getAvailableTypes() const {
         return m_waveformWidgetHandles;
     }
@@ -230,7 +236,8 @@ class WaveformWidgetFactory : public QObject, public Singleton<WaveformWidgetFac
     UserSettingsPointer m_config;
 
     QScopedPointer<ControlObject> m_pCOWaveformType;
-    QScopedPointer<ControlObject> m_pCOApplyEqToWaveform;
+    QScopedPointer<ControlPushButton> m_pCOApplyEqToWaveform;
+    QScopedPointer<ControlPushButton> m_pCOApplyTrimToWaveform;
 
     bool m_skipRender;
     int m_frameRate;
@@ -240,6 +247,7 @@ class WaveformWidgetFactory : public QObject, public Singleton<WaveformWidgetFac
     double m_visualGain[FilterCount];
     bool m_overviewNormalized;
     bool m_applyEqToWaveform;
+    bool m_applyTrimToWaveform;
 
     bool m_untilMarkShowBeats;
     bool m_untilMarkShowTime;

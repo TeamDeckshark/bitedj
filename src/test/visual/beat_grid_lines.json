@@ -1,0 +1,16 @@
+{
+  "description": "Play view scrolling waveform beat grid: beat lines dimmed and inset 10% from each edge, downbeats 2 px wide with an inward arrow at the top and bottom edge, at the default zoom and zoomed out.",
+  "size": [800, 480],
+  "steps": [
+    {"load": "../sine-30.wav", "group": "[Channel1]"},
+    {"waitFor": "[Channel1],track_loaded", "value": 1},
+    {"waitForAnalysis": true},
+    {"wait": 2000},
+    {"set": "[Tab],overview", "value": 1},
+    {"wait": 500},
+    {"snapshot": "beat_grid_lines"},
+    {"set": "[Channel1],waveform_zoom", "value": 4},
+    {"wait": 500},
+    {"snapshot": "beat_grid_lines_zoomed_out"}
+  ]
+}

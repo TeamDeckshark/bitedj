@@ -1,12 +1,20 @@
 #include "mixxxmainwindow.h"
 
+#include <QAbstractItemView>
 #include <QCloseEvent>
 #include <QDebug>
+#include <QFile>
 #include <QFileDialog>
+#include <QKeyEvent>
 #include <QOpenGLContext>
+#include <QPlainTextEdit>
+#include <QPointer>
+#include <QTextEdit>
 #include <QUrl>
 
 #ifdef __LINUX__
+#include <signal.h>
+
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #endif
@@ -98,6 +106,43 @@ constexpr int kSkinRebootPaintDelayMs = 300;
 // own. The button's own label updates on every tap, so the wait is never
 // silent.
 constexpr int kCharacterPriorityDebounceMs = 700;
+
+// Bite DJ: a widget that takes typed text, and so wants the on-screen keyboard.
+// Item views are excluded: QAbstractItemView sets Qt::WA_InputMethodEnabled
+// for keyboard search and editable cells, but a cell editor is a QLineEdit with
+// focus of its own, which counts.
+bool isTextEntryWidget(const QWidget* pWidget) {
+    return pWidget && pWidget->testAttribute(Qt::WA_InputMethodEnabled) &&
+            !qobject_cast<const QAbstractItemView*>(pWidget);
+}
+
+#ifdef __LINUX__
+// the on-screen keyboard. It forwards the request to wvkbd and remembers it
+// across wvkbd restarts. Mixxx has to drive this itself: Qt 6.8's
+// zwp_text_input_v3 backend enables text input when the window gains keyboard
+// focus and disables it only when the window loses it (its
+// enableSurface()/disableSurface() are empty), so the compositor never hears
+// about focus moving between widgets, and an input method can't tell a text
+// field from a fader. The supervisor writes its pid under XDG_RUNTIME_DIR,
+// which sway passes to both of them. Without the file (no OSK, or not the
+// kiosk) this does nothing.
+void requestOnScreenKeyboard(bool show) {
+    const QByteArray runtimeDir = qgetenv("XDG_RUNTIME_DIR");
+    if (runtimeDir.isEmpty()) {
+        return;
+    }
+    QFile pidFile(QString::fromLocal8Bit(runtimeDir) +
+            QStringLiteral("/osk-supervisor.pid"));
+    if (!pidFile.open(QIODevice::ReadOnly)) {
+        return;
+    }
+    bool ok = false;
+    const int pid = pidFile.readAll().trimmed().toInt(&ok);
+    if (ok && pid > 1) {
+        kill(static_cast<pid_t>(pid), show ? SIGUSR2 : SIGUSR1);
+    }
+}
+#endif
 } // namespace
 
 MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServices)
@@ -148,6 +193,17 @@ MixxxMainWindow::MixxxMainWindow(std::shared_ptr<mixxx::CoreServices> pCoreServi
     setCentralWidget(m_pCentralWidget);
 
     show();
+
+#ifdef __LINUX__
+    // Bite DJ: the on-screen keyboard follows focus, see requestOnScreenKeyboard().
+    connect(qApp,
+            &QApplication::focusChanged,
+            this,
+            [](QWidget* pOld, QWidget* pNow) {
+                Q_UNUSED(pOld);
+                requestOnScreenKeyboard(isTextEntryWidget(pNow));
+            });
+#endif
 
     m_pGuiTick = new GuiTick();
     m_pVisualsManager = new VisualsManager();
@@ -1276,7 +1332,78 @@ void MixxxMainWindow::tryParseAndSetDefaultStyleSheet() {
 
 /// Catch ToolTip and WindowStateChange events
 bool MixxxMainWindow::eventFilter(QObject* obj, QEvent* event) {
-    if (event->type() == QEvent::ToolTip) {
+    if (event->type() == QEvent::KeyPress) {
+        // Enter and Escape end text entry: drop focus from the field so the
+        // on-screen keyboard hides (focusChanged -> requestOnScreenKeyboard).
+        // Most skin controls are NoFocus, so without this a
+        // field tapped once keeps focus -- and the OSK stays up -- until
+        // something else happens to take it.
+        //
+        // The event is not consumed: returnPressed/editingFinished, dialog
+        // default buttons, delegate commit/revert and WSearchLineEdit's own
+        // Enter/Escape handling all still run first. The clear is queued
+        // behind them and skipped if the field already gave focus away or was
+        // deleted (a closed delegate editor or dialog). Enter/Return is left
+        // alone in multi-line editors, where it is a newline; Escape is not.
+        // Only the focus widget is acted on, since an ignored key event is
+        // re-filtered on its way up the parent chain.
+        const auto* pKeyEvent = static_cast<QKeyEvent*>(event);
+        const int key = pKeyEvent->key();
+        auto* pWidget = qobject_cast<QWidget*>(obj);
+        if ((key == Qt::Key_Escape || key == Qt::Key_Return || key == Qt::Key_Enter) &&
+                pWidget && pWidget == QApplication::focusWidget() &&
+                pWidget->testAttribute(Qt::WA_InputMethodEnabled) &&
+                !(key != Qt::Key_Escape &&
+                        (qobject_cast<QTextEdit*>(pWidget) ||
+                                qobject_cast<QPlainTextEdit*>(pWidget)))) {
+            QPointer<QWidget> pField(pWidget);
+            QMetaObject::invokeMethod(
+                    this,
+                    [pField] {
+                        if (pField && pField->hasFocus()) {
+                            pField->clearFocus();
+                        }
+                    },
+                    Qt::QueuedConnection);
+        }
+    } else if (event->type() == QEvent::MouseButtonPress ||
+            event->type() == QEvent::TouchBegin) {
+        // A press outside the focused text field ends text entry, so the OSK
+        // hides. Without this, tapping a skin control leaves the field
+        // focused, because almost none of them take focus. The test uses the
+        // press position, not the target, because an ignored press is
+        // re-filtered on each parent on its way up. The clear is queued behind
+        // the press, so a press that moved focus into another field (which
+        // keeps the OSK up) or into a view (which hides it) has already taken
+        // focus, and the clear is skipped. An open popup (a completer list) is
+        // left to close itself. A press inside the field asks for the OSK
+        // again, since its own hide key can put it away while the field keeps
+        // focus, and refocusing a focused field emits no focusChanged.
+        auto* pTarget = qobject_cast<QWidget*>(obj);
+        QWidget* pFocus = QApplication::focusWidget();
+        const auto* pPointerEvent = static_cast<QPointerEvent*>(event);
+        if (pTarget && pFocus && pTarget->window() == pFocus->window() &&
+                isTextEntryWidget(pFocus) &&
+                !QApplication::activePopupWidget() &&
+                !pPointerEvent->points().isEmpty()) {
+            const QPointF globalPos = pPointerEvent->points().first().globalPosition();
+            if (pFocus->rect().contains(pFocus->mapFromGlobal(globalPos).toPoint())) {
+#ifdef __LINUX__
+                requestOnScreenKeyboard(true);
+#endif
+                return QMainWindow::eventFilter(obj, event);
+            }
+            QPointer<QWidget> pField(pFocus);
+            QMetaObject::invokeMethod(
+                    this,
+                    [pField] {
+                        if (pField && pField->hasFocus()) {
+                            pField->clearFocus();
+                        }
+                    },
+                    Qt::QueuedConnection);
+        }
+    } else if (event->type() == QEvent::ToolTip) {
         // always show tooltips in the preferences window
         QWidget* activeWindow = QApplication::activeWindow();
         if (activeWindow &&

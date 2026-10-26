@@ -18,9 +18,11 @@
 #include "library/coverartcache.h"
 #include "library/library.h"
 #include "library/library_prefs.h"
+#include "library/harmonicmatch.h"
 #include "library/playedtracks.h"
 #include "library/trackcollection.h"
 #include "library/trackcollectionmanager.h"
+#include "mixer/crossfaderassignlock.h"
 #include "mixer/playerinfo.h"
 #include "mixer/playermanager.h"
 #include "mixer/samplerdrive.h"
@@ -415,6 +417,8 @@ void CoreServices::initialize(QApplication* pApp) {
     // their library rows). Touched here so it is constructed on the GUI thread,
     // listening to PlayerInfo, before any deck can start.
     PlayedTracks::instance();
+    // Same for the compatible-key title tint, which follows the decks.
+    HarmonicMatch::instance();
 
     for (int i = 0; i < kMicrophoneCount; ++i) {
         m_pPlayerManager->addMicrophone();
@@ -547,6 +551,11 @@ void CoreServices::initialize(QApplication* pApp) {
     // before the skin parses (WAudioDeviceList subscribes at construction).
     m_pAudioDeviceSettings = std::make_unique<AudioDeviceSettings>(
             pConfig, m_pSoundManager);
+
+    // Bite DJ: locks [ChannelN],orientation while a deck is audible. Same
+    // timing as above — after Notifications (it warns on a rejected change)
+    // and the decks, before the skin binds [BiteDJ],xfader_assign_enabled.
+    m_pCrossfaderAssignLock = std::make_unique<CrossfaderAssignLock>();
 
     // Bite DJ: in-skin MIDI controller picker singleton. Subscribes to
     // ControllerManager::devicesChanged for hot-plug updates and routes
@@ -719,6 +728,9 @@ void CoreServices::finalize() {
     // actually run here.
     m_pAudioDeviceSettings.reset();
     m_pControllerSettings.reset();
+    // Its request handlers sit on the decks' orientation COs; drop them while
+    // the decks still exist.
+    m_pCrossfaderAssignLock.reset();
     // Holds shared_ptrs to PlayerManager and RecordingManager (both deleted
     // further below); drop it here. Its destructor also stops a per-drive
     // recording, which needs both of them alive.
@@ -780,6 +792,7 @@ void CoreServices::finalize() {
     // PlayerInfo in EngineRecord.
     PlayerInfo::destroy();
     PlayedTracks::destroy();
+    HarmonicMatch::destroy();
 
     qDebug() << t.elapsed(false).debugMillisWithUnit() << "deleting EffectsManager";
     CLEAR_AND_CHECK_DELETED(m_pEffectsManager);

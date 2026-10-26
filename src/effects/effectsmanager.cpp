@@ -117,6 +117,31 @@ void EffectsManager::setup() {
         }
         pOutputSlot->loadEffectWithDefaults(pGraphicEq);
     }
+
+    // The Levels page's band gains survive a power-off. effects.xml is only
+    // written on a clean shutdown, and the unit is switched off at the wall,
+    // so each band also goes to mixxx.cfg (crash-safe autosave) the moment it
+    // changes, and that copy wins over effects.xml here. Set through a proxy
+    // so the parameter slot hears it, as it would a knob.
+    const unsigned int numBands = pOutputSlot->numParameters(EffectParameterType::Knob);
+    for (unsigned int band = 1; band <= numBands; ++band) {
+        const ConfigKey bandKey(pOutputSlot->getGroup(),
+                QStringLiteral("parameter") + QString::number(band));
+        const ConfigKey storedKey(QStringLiteral("[BiteDJ]"),
+                QStringLiteral("master_eq_") + QString::number(band));
+        auto pBand = std::make_unique<ControlProxy>(bandKey);
+        if (!pBand->valid()) {
+            continue;
+        }
+        if (m_pConfig->exists(storedKey)) {
+            pBand->set(m_pConfig->getValue(storedKey, pBand->get()));
+        }
+        UserSettingsPointer pConfig = m_pConfig;
+        pBand->connectValueChanged(pBand.get(), [pConfig, storedKey](double value) {
+            pConfig->setValue(storedKey, value);
+        });
+        m_masterEqBands.push_back(std::move(pBand));
+    }
 }
 
 void EffectsManager::registerInputChannel(const ChannelHandleAndGroup& handle_group) {

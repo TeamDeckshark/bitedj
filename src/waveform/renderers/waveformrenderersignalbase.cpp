@@ -182,9 +182,18 @@ void WaveformRendererSignalBase::getGains(float* pAllGain,
         float* pHighGain) {
     WaveformWidgetFactory* factory = WaveformWidgetFactory::instance();
     if (pAllGain) {
-        *pAllGain = static_cast<CSAMPLE_GAIN>(m_waveformRenderer->getGain(applyCompensation)) *
+        const bool trimApplied = factory->isTrimAppliedToWaveform();
+        *pAllGain = static_cast<CSAMPLE_GAIN>(m_waveformRenderer->getGain(
+                            applyCompensation, trimApplied)) *
                 static_cast<CSAMPLE_GAIN>(factory->getVisualGain(WaveformWidgetFactory::All));
-        ;
+        // Bite DJ: with Settings -> General -> Wave Follows -> Trim off the
+        // waveform is drawn at a flat 1x, and a mastered track peaks at full
+        // scale for most of its length, so it fills the strip edge to edge.
+        // Trim and replay gain normally pull a loud track well under 1x; here
+        // nothing does, so leave a margin above and below full scale instead.
+        if (!trimApplied) {
+            *pAllGain *= kUntrimmedHeadroom;
+        }
     }
 
     if (pLowGain || pMidGain || pHighGain) {

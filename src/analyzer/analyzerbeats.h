@@ -14,9 +14,14 @@
 
 class AnalyzerBeats : public Analyzer {
   public:
+    /// `provisionalBeats`: give the track a grid from the audio analyzed so
+    /// far while the analysis runs (see publishProvisionalBeats()). Meant for
+    /// a track loaded on a deck, not for batch analysis, where nobody watches
+    /// the grid grow and the extra beat tracking would be wasted.
     explicit AnalyzerBeats(
             UserSettingsPointer pConfig,
-            bool enforceBpmDetection = false);
+            bool enforceBpmDetection = false,
+            bool provisionalBeats = false);
     ~AnalyzerBeats() override = default;
 
     static QList<mixxx::AnalyzerPluginInfo> availablePlugins();
@@ -31,6 +36,22 @@ class AnalyzerBeats : public Analyzer {
 
   private:
     bool shouldAnalyze(TrackPointer pTrack) const;
+
+    /// The grid for `beats` tracked by the plugin, reconciled with the
+    /// track's metadata BPM.
+    mixxx::BeatsPointer makeBeats(const QVector<mixxx::audio::FramePos>& beats,
+            const TrackPointer& pTrack,
+            bool provisional) const;
+    mixxx::BeatsPointer reconciledWithMetadataBpm(
+            mixxx::BeatsPointer pBeats, const TrackPointer& pTrack) const;
+
+    /// Puts a grid of the beats tracked so far on the track, tagged
+    /// provisional so it is never mistaken for a finished analysis.
+    void publishProvisionalBeats();
+
+    /// True for a grid publishProvisionalBeats() made (or one the DJ edited
+    /// from it).
+    static bool isProvisional(const mixxx::BeatsPointer& pBeats);
     static QHash<QString, QString> getExtraVersionInfo(
             const QString& pluginId, bool bPreferencesFastAnalysis);
 
@@ -47,6 +68,7 @@ class AnalyzerBeats : public Analyzer {
     BeatDetectionSettings m_bpmSettings;
     std::unique_ptr<mixxx::AnalyzerBeatsPlugin> m_pPlugin;
     const bool m_enforceBpmDetection;
+    const bool m_provisionalBeats;
     QString m_pluginId;
     bool m_bPreferencesReanalyzeOldBpm;
     bool m_bPreferencesReanalyzeImported;
@@ -56,6 +78,15 @@ class AnalyzerBeats : public Analyzer {
     mixxx::audio::SampleRate m_sampleRate;
     SINT m_maxFramesToProcess;
     SINT m_currentFrame;
+    // The track's BPM before this analysis set any grid (see makeBeats()).
+    mixxx::Bpm m_metadataBpm;
+
+    // Only held while provisional grids are published: the track to put them
+    // on, the frame count at which the next one is due, and the last one put
+    // there (to tell whether the DJ has edited it since).
+    TrackPointer m_pProvisionalTrack;
+    SINT m_nextProvisionalFrame;
+    mixxx::BeatsPointer m_pLastProvisionalBeats;
 
     // One-pole IIR lowpass state for the bass-band envelope (one per channel).
     float m_bassFilterStateL;

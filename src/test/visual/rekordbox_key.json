@@ -1,0 +1,77 @@
+{
+  "description": "Settings -> Library -> Key -> RB ([Library],rekordbox_key) and the Key column it gives Browse. A stand-in rekordbox export gives Same Key 8A the key 2A (its tags say 8A) and Far Away 2A the key 11B. With RB filled (the default) Browse shows those two rows in rekordbox's keys; with RB outlined it shows every file's tag key again. Key notation is pinned to Camelot, as a unit set up from General -> Key would be. The other rows are on no export and never change.",
+  "size": [
+    800,
+    480
+  ],
+  "config": {
+    "[Browse],QuickLinks": "{scenario}/media/"
+  },
+  "rekordbox": [
+    {
+      "file": "media/same.flac",
+      "key": "2A"
+    },
+    {
+      "file": "media/far.flac",
+      "key": "11B"
+    }
+  ],
+  "steps": [
+    {
+      "set": "[Library],key_notation",
+      "value": 3
+    },
+    {
+      "set": "[SettingsTab],columns",
+      "value": 1
+    },
+    {
+      "set": "[Tab],settings",
+      "value": 1
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "rekordbox_key_settings_on"
+    },
+    {
+      "set": "[Tab],library",
+      "value": 1
+    },
+    {
+      "sidebar": [
+        "Computer",
+        "Quick Links",
+        "media"
+      ]
+    },
+    {
+      "wait": 1000
+    },
+    {
+      "snapshot": "rekordbox_key_browse_on"
+    },
+    {
+      "set": "[Library],rekordbox_key",
+      "value": 0
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "rekordbox_key_browse_off"
+    },
+    {
+      "set": "[Tab],settings",
+      "value": 1
+    },
+    {
+      "wait": 500
+    },
+    {
+      "snapshot": "rekordbox_key_settings_off"
+    }
+  ]
+}

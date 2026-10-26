@@ -1,6 +1,7 @@
 #include "waveform/renderers/waveformrenderbeat.h"
 
 #include <QPainter>
+#include <QPainterPath>
 #include <algorithm>
 
 #include "track/beats.h"
@@ -13,6 +14,15 @@ class QPaintEvent;
 
 namespace {
 constexpr int kBeatsPerBar = 4;
+
+// Beat lines span this fraction of the waveform's breadth, centred on it.
+constexpr float kBeatLineLength = 0.8f;
+
+// Downbeat lines are this many pixels wide (beat lines are 1) and carry a
+// small arrow at each end pointing inward, so they read as bar marks.
+constexpr float kDownbeatLineWidth = 2.f;
+constexpr float kDownbeatArrowHalfWidth = 3.f;
+constexpr float kDownbeatArrowLength = 4.f;
 
 // Minimum distance in pixels between two drawn beat lines. When zooming out,
 // the grid is decimated by powers of two to keep at least this much space
@@ -47,6 +57,30 @@ float droppedBeatLineOpacity(double pixelsPerBeat, int stride) {
             pixelsPerBeat * stride / kMinBeatLineSpacingPx - 1.0, 0.0, 1.0));
 }
 } // namespace
+
+void WaveformRenderBeat::addDownbeatArrows(QPainterPath& arrows,
+        float position,
+        Qt::Orientation orientation,
+        float breadth) const {
+    const float halfWidth = static_cast<float>(kDownbeatArrowHalfWidth * scaleFactor());
+    const float length = static_cast<float>(kDownbeatArrowLength * scaleFactor());
+    // Adds a triangle with its base on the edge at `edge`, pointing `length`
+    // towards `tip`.
+    const auto addArrow = [&](float edge, float tip) {
+        if (orientation == Qt::Horizontal) {
+            arrows.moveTo(position - halfWidth, edge);
+            arrows.lineTo(position + halfWidth, edge);
+            arrows.lineTo(position, tip);
+        } else {
+            arrows.moveTo(edge, position - halfWidth);
+            arrows.lineTo(edge, position + halfWidth);
+            arrows.lineTo(tip, position);
+        }
+        arrows.closeSubpath();
+    };
+    addArrow(0.f, length);
+    addArrow(breadth, breadth - length);
+}
 
 WaveformRenderBeat::WaveformRenderBeat(WaveformWidgetRenderer* waveformWidgetRenderer)
         : WaveformRendererAbstract(waveformWidgetRenderer) {
@@ -175,6 +209,10 @@ void WaveformRenderBeat::draw(QPainter* painter, QPaintEvent* /*event*/) {
     const auto anchor = trackBeats->iteratorFrom(
             trackBeats->downbeatAnchorAt(startPosition));
     int beatIndex = it - anchor;
+    // A later anchor inside the view (a bar rekordbox restarts mid-track)
+    // restarts the count on the beat it marks.
+    const auto& anchors = trackBeats->getDownbeatAnchors();
+    auto nextAnchor = std::upper_bound(anchors.cbegin(), anchors.cend(), startPosition);
 
     PainterScope PainterScope(painter);
 
@@ -186,10 +224,17 @@ void WaveformRenderBeat::draw(QPainter* painter, QPaintEvent* /*event*/) {
 
     int beatCount = 0;
     int fadingBeatCount = 0;
+    // clear() keeps the allocated elements, so the arrows are rebuilt each
+    // frame without reallocating.
+    m_downbeatArrows.clear();
+    m_fadingDownbeatArrows.clear();
     int downbeatCount = 0;
     int fadingDownbeatCount = 0;
 
     for (; it != trackBeats->cend() && *it <= endPosition; ++it, ++beatIndex) {
+        for (; nextAnchor != anchors.cend() && *it >= *nextAnchor; ++nextAnchor) {
+            beatIndex = it - trackBeats->iteratorFrom(*nextAnchor);
+        }
         const int strideOffset = positiveModulo(beatIndex, stride);
         if (strideOffset != 0 && strideOffset != fadingOffset) {
             // Decimated away at this zoom level.
@@ -226,31 +271,56 @@ void WaveformRenderBeat::draw(QPainter* painter, QPaintEvent* /*event*/) {
         } else {
             lines[count++].setLine(0.0f, xBeatPoint, rendererWidth, xBeatPoint);
         }
+
+        if (isDownbeat) {
+            addDownbeatArrows(isFading ? m_fadingDownbeatArrows : m_downbeatArrows,
+                    static_cast<float>(xBeatPoint),
+                    orientation,
+                    orientation == Qt::Horizontal ? rendererHeight : rendererWidth);
+        }
     }
 
     const auto drawBeatLines = [&](const QVector<QLineF>& lines,
                                        int count,
                                        QColor color,
-                                       float opacity) {
+                                       float opacity,
+                                       qreal width) {
         if (count == 0) {
             return;
         }
         color.setAlphaF(color.alphaF() * opacity);
         QPen pen(color);
-        pen.setWidthF(std::max(1.0, scaleFactor()));
+        pen.setWidthF(width);
         painter->setPen(pen);
         // Make sure to use constData to prevent detaches!
         painter->drawLines(lines.constData(), count);
     };
+    // All arrows of one colour are a single path, filled in one call.
+    const auto drawArrows = [&](const QPainterPath& arrows, QColor color, float opacity) {
+        if (arrows.isEmpty()) {
+            return;
+        }
+        color.setAlphaF(color.alphaF() * opacity);
+        painter->fillPath(arrows, color);
+    };
 
-    drawBeatLines(m_beats, beatCount, m_beatColor, 1.f);
-    drawBeatLines(m_fadingBeats, fadingBeatCount, m_beatColor, droppedOpacity);
+    const qreal beatLineWidth = std::max(1.0, scaleFactor());
+    drawBeatLines(m_beats, beatCount, m_beatColor, 1.f, beatLineWidth);
+    drawBeatLines(m_fadingBeats, fadingBeatCount, m_beatColor, droppedOpacity, beatLineWidth);
 
     if (paintDownbeats) {
-        drawBeatLines(m_downbeats, downbeatCount, m_downbeatColor, 1.f);
+        const qreal downbeatLineWidth = beatLineWidth * kDownbeatLineWidth;
+        drawBeatLines(m_downbeats,
+                downbeatCount,
+                m_downbeatColor,
+                1.f,
+                downbeatLineWidth);
         drawBeatLines(m_fadingDownbeats,
                 fadingDownbeatCount,
                 m_downbeatColor,
-                droppedOpacity);
+                droppedOpacity,
+                downbeatLineWidth);
+        drawArrows(m_downbeatArrows, m_downbeatColor, 1.f);
+        drawArrows(m_fadingDownbeatArrows, m_downbeatColor, droppedOpacity);
     }
 }

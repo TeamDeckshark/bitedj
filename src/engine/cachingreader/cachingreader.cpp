@@ -58,6 +58,7 @@ CachingReader::CachingReader(const QString& group,
           m_mruCachingReaderChunk(nullptr),
           m_lruCachingReaderChunk(nullptr),
           m_sampleBuffer(CachingReaderChunk::kSamples * kNumberOfCachedChunksInMemory),
+          m_readRequestsInFlight(0),
           m_group(group),
           m_worker(group, &m_chunkReadRequestFIFO, &m_readerStatusUpdateFIFO) {
     m_allocatedCachingReaderChunks.reserve(kNumberOfCachedChunksInMemory);
@@ -228,6 +229,9 @@ void CachingReader::process() {
     while (m_readerStatusUpdateFIFO.read(&update, 1) == 1) {
         auto* pChunk = update.takeFromWorker();
         if (pChunk) {
+            // Every request comes back exactly once, read or discarded
+            DEBUG_ASSERT(m_readRequestsInFlight > 0);
+            --m_readRequestsInFlight;
             // Result of a read request (with a chunk)
             DEBUG_ASSERT(atomicLoadRelaxed(m_state) != STATE_IDLE);
             DEBUG_ASSERT(
@@ -457,7 +461,11 @@ CachingReader::ReadResult CachingReader::read(SINT startSample, SINT numSamples,
                     // pending.
                     DEBUG_ASSERT(!pChunk ||
                             (pChunk->getState() == CachingReaderChunkForOwner::READ_PENDING));
-                    Counter("CachingReader::read(): Failed to read chunk on cache miss")++;
+                    // QStringLiteral: a plain literal would allocate a QString in the
+                    // audio callback on every miss, and a fast search misses
+                    // every callback.
+                    Counter(QStringLiteral(
+                            "CachingReader::read(): Failed to read chunk on cache miss"))++;
                     if (kLogger.traceEnabled()) {
                         kLogger.trace()
                                 << "Cache miss for chunk with index"
@@ -523,10 +531,26 @@ CachingReader::ReadResult CachingReader::read(SINT startSample, SINT numSamples,
     return result;
 }
 
-void CachingReader::hintAndMaybeWake(const HintVector& hintList) {
+void CachingReader::hintAndMaybeWake(const HintVector& hintList, bool fastSearch) {
     // If no file is loaded, skip.
     if (atomicLoadRelaxed(m_state) != STATE_TRACK_LOADED) {
         return;
+    }
+
+    // Bite DJ: during a fast search the playhead passes several chunks per
+    // callback, so every callback hints chunks that are not cached yet. Left
+    // alone that queues a new seek-and-decode per callback, the FIFO fills
+    // (20 chunks, each an MP3 seek with its preroll), and the worker keeps
+    // decoding chunks the deck has long since passed -- for seconds after the
+    // wheel stops. Pick up results first so the count below is current, then
+    // keep a single request in flight: the next one is issued from wherever
+    // the playhead is by the time the last one comes back, which is all a
+    // search can play anyway.
+    if (fastSearch) {
+        process();
+        if (m_readRequestsInFlight > 0) {
+            return;
+        }
     }
 
     // For every chunk that the hints indicated, check if it is in the cache. If
@@ -582,6 +606,7 @@ void CachingReader::hintAndMaybeWake(const HintVector& hintList) {
                 // because it will be handed over to the worker immediately
                 CachingReaderChunkReadRequest request;
                 request.giveToWorker(pChunk);
+                request.speculative = fastSearch;
                 if (kLogger.traceEnabled()) {
                     kLogger.trace()
                             << "Requesting read of chunk"
@@ -598,6 +623,11 @@ void CachingReader::hintAndMaybeWake(const HintVector& hintList) {
                     // for as long as the stall lasts. Hints are ordered by
                     // urgency, so stop here: the next callback re-hints
                     // whatever is still missing once the worker has drained.
+                    m_worker.workReady();
+                    return;
+                }
+                ++m_readRequestsInFlight;
+                if (fastSearch) {
                     m_worker.workReady();
                     return;
                 }

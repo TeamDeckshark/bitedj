@@ -320,6 +320,10 @@ ControlPickerMenu::ControlPickerMenu(QWidget* pParent)
             tr("Adjust Beatgrid"),
             tr("Align beatgrid to current position"),
             pBpmMenu);
+    addDeckControl("beats_translate_curpos_downbeat",
+            tr("Adjust Beatgrid - Downbeat"),
+            tr("Align the closest downbeat of the beatgrid to current position"),
+            pBpmMenu);
     addDeckControl("beats_translate_match_alignment",
             tr("Adjust Beatgrid - Match Alignment"),
             tr("Adjust beatgrid to match another playing deck."),

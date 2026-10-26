@@ -143,6 +143,25 @@ EngineMixer::EngineMixer(
     m_pHeadSplitEnabled = new ControlPushButton(ConfigKey(group, "headSplit"), true, 0.0);
     m_pHeadSplitEnabled->setButtonMode(ControlPushButton::TOGGLE);
 
+    // Bite DJ: the Levels page's three output gains survive a power-off. The
+    // unit is switched off at the wall, so nothing waits for a clean shutdown:
+    // each change goes straight to mixxx.cfg (whose autosave is crash-safe),
+    // and the stored value seeds the control here. Changes made by the engine
+    // itself never come back through valueChanged, so seeding writes nothing.
+    for (auto [pGain, item] : {
+                 std::pair{m_pMainGain, QStringLiteral("master_gain")},
+                 std::pair{m_pBoothGain, QStringLiteral("booth_gain")},
+                 std::pair{m_pHeadGain, QStringLiteral("head_gain")},
+         }) {
+        const ConfigKey key(QStringLiteral("[BiteDJ]"), item);
+        if (pConfig->exists(key)) {
+            pGain->set(pConfig->getValue(key, pGain->defaultValue()));
+        }
+        connect(pGain, &ControlObject::valueChanged, pGain, [pConfig, key](double value) {
+            pConfig->setValue(key, value);
+        });
+    }
+
     m_pTalkoverDucking = new EngineTalkoverDucking(pConfig, group);
 
     // Allocate buffers

@@ -42,7 +42,11 @@ class AnalyzerQueenMaryBeats : public AnalyzerBeatsPlugin {
         return m_resultBeats;
     }
 
+    QVector<mixxx::audio::FramePos> getProvisionalBeats() const override;
+
   private:
+    QVector<mixxx::audio::FramePos> trackBeats() const;
+
     std::unique_ptr<DetectionFunction> m_pDetectionFunction;
     DownmixAndOverlapHelper m_helper;
     mixxx::audio::SampleRate m_sampleRate;

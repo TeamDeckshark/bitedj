@@ -43,6 +43,19 @@ constexpr int kFifoSize = 2 * kDriftReserve + 1;
 
 constexpr int kCpuUsageUpdateRate = 30; // in 1/s, fits to display frame rate
 
+// Bite DJ: how many periods of output latency to request from ALSA on top of
+// the period being played. PortAudio's ALSA backend sizes the ring buffer as
+// one period plus the suggested latency, so requesting a single period (what
+// Mixxx does everywhere else) gives the minimum ring of two periods. With
+// the appliance's 256-frame period that left one period, 5.8 ms, between the
+// engine missing a callback deadline and an audible underrun.
+//
+// Two periods of latency give a three-period ring: 11.6 ms of headroom for
+// +5.8 ms of output latency, while the callback and therefore every control
+// change still runs every 5.8 ms. Verified against PortAudio 19.7 on ALSA hw:
+// latency 1/2/3 periods -> buffer_size 512/768/1024 at period_size 256.
+constexpr double kAlsaLatencyPeriods = 2.0;
+
 // We warn only at invalid timing 3, since the first two
 // callbacks can be always wrong due to a setup/open jitter
 constexpr int m_invalidTimeInfoWarningCount = 3;
@@ -107,7 +120,9 @@ SoundDevicePortAudio::SoundDevicePortAudio(UserSettingsPointer config,
           m_invalidTimeInfoCount(0),
           m_lastCallbackEntrytoDacSecs(0),
           m_callbackResult(paAbort),
-          m_callbackTick(0) {
+          m_callbackTick(0),
+          m_bFinished(false),
+          m_bHasCallback(false) {
     // Setting parent class members:
     m_hostAPI = Pa_GetHostApiInfo(deviceInfo->hostApi)->name;
     m_sampleRate = mixxx::audio::SampleRate::fromDouble(deviceInfo->defaultSampleRate);
@@ -250,12 +265,17 @@ SoundDeviceStatus SoundDevicePortAudio::open(bool isClkRefDevice, int syncBuffer
     // Fill out the rest of the info.
     m_outputParams.device = m_deviceId.portAudioIndex;
     m_outputParams.sampleFormat = paFloat32;
-    m_outputParams.suggestedLatency = bufferMSec / 1000.0;
+    // The ring size depends on this, see kAlsaLatencyPeriods. JACK sizes its
+    // own buffers and the other APIs are not used on the appliance.
+    const double latencyPeriods = m_deviceTypeId == paALSA ? kAlsaLatencyPeriods : 1.0;
+    m_outputParams.suggestedLatency = latencyPeriods * bufferMSec / 1000.0;
     m_outputParams.hostApiSpecificStreamInfo = nullptr;
 
     m_inputParams.device  = m_deviceId.portAudioIndex;
     m_inputParams.sampleFormat  = paFloat32;
-    m_inputParams.suggestedLatency = bufferMSec / 1000.0;
+    // Matching the output keeps both directions of a duplex stream on the same
+    // period count.
+    m_inputParams.suggestedLatency = latencyPeriods * bufferMSec / 1000.0;
     m_inputParams.hostApiSpecificStreamInfo = nullptr;
 
     qDebug() << "Opening stream with id" << m_deviceId.portAudioIndex;
@@ -374,6 +394,7 @@ SoundDeviceStatus SoundDevicePortAudio::open(bool isClkRefDevice, int syncBuffer
 
     // Set the finished callback. See makeStreamInactiveAndWait()
     m_bFinished = false;
+    m_bHasCallback = pCallback != nullptr;
     Pa_SetStreamFinishedCallback(pStream, paFinishedCallback);
 
     // Tell the callback to return paContinue, once running.
@@ -478,13 +499,22 @@ SoundDeviceStatus SoundDevicePortAudio::close() {
         if (err == 1) {
             qWarning() << "PortAudio: Stream already stopped";
         } else {
-            // Tell the process callback to return paAbort and wait for the
-            // callback set with Pa_SetStreamFinishedCallback to be called.
-            makeStreamInactiveAndWait();
+            if (m_bHasCallback) {
+                // Tell the process callback to return paAbort and wait for the
+                // callback set with Pa_SetStreamFinishedCallback to be called.
+                makeStreamInactiveAndWait();
 
-            // We can now safely call Pa_StopStream, which should not block as the
-            // stream has become inactive.
-            err = Pa_StopStream(pStream);
+                // We can now safely call Pa_StopStream, which should not block as the
+                // stream has become inactive.
+                err = Pa_StopStream(pStream);
+            } else {
+                // A blocking stream has no process callback to return paAbort,
+                // so waiting for it only ran into the 1 s timeout, and
+                // Pa_StopStream would then wait for queued output to drain.
+                // Nothing feeds it once the clock reference is closed (which
+                // closeDevices() does first), so drop what is queued.
+                err = Pa_AbortStream(pStream);
+            }
             if (err != paNoError) {
                 qWarning() << "PortAudio: Error while attempting to stop stream:"
                            << Pa_GetErrorText(err) << m_deviceId;

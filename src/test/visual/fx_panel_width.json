@@ -1,0 +1,28 @@
+{
+  "description": "The FX / KEY / GRID column beside the waveforms keeps one width whatever its page shows: FX, KEY, and GRID with a rekordbox-analysed track under RB (read-only note) and under BITE (edit buttons). The waveform's right edge must not move between the four grabs.",
+  "size": [800, 480],
+  "rekordbox": [
+    {"file": "../sine-30.wav", "key": "8A", "anlz": "anlz/beatgrid_90.DAT"}
+  ],
+  "steps": [
+    {"load": "../sine-30.wav", "group": "[Channel1]"},
+    {"waitFor": "[Channel1],track_loaded", "value": 1},
+    {"waitFor": "[Channel1],analysis_source_available", "value": 1},
+    {"waitForAnalysis": true},
+    {"set": "[Tab],overview", "value": 1},
+    {"set": "[FxPanel],fx", "value": 1},
+    {"wait": 500},
+    {"snapshot": "fx_panel_width_fx"},
+    {"set": "[FxPanel],key", "value": 1},
+    {"wait": 500},
+    {"snapshot": "fx_panel_width_key"},
+    {"set": "[FxPanel],grid", "value": 1},
+    {"set": "[Skin],grid_deck1", "value": 1},
+    {"wait": 500},
+    {"snapshot": "fx_panel_width_grid_rb"},
+    {"set": "[Channel1],analysis_source", "value": 0},
+    {"waitForAnalysis": true},
+    {"wait": 500},
+    {"snapshot": "fx_panel_width_grid_bite"}
+  ]
+}

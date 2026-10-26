@@ -15,6 +15,7 @@
 #include <QWindow>
 
 #include "control/controlobject.h"
+#include "control/controlpushbutton.h"
 #include "moc_waveformwidgetfactory.cpp"
 #include "util/cmdlineargs.h"
 #include "util/math.h"
@@ -137,6 +138,7 @@ WaveformWidgetFactory::WaveformWidgetFactory()
           m_zoomSync(true),
           m_overviewNormalized(false),
           m_applyEqToWaveform(true),
+          m_applyTrimToWaveform(true),
           m_untilMarkShowBeats(false),
           m_untilMarkShowTime(false),
           m_untilMarkAlign(Qt::AlignVCenter),
@@ -439,10 +441,13 @@ bool WaveformWidgetFactory::setConfig(UserSettingsPointer config) {
     m_applyEqToWaveform = m_config->getValue(
             ConfigKey("[Waveform]", "ApplyEqToWaveform"), m_applyEqToWaveform);
 
+    // Toggle-mode buttons rather than plain controls so a single skin
+    // PushButton can flip them (the Wave Follows row's EQ / Trim chips).
     if (!m_pCOApplyEqToWaveform) {
-        m_pCOApplyEqToWaveform.reset(new ControlObject(
+        m_pCOApplyEqToWaveform.reset(new ControlPushButton(
                 ConfigKey(QStringLiteral("[Waveform]"),
                         QStringLiteral("apply_eq_to_waveform"))));
+        m_pCOApplyEqToWaveform->setButtonMode(ControlPushButton::TOGGLE);
         m_pCOApplyEqToWaveform->set(m_applyEqToWaveform ? 1.0 : 0.0);
         connect(m_pCOApplyEqToWaveform.data(),
                 &ControlObject::valueChanged,
@@ -452,6 +457,28 @@ bool WaveformWidgetFactory::setConfig(UserSettingsPointer config) {
                 });
     } else {
         m_pCOApplyEqToWaveform->set(m_applyEqToWaveform ? 1.0 : 0.0);
+    }
+
+    // Off draws every deck's scrolling waveform at unity gain, so the trim
+    // knob (and replay gain, which rides the same total_gain) no longer
+    // swells or shrinks it.
+    m_applyTrimToWaveform = m_config->getValue(
+            ConfigKey("[Waveform]", "ApplyTrimToWaveform"), m_applyTrimToWaveform);
+
+    if (!m_pCOApplyTrimToWaveform) {
+        m_pCOApplyTrimToWaveform.reset(new ControlPushButton(
+                ConfigKey(QStringLiteral("[Waveform]"),
+                        QStringLiteral("apply_trim_to_waveform"))));
+        m_pCOApplyTrimToWaveform->setButtonMode(ControlPushButton::TOGGLE);
+        m_pCOApplyTrimToWaveform->set(m_applyTrimToWaveform ? 1.0 : 0.0);
+        connect(m_pCOApplyTrimToWaveform.data(),
+                &ControlObject::valueChanged,
+                this,
+                [this](double value) {
+                    setApplyTrimToWaveform(value > 0.0);
+                });
+    } else {
+        m_pCOApplyTrimToWaveform->set(m_applyTrimToWaveform ? 1.0 : 0.0);
     }
 
     int overviewNormalized = m_config->getValueString(ConfigKey("[Waveform]","OverviewNormalized")).toInt(&ok);
@@ -792,6 +819,17 @@ void WaveformWidgetFactory::setApplyEqToWaveform(bool apply) {
     // does not loop with the control's own valueChanged handler.
     if (m_pCOApplyEqToWaveform) {
         m_pCOApplyEqToWaveform->set(m_applyEqToWaveform ? 1.0 : 0.0);
+    }
+}
+
+void WaveformWidgetFactory::setApplyTrimToWaveform(bool apply) {
+    m_applyTrimToWaveform = apply;
+    if (m_config) {
+        m_config->set(ConfigKey("[Waveform]", "ApplyTrimToWaveform"),
+                ConfigValue(m_applyTrimToWaveform));
+    }
+    if (m_pCOApplyTrimToWaveform) {
+        m_pCOApplyTrimToWaveform->set(m_applyTrimToWaveform ? 1.0 : 0.0);
     }
 }
 
