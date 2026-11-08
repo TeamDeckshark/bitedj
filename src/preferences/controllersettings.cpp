@@ -113,6 +113,32 @@ ControllerSettings::ControllerSettings(UserSettingsPointer pConfig,
             this,
             &ControllerSettings::onMappingApplied);
 
+    // A controller that drops off the USB bus is reconnected by the manager on
+    // its own (the same reopen a Rescan does), so say so here instead of
+    // leaving the DJ to find Rescan. Sticky without busy, like the audio side's
+    // "reconnecting": the app must stay usable while the device is away.
+    connect(m_pControllerManager.get(),
+            &ControllerManager::controllerLost,
+            this,
+            [](const QString& name) {
+                if (auto* pNotifications = Notifications::tryInstance()) {
+                    pNotifications->publishSticky(
+                            tr("%1 disconnected — reconnecting...")
+                                    .arg(shortDeviceName(name)),
+                            Notifications::Severity::Warning);
+                }
+            });
+    connect(m_pControllerManager.get(),
+            &ControllerManager::controllerRecovered,
+            this,
+            [](const QString& name) {
+                if (auto* pNotifications = Notifications::tryInstance()) {
+                    pNotifications->publish(
+                            tr("%1 reconnected").arg(shortDeviceName(name)),
+                            Notifications::Severity::Info);
+                }
+            });
+
     // ControllerManager lives on its own thread (controllermanager.cpp:159);
     // route applyMapping via auto-connection so the GUI thread stays
     // responsive (cross-thread → queued). Completion arrives via the

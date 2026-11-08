@@ -3,6 +3,7 @@
 #include <QFont>
 #include <QList>
 #include <QObject>
+#include <QPersistentModelIndex>
 #include <QPointer>
 
 #include "analyzer/trackanalysisscheduler.h"
@@ -135,6 +136,9 @@ class Library: public QObject {
     void showTrackModel(QAbstractItemModel* model, bool restoreState = true);
     void switchToView(const QString& view);
     void sidebarLeafItemActivated(const QString& title);
+    /// Bite DJ: whether the item the breadcrumb names (the last sidebar leaf
+    /// opened) is still being read, e.g. a History session off its drive.
+    void sidebarLeafItemLoading(bool loading);
     void loadTrack(TrackPointer pTrack);
     void loadTrackToPlayer(TrackPointer pTrack, const QString& group, bool play = false);
     void restoreSearch(const QString&);
@@ -212,6 +216,11 @@ class Library: public QObject {
     const QPointer<TrackCollectionManager> m_pTrackCollectionManager;
 
     parented_ptr<SidebarModel> m_pSidebarModel;
+    /// Bite DJ: the last sidebar leaf opened, and whether it was loading when
+    /// last looked at (see sidebarLeafItemLoading).
+    QPersistentModelIndex m_activeLeafIndex;
+    bool m_activeLeafLoading = false;
+    void updateActiveLeafLoading();
     parented_ptr<LibraryControl> m_pLibraryControl;
     parented_ptr<LibraryColumnControl> m_pLibraryColumnControl;
 

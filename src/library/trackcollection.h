@@ -47,6 +47,12 @@ class TrackCollection : public QObject,
             bool skipInvalidOrMissing = false) const;
     QStringList getRootDirStrings() const;
 
+    /// Bite DJ: the id of the library track at `location`, or an invalid id.
+    /// A single read of the library: no Track is loaded and nothing is added,
+    /// so it never touches the file or the drive it lives on.
+    TrackId getTrackIdByLocation(
+            const QString& location) const;
+
     const CrateStorage& crates() const {
         DEBUG_ASSERT_QOBJECT_THREAD_AFFINITY(this);
         return m_crates;
@@ -147,6 +153,7 @@ class TrackCollection : public QObject,
             bool* pAlreadyInLibrary = nullptr);
     FRIEND_TEST(DirectoryDAOTest, relocateDirectory);
     FRIEND_TEST(TrackDAOTest, detectMovedTracks);
+    FRIEND_TEST(TrackDAOTest, markTrackLocationsAsVerifiedRecoversPresentFilesOnly);
     TrackId addTrack(
             const TrackPointer& pTrack,
             bool unremove);

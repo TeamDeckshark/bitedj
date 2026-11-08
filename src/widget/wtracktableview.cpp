@@ -670,6 +670,19 @@ void WTrackTableView::onSearch(const QString& text) {
     saveCurrentViewState();
     bool queryIsLessSpecific = SearchQueryParser::queryIsLessSpecific(
             pTrackModel->currentSearch(), text);
+    if (pTrackModel->trackIdRequiresImport()) {
+        // Keep the selection by location, see doSortByColumn().
+        const QStringList selectedLocations = getSelectedTrackLocations();
+        saveCurrentIndex();
+        pTrackModel->search(text);
+        if (queryIsLessSpecific || !restoreCurrentViewState()) {
+            if (!selectTracksByLocation(selectedLocations, m_prevColumn) &&
+                    !queryIsLessSpecific) {
+                restoreCurrentIndex();
+            }
+        }
+        return;
+    }
     QList<TrackId> selectedTracks = getSelectedTrackIds();
     TrackId prevTrack = getCurrentTrackId();
     saveCurrentIndex();
@@ -1450,6 +1463,20 @@ QList<TrackId> WTrackTableView::getSelectedTrackIds() const {
     return trackIds;
 }
 
+QStringList WTrackTableView::getSelectedTrackLocations() const {
+    TrackModel* pTrackModel = getTrackModel();
+    VERIFY_OR_DEBUG_ASSERT(pTrackModel != nullptr) {
+        return {};
+    }
+    const QModelIndexList rows = getSelectedRows();
+    QStringList locations;
+    locations.reserve(rows.size());
+    for (const QModelIndex& row : rows) {
+        locations.append(pTrackModel->getTrackLocation(row));
+    }
+    return locations;
+}
+
 TrackId WTrackTableView::getCurrentTrackId() const {
     TrackModel* pTrackModel = getTrackModel();
     VERIFY_OR_DEBUG_ASSERT(pTrackModel != nullptr) {
@@ -1596,7 +1623,7 @@ void WTrackTableView::moveSelection(int delta) {
 
     while (delta != 0) {
         QItemSelectionModel* currentSelection = selectionModel();
-        if (currentSelection->selectedRows().length() > 0) {
+        if (!currentSelection->selectedRows().isEmpty()) {
             if (delta > 0) {
                 // i is positive, so we want to move the highlight down
                 int row = currentSelection->selectedRows().last().row();
@@ -1646,10 +1673,17 @@ void WTrackTableView::doSortByColumn(int headerSection, Qt::SortOrder sortOrder)
     // not all occurrences of selected tracks.
     QList<TrackId> selectedTrackIds;
     QList<int> selectedTrackPositions;
+    QStringList selectedTrackLocations;
     bool usePositions = pTrackModel->hasCapabilities(TrackModel::Capability::Reorder);
+    // External and Browse views would import every selected track into the
+    // library just to name it by id. Reopening a USB playlist re-sorts through
+    // here, so that was a GUI freeze of seconds on a slow drive.
+    bool useLocations = !usePositions && pTrackModel->trackIdRequiresImport();
     if (usePositions) {
         const QModelIndexList indices = selectionModel()->selectedRows();
         selectedTrackPositions = pTrackModel->getSelectedPositions(indices);
+    } else if (useLocations) {
+        selectedTrackLocations = getSelectedTrackLocations();
     } else {
         selectedTrackIds = getSelectedTrackIds();
     }
@@ -1668,6 +1702,8 @@ void WTrackTableView::doSortByColumn(int headerSection, Qt::SortOrder sortOrder)
 
     if (usePositions) {
         selectTracksByPosition(selectedTrackPositions, prevColumn);
+    } else if (useLocations) {
+        selectTracksByLocation(selectedTrackLocations, prevColumn);
     } else {
         selectTracksById(selectedTrackIds, prevColumn);
     }
@@ -1718,14 +1754,6 @@ void WTrackTableView::selectTracksByPosition(const QList<int>& positions, int pr
 // See doSortByColumn.
 void WTrackTableView::selectTracksById(const QList<TrackId>& trackIds, int prevColum) {
     TrackModel* pTrackModel = getTrackModel();
-    QAbstractItemModel* pItemModel = model();
-
-    QItemSelectionModel* pSelectionModel = selectionModel();
-    VERIFY_OR_DEBUG_ASSERT(pSelectionModel != nullptr) {
-        qWarning() << "No selection model available";
-        return;
-    }
-    pSelectionModel->reset(); // remove current selection
 
     // Find previously selected tracks and store respective rows for reselection.
     QMap<int, int> selectedRows;
@@ -1736,6 +1764,37 @@ void WTrackTableView::selectTracksById(const QList<TrackId>& trackIds, int prevC
             selectedRows.insert(row, 0);
         }
     }
+    selectRowsAfterSort(selectedRows, prevColum);
+}
+
+// For models whose getTrackId() imports the track (see
+// TrackModel::trackIdRequiresImport()). Returns whether any row was selected.
+bool WTrackTableView::selectTracksByLocation(const QStringList& locations, int prevColumn) {
+    TrackModel* pTrackModel = getTrackModel();
+    QAbstractItemModel* pItemModel = model();
+
+    QMap<int, int> selectedRows;
+    if (!locations.isEmpty()) {
+        const QSet<QString> wanted(locations.cbegin(), locations.cend());
+        for (int row = 0; row < pItemModel->rowCount(); ++row) {
+            if (wanted.contains(pTrackModel->getTrackLocation(pItemModel->index(row, 0)))) {
+                selectedRows.insert(row, 0);
+            }
+        }
+    }
+    selectRowsAfterSort(selectedRows, prevColumn);
+    return !selectedRows.isEmpty();
+}
+
+void WTrackTableView::selectRowsAfterSort(const QMap<int, int>& selectedRows, int prevColum) {
+    QAbstractItemModel* pItemModel = model();
+
+    QItemSelectionModel* pSelectionModel = selectionModel();
+    VERIFY_OR_DEBUG_ASSERT(pSelectionModel != nullptr) {
+        qWarning() << "No selection model available";
+        return;
+    }
+    pSelectionModel->reset(); // remove current selection
 
     // Select the first row of the previous selection.
     // This scrolls to that row and with the leftmost cell being focused we have

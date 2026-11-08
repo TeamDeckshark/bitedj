@@ -345,7 +345,9 @@ void handleMessage(
     case QtDebugMsg:
         levelName = "Debug";
         if (Logging::enabled(LogLevel::Debug)) {
-            writeFlags |= WriteFlag::StdErr;
+            if (Logging::stdErrEnabled(LogLevel::Debug)) {
+                writeFlags |= WriteFlag::StdErr;
+            }
             writeFlags |= WriteFlag::File;
             if (Logging::shouldFlush(LogLevel::Debug)) {
                 writeFlags |= WriteFlag::Flush;
@@ -355,7 +357,9 @@ void handleMessage(
     case QtInfoMsg:
         levelName = "Info";
         if (Logging::enabled(LogLevel::Info)) {
-            writeFlags |= WriteFlag::StdErr;
+            if (Logging::stdErrEnabled(LogLevel::Info)) {
+                writeFlags |= WriteFlag::StdErr;
+            }
             writeFlags |= WriteFlag::File;
             if (Logging::shouldFlush(LogLevel::Info)) {
                 writeFlags |= WriteFlag::Flush;
@@ -365,7 +369,9 @@ void handleMessage(
     case QtWarningMsg:
         levelName = "Warning";
         if (Logging::enabled(LogLevel::Warning)) {
-            writeFlags |= WriteFlag::StdErr;
+            if (Logging::stdErrEnabled(LogLevel::Warning)) {
+                writeFlags |= WriteFlag::StdErr;
+            }
             writeFlags |= WriteFlag::File;
             if (Logging::shouldFlush(LogLevel::Warning)) {
                 writeFlags |= WriteFlag::Flush;
@@ -415,6 +421,8 @@ void handleMessage(
 // Initialize the log level with the default value
 LogLevel Logging::s_logLevel = kLogLevelDefault;
 LogLevel Logging::s_logFlushLevel = kLogFlushLevelDefault;
+LogLevel Logging::s_stdErrLogLevelRequested = LogLevel::Trace;
+LogLevel Logging::s_stdErrLogLevel = LogLevel::Trace;
 
 // static
 void Logging::initialize(
@@ -455,6 +463,9 @@ void Logging::initialize(
             fprintf(stderr,
                     "Failed to open log file %s\n",
                     logFilePath.toLocal8Bit().constData());
+        } else {
+            // Only cap stderr once the file is there to take what it drops.
+            s_stdErrLogLevel = s_stdErrLogLevelRequested;
         }
         s_logFlushLevel = logFlushLevel;
     }

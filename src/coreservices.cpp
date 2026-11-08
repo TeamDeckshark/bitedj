@@ -324,6 +324,7 @@ void CoreServices::initializeLogging() {
         logFileKeepCount = mixxx::kLogFileKeepCountDefault;
     }
 
+    mixxx::Logging::setStdErrLogLevel(m_cmdlineArgs.getLogStdErrLevel());
     mixxx::Logging::initialize(
             logDirPath,
             settingsPath,

@@ -100,6 +100,25 @@ class ControlObject : public QObject {
         }
     }
 
+    /// Bite DJ: lets setDeferredNotify() hand this control's valueChanged() to
+    /// the ControlNotifier thread (see control/controlnotifier.h). Call from
+    /// the constructing (non-real-time) thread.
+    inline void enableDeferredNotify() {
+        if (m_pControl) {
+            m_pControl->enableDeferredNotify();
+        }
+    }
+
+    /// Bite DJ: set() for the engine thread that takes no Qt mutex: the value
+    /// is stored now and listeners are notified from the ControlNotifier
+    /// thread. Only for a control with enableDeferredNotify() and no direct
+    /// listeners on the engine thread; otherwise behaves like set().
+    inline void setDeferredNotify(double value) {
+        if (m_pControl) {
+            m_pControl->setDeferredNotify(value, this);
+        }
+    }
+
     // Sets the ControlObject value and confirms it.
     inline void setAndConfirm(double value) {
         if (m_pControl) {

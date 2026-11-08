@@ -450,25 +450,27 @@ void BaseTrackPlayerImpl::slotEjectTrack(double v) {
         return;
     }
 
-    mixxx::Duration elapsed = m_ejectTimer.restart();
+    if (m_pPlayerManager) {
+        mixxx::Duration elapsed = m_ejectTimer.restart();
 
-    // Double-click always restores the last replaced track, i.e. un-eject the second
-    // last track: the first click ejects or unejects, and the second click reloads.
-    if (elapsed < mixxx::Duration::fromMillis(kUnreplaceDelay)) {
-        TrackPointer lastEjected = m_pPlayerManager->getSecondLastEjectedTrack();
-        if (lastEjected) {
-            slotLoadTrack(lastEjected, false);
+        // Double-click always restores the last replaced track, i.e. un-eject the second
+        // last track: the first click ejects or unejects, and the second click reloads.
+        if (elapsed < mixxx::Duration::fromMillis(kUnreplaceDelay)) {
+            TrackPointer lastEjected = m_pPlayerManager->getSecondLastEjectedTrack();
+            if (lastEjected) {
+                slotLoadTrack(lastEjected, false);
+            }
+            return;
         }
-        return;
-    }
 
-    // With no loaded track a single click reloads the last ejected track.
-    if (!m_pLoadedTrack) {
-        TrackPointer lastEjected = m_pPlayerManager->getLastEjectedTrack();
-        if (lastEjected) {
-            slotLoadTrack(lastEjected, false);
+        // With no loaded track a single click reloads the last ejected track.
+        if (!m_pLoadedTrack) {
+            TrackPointer lastEjected = m_pPlayerManager->getLastEjectedTrack();
+            if (lastEjected) {
+                slotLoadTrack(lastEjected, false);
+            }
+            return;
         }
-        return;
     }
 
     m_pChannel->getEngineBuffer()->ejectTrack();
@@ -551,7 +553,9 @@ TrackPointer BaseTrackPlayerImpl::unloadTrack() {
     // Do not reset m_pReplayGain here, because the track might be still
     // playing and the last buffer will be processed.
 
-    m_pPlay->set(0.0);
+    if (m_pPlay->toBool()) {
+        m_pPlay->set(0.0);
+    }
 
     TrackPointer pUnloadedTrack(std::move(m_pLoadedTrack));
     DEBUG_ASSERT(!m_pLoadedTrack);

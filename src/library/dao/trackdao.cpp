@@ -854,10 +854,23 @@ TrackId TrackDAO::addTracksAddTrack(const TrackPointer& pTrack, bool unremove) {
             // when the fs cache is on — bindTrackLibraryValues() above wrote empty
             // versions for them, so a home DB wipe (firmware update, or the boot
             // size gate) drops no user data these calls have not already committed.
-            m_fsAnalysisCache.saveTrackBeats(
-                    pTrack->getLocation(), pTrack->getBeats());
-            m_fsAnalysisCache.saveTrackKeys(
-                    pTrack->getLocation(), pTrack->getKeys());
+            //
+            // A track new to this library may still have been analysed — on
+            // another unit, or here before a home DB wipe — and then its grid
+            // and key are already on the drive. A fresh import knows nothing
+            // better, so it adopts those instead of writing over them: saving
+            // its usual nothing would *delete* them, and cost two synced
+            // commits on a FAT stick per imported track besides (seconds each
+            // while the analyzer is writing to the same file).
+            const FsBeatsAndKeys onDrive = adoptFsCacheBeatsAndKeys(pTrack.get());
+            if (!onDrive.beats && pTrack->getBeats()) {
+                m_fsAnalysisCache.saveTrackBeats(
+                        pTrack->getLocation(), pTrack->getBeats());
+            }
+            if (!onDrive.keys && !pTrack->getKeys().getVersion().isEmpty()) {
+                m_fsAnalysisCache.saveTrackKeys(
+                        pTrack->getLocation(), pTrack->getKeys());
+            }
         } else if (m_fsAnalysisCache.isHomeCacheEnabled()) {
             m_analysisDao.saveTrackAnalyses(
                     trackId,
@@ -873,6 +886,34 @@ TrackId TrackDAO::addTracksAddTrack(const TrackPointer& pTrack, bool unremove) {
     }
 
     return trackId;
+}
+
+TrackDAO::FsBeatsAndKeys TrackDAO::adoptFsCacheBeatsAndKeys(Track* pTrack) const {
+    FsBeatsAndKeys found;
+    const QString trackLocation = pTrack->getLocation();
+    const mixxx::audio::SampleRate sampleRate = pTrack->getSampleRate();
+    // getSampleRate() may be zero if the audio-properties populator skipped
+    // (the header was never parsed) — Beats::fromByteArray() needs it to
+    // reconstruct positions, so leave the temporary constant-tempo grid the
+    // BPM path already installed rather than build a nonsense one.
+    if (sampleRate.isValid()) {
+        mixxx::BeatsPointer pFsBeats =
+                m_fsAnalysisCache.getTrackBeats(trackLocation, sampleRate);
+        if (pFsBeats) {
+            found.beats = true;
+            if (pTrack->isBpmLocked()) {
+                pTrack->trySetAndLockBeats(pFsBeats);
+            } else {
+                pTrack->trySetBeats(pFsBeats);
+            }
+        }
+    }
+    std::optional<Keys> fsKeys = m_fsAnalysisCache.getTrackKeys(trackLocation);
+    if (fsKeys) {
+        found.keys = true;
+        pTrack->setKeys(*fsKeys);
+    }
+    return found;
 }
 
 TrackPointer TrackDAO::addTracksAddFile(
@@ -1585,27 +1626,7 @@ TrackPointer TrackDAO::getTrackById(TrackId trackId) const {
     // grid. Hydrate the full data now, before markClean(), so the deck reads
     // the same beats it would have if the blob had been in home.
     if (m_fsAnalysisCache.isEnabled()) {
-        const QString trackLocation = pTrack->getLocation();
-        const mixxx::audio::SampleRate sampleRate = pTrack->getSampleRate();
-        // getSampleRate() may be zero if the audio-properties populator skipped
-        // (the header was never parsed) — Beats::fromByteArray() needs it to
-        // reconstruct positions, so leave the temporary constant-tempo grid the
-        // BPM path already installed rather than build a nonsense one.
-        if (sampleRate.isValid()) {
-            mixxx::BeatsPointer pFsBeats =
-                    m_fsAnalysisCache.getTrackBeats(trackLocation, sampleRate);
-            if (pFsBeats) {
-                if (pTrack->isBpmLocked()) {
-                    pTrack->trySetAndLockBeats(pFsBeats);
-                } else {
-                    pTrack->trySetBeats(pFsBeats);
-                }
-            }
-        }
-        std::optional<Keys> fsKeys = m_fsAnalysisCache.getTrackKeys(trackLocation);
-        if (fsKeys) {
-            pTrack->setKeys(*fsKeys);
-        }
+        adoptFsCacheBeatsAndKeys(pTrack.get());
     }
 
     // Cues the DJ set on this unit live on the drive the track came from, so
@@ -1891,23 +1912,6 @@ void TrackDAO::markTrackLocationsAsVerified(const QStringList& locations) const 
     if (!query.exec()) {
         LOG_FAILED_QUERY(query)
                 << "Couldn't mark track locations as verified.";
-        DEBUG_ASSERT(!"Failed query");
-    }
-}
-
-void TrackDAO::markTracksInDirectoriesAsVerified(const QStringList& directories) const {
-    // kLogger.debug()<< "markTracksInDirectoryAsVerified" <<
-    // QThread::currentThread() << m_database.connectionName();
-
-    QSqlQuery query(m_database);
-    query.prepare(
-        QString("UPDATE track_locations "
-                "SET needs_verification=0 "
-                "WHERE directory IN (%1)").arg(
-                        SqlStringFormatter::formatList(m_database, directories)));
-    if (!query.exec()) {
-        LOG_FAILED_QUERY(query)
-                << "Couldn't mark tracks in" << directories.size() << "directories as verified.";
         DEBUG_ASSERT(!"Failed query");
     }
 }
@@ -2482,8 +2486,7 @@ bool TrackDAO::updatePlayCounterFromPlayedHistory(
                 m_database,
                 QStringLiteral(
                         "UPDATE library SET "
-                        "timesplayed=0,"
-                        "last_played_at=NULL "
+                        "timesplayed=0 "
                         "WHERE id NOT IN("
                         "SELECT PlaylistTracks.track_id "
                         "FROM PlaylistTracks "
@@ -2548,6 +2551,12 @@ bool TrackDAO::updatePlayCounterFromPlayedHistory(
                 // Never played and timesplayed should not be NULL
                 DEBUG_ASSERT(last_played_at.isNull());
                 timesplayed = 0;
+
+                // Fetch the actual last played date from older history sessions
+                QString lastTimeAdded = findLastTimeAddedToHistory(trackId);
+                if (!lastTimeAdded.isEmpty()) {
+                    last_played_at = lastTimeAdded;
+                }
             }
             trackUpdateQuery.bindValue(
                     QStringLiteral(":trackId"),
@@ -2591,4 +2600,39 @@ void TrackDAO::setTrackHeaderParsedInternal(Track* pTrack, bool headerParsed) {
 //static
 bool TrackDAO::getTrackHeaderParsedInternal(const mixxx::TrackRecord& trackRecord) {
     return trackRecord.m_headerParsed;
+}
+
+QString TrackDAO::findLastTimeAddedToHistory(TrackId trackId) const {
+    // A track ID might be invalid if the track was just added and hasn't been
+    // saved to the database yet, or if it represents a missing or deleted track.
+    if (!trackId.isValid()) {
+        return QString();
+    }
+
+    // Lazy Prepare: Only prepare the query if it has not been prepared yet
+    if (m_lastAddedToHistoryQuery.lastQuery().isEmpty()) {
+        m_lastAddedToHistoryQuery = QSqlQuery(m_database);
+        m_lastAddedToHistoryQuery.prepare(
+                "SELECT MAX(PlaylistTracks.pl_datetime_added) "
+                "FROM PlaylistTracks "
+                "JOIN Playlists ON PlaylistTracks.playlist_id = Playlists.id "
+                "WHERE PlaylistTracks.track_id = :id "
+                "AND Playlists.hidden = " +
+                QString::number(PlaylistDAO::PLHT_SET_LOG));
+    }
+
+    m_lastAddedToHistoryQuery.bindValue(":id", trackId.toVariant());
+
+    if (!m_lastAddedToHistoryQuery.exec()) {
+        LOG_FAILED_QUERY(m_lastAddedToHistoryQuery)
+                << "Failed to find last time added to history for track"
+                << trackId;
+        return QString();
+    }
+
+    if (m_lastAddedToHistoryQuery.next()) {
+        return m_lastAddedToHistoryQuery.value(0).toString();
+    }
+
+    return QString();
 }

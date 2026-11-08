@@ -44,6 +44,9 @@ class WLibrarySidebar : public QTreeView, public WBaseWidget {
     void renameItem(const QModelIndex&);
     void deleteItem(const QModelIndex&);
     void leafItemActivated(const QString& title);
+    /// Bite DJ: the same activation, by index, so the breadcrumb can follow
+    /// whether that item is still loading.
+    void leafIndexActivated(const QModelIndex& index);
     FocusWidget setLibraryFocus(FocusWidget newFocus);
 
   protected:

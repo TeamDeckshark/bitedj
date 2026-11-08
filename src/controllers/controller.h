@@ -64,6 +64,11 @@ class Controller : public QObject {
   signals:
     /// Emitted when the controller is opened or closed.
     void openChanged(bool bOpen);
+    /// Bite DJ: emitted once per open when the device has gone away underneath
+    /// the open handle (the USB controller dropped off the bus or
+    /// re-enumerated). ControllerManager answers it by closing this controller
+    /// and reopening the device once it is back.
+    void deviceLost();
 
     // Making these slots protected/private ensures that other parts of Mixxx can
     // only signal them which allows us to use no locks.

@@ -54,6 +54,7 @@
 #include "widget/wknob.h"
 #include "widget/wknobcomposed.h"
 #include "widget/wlabel.h"
+#include "widget/wlibrarybreadcrumb.h"
 #include "widget/wlibrary.h"
 #include "widget/wlibrarysidebar.h"
 #include "widget/wnumber.h"
@@ -1616,12 +1617,16 @@ QWidget* LegacySkinParser::parseLibrary(const QDomElement& node) {
 }
 
 QWidget* LegacySkinParser::parseLibraryBreadcrumb(const QDomElement& node) {
-    WLabel* pLabel = new WLabel(m_pParent);
+    WLibraryBreadcrumb* pLabel = new WLibraryBreadcrumb(m_pParent);
     setupLabelWidget(node, pLabel);
     connect(m_pLibrary,
             &Library::sidebarLeafItemActivated,
             pLabel,
             &WLabel::setText);
+    connect(m_pLibrary,
+            &Library::sidebarLeafItemLoading,
+            pLabel,
+            &WLibraryBreadcrumb::setLoading);
     return pLabel;
 }
 

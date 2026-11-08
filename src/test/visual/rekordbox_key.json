@@ -4,16 +4,25 @@
     800,
     480
   ],
-  "config": {
-    "[Browse],QuickLinks": "{scenario}/media/"
+  "drives": {
+    "MEDIA": {
+      "down1.flac": "media/down1.flac",
+      "far.flac": "media/far.flac",
+      "major-neighbour.flac": "media/major-neighbour.flac",
+      "reference.flac": "media/reference.flac",
+      "relative.flac": "media/relative.flac",
+      "same.flac": "media/same.flac",
+      "up1.flac": "media/up1.flac",
+      "up2.flac": "media/up2.flac"
+    }
   },
   "rekordbox": [
     {
-      "file": "media/same.flac",
+      "file": "/media/MEDIA/same.flac",
       "key": "2A"
     },
     {
-      "file": "media/far.flac",
+      "file": "/media/MEDIA/far.flac",
       "key": "11B"
     }
   ],
@@ -43,8 +52,8 @@
     {
       "sidebar": [
         "Computer",
-        "Quick Links",
-        "media"
+        "Removable Devices",
+        "MEDIA"
       ]
     },
     {

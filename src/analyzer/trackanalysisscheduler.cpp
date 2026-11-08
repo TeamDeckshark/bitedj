@@ -102,6 +102,7 @@ TrackAnalysisScheduler::TrackAnalysisScheduler(
 
 TrackAnalysisScheduler::~TrackAnalysisScheduler() {
     kLogger.debug() << "Destroying";
+    // Here the workers in m_workers are deleted after waiting for the associated thread is finished
     QMutexLocker locked(&s_instancesMutex);
     s_instances.removeOne(this);
 }
@@ -246,7 +247,7 @@ void TrackAnalysisScheduler::onWorkerThreadProgress(
         DEBUG_ASSERT(!trackId.isValid());
         DEBUG_ASSERT(analyzerProgress == kAnalyzerProgressUnknown);
         worker.onThreadExit();
-        DEBUG_ASSERT(!worker);
+        DEBUG_ASSERT(!worker.hasThread());
         break;
     default:
         DEBUG_ASSERT(!"Unhandled signal from worker thread");
@@ -373,7 +374,7 @@ void TrackAnalysisScheduler::cancelTrack(TrackId trackId) {
     // Abort the worker analyzing it, if any. The worker reports back as Done,
     // which clears it from m_pendingTrackIds.
     for (auto& worker : m_workers) {
-        if (worker && worker.submittedTrackId() == trackId) {
+        if (worker.hasThread() && worker.submittedTrackId() == trackId) {
             kLogger.debug() << "Cancelling in-progress analysis of track" << trackId;
             worker.cancelSubmittedTrack();
         }
@@ -400,7 +401,7 @@ void TrackAnalysisScheduler::cancelTracksOnPath(const QString& path) {
     // Abort any worker whose open audio file is on the volume so the file
     // descriptor is released and the volume can be unmounted.
     for (auto& worker : m_workers) {
-        if (worker && worker.submittedTrackLocation().startsWith(prefix)) {
+        if (worker.hasThread() && worker.submittedTrackLocation().startsWith(prefix)) {
             kLogger.debug() << "Cancelling analysis on ejected volume:"
                             << worker.submittedTrackLocation();
             worker.cancelSubmittedTrack();

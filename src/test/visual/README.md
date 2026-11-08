@@ -29,9 +29,9 @@ under CTest `build/visual-test-output/`).
    `rekordbox` makes files count as rekordbox-analysed. `drives` mounts fake
    USB sticks at `/media/<name>` (a tmpfs each) holding the listed fixture
    files; `drives/serato/` is a Serato library made by its `make_fixture.py`.
-   `config` seeds `bitedj.cfg`; `{scenario}` in a value is this directory,
-   so `"[Browse],QuickLinks": "{scenario}/media/"` puts the tagged fixtures
-   in `media/` under Computer -> Quick Links for Browse to show.
+   A drive's files show in Browse under Computer -> Removable Devices ->
+   `<name>`, and steps reach them at `/media/<name>/...`.
+   `config` seeds `bitedj.cfg`; `{scenario}` in a value is this directory.
 2. Run it with `--update`, look at every grab it wrote to `golden/`, and only
    commit them once they show what the screen should look like.
 3. Re-run without `--update` a few times: it must pass with 0 differing

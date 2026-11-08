@@ -31,6 +31,7 @@ class ProxyTrackModel : public QSortFilterProxyModel, public TrackModel {
     QUrl getTrackUrl(const QModelIndex& index) const final;
     QString getTrackLocation(const QModelIndex& index) const final;
     TrackId getTrackId(const QModelIndex& index) const final;
+    bool trackIdRequiresImport() const final;
     bool verifyTrackFileExists(const QModelIndex& index) final;
     QString backingLocation() const final;
     CoverInfo getCoverInfo(const QModelIndex& index) const final;

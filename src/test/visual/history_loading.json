@@ -1,0 +1,77 @@
+{
+  "description": "History sets off a USB stick open without waiting on the stick. The HISTORY drive carries two sets in its .bitedj/history.sqlite (drives/history/make_fixture.py); this fresh library knows none of their tracks. Tapping the drive opens its newest set and keeps the sidebar up, with the drive's icon turned into the loading spinner while the set's tracks are added (only once it has stayed on screen for a moment, so scrolling past with the jog wheel costs the stick nothing). Tapping the older set then swaps the sidebar for the track table at once: Reference, which the newer set already added, is there straight away, and the breadcrumb names the set with the spinner after it. The other two tracks arrive one at a time, in play order, and the spinner goes away: Reference, Same Key, Far Away.",
+  "size": [
+    800,
+    480
+  ],
+  "drives": {
+    "HISTORY": {
+      ".bitedj/history.sqlite": "drives/history/history.sqlite",
+      "Music/reference.flac": "media/reference.flac",
+      "Music/same.flac": "media/same.flac",
+      "Music/up1.flac": "media/up1.flac",
+      "Music/relative.flac": "media/relative.flac",
+      "Music/far.flac": "media/far.flac",
+      "Music/down1.flac": "media/down1.flac"
+    }
+  },
+  "steps": [
+    {
+      "wait": 2000
+    },
+    {
+      "set": "[Tab],library",
+      "value": 1
+    },
+    {
+      "sidebar": [
+        "History",
+        "HISTORY"
+      ],
+      "expand": true,
+      "timeout": 30000
+    },
+    {
+      "wait": 300
+    },
+    {
+      "snapshot": "history_loading_sidebar"
+    },
+    {
+      "sidebar": [
+        "History",
+        "HISTORY"
+      ],
+      "timeout": 30000
+    },
+    {
+      "wait": 250
+    },
+    {
+      "snapshot": "history_loading_drive"
+    },
+    {
+      "wait": 3000
+    },
+    {
+      "sidebar": [
+        "History",
+        "HISTORY",
+        "2026-10-24 (3) 1:30"
+      ],
+      "timeout": 30000
+    },
+    {
+      "wait": 250
+    },
+    {
+      "snapshot": "history_loading_opening"
+    },
+    {
+      "wait": 3000
+    },
+    {
+      "snapshot": "history_loading_loaded"
+    }
+  ]
+}

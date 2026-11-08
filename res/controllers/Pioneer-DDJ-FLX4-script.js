@@ -28,6 +28,8 @@
 //      * Memory Cue CALL, MEMORY and DELETE (CUE/LOOP CALL arrows)
 //      * Toggle quantize (Shift + channel cue)
 //
+//      * RELOOP/EXIT starts a 4 beat loop when no loop has been made yet
+//
 //  Not implemented (after discussion and trial attempts):
 //      * Loop Section:
 //        * -4BEAT auto loop (hacky---prefer a clean way to set a 4 beat loop
@@ -182,7 +184,7 @@ PioneerDDJFLX4.beta = PioneerDDJFLX4.alpha/32;
 PioneerDDJFLX4.fastSeekScale = 150;
 PioneerDDJFLX4.bendScale = 0.8;
 
-PioneerDDJFLX4.tempoRanges = [0.06, 0.10, 0.25, 0.50, 1.00];
+PioneerDDJFLX4.tempoRanges = [0.08, 0.10, 0.25, 0.50, 1.00];
 
 PioneerDDJFLX4.shiftButtonDown = [false, false];
 
@@ -518,7 +520,7 @@ PioneerDDJFLX4.beatFxChannel2 = function(_channel, _control, value, _status, gro
 //
 
 PioneerDDJFLX4.toggleLoopAdjustIn = function(channel, _control, value, _status, group) {
-    if (value === 0 || engine.getValue(group, "loop_enabled" === 0)) {
+    if (value === 0 || engine.getValue(group, "loop_enabled") === 0) {
         return;
     }
     PioneerDDJFLX4.loopAdjustIn[channel] = !PioneerDDJFLX4.loopAdjustIn[channel];
@@ -526,7 +528,7 @@ PioneerDDJFLX4.toggleLoopAdjustIn = function(channel, _control, value, _status, 
 };
 
 PioneerDDJFLX4.toggleLoopAdjustOut = function(channel, _control, value, _status, group) {
-    if (value === 0 || engine.getValue(group, "loop_enabled" === 0)) {
+    if (value === 0 || engine.getValue(group, "loop_enabled") === 0) {
         return;
     }
     PioneerDDJFLX4.loopAdjustOut[channel] = !PioneerDDJFLX4.loopAdjustOut[channel];
@@ -583,6 +585,23 @@ PioneerDDJFLX4.stopLoopLightsBlink = function(group, control, status) {
     }
     PioneerDDJFLX4.timers[group][control] = undefined;
     PioneerDDJFLX4.setLoopButtonLights(status, 0x7F);
+};
+
+// RELOOP/EXIT: exit an active loop, or jump back into the stored loop.
+// With no stored loop (nothing made yet, a fresh track, or only a pending
+// loop-in) reloop_toggle does nothing, so start a 4 beat loop here instead.
+PioneerDDJFLX4.reloopExit = function(_channel, _control, value, _status, group) {
+    if (!value) {
+        return;
+    }
+    const start = engine.getValue(group, "loop_start_position");
+    const end = engine.getValue(group, "loop_end_position");
+    const hasStoredLoop = start >= 0 && end >= 0 && start <= end;
+    if (engine.getValue(group, "loop_enabled") || hasStoredLoop) {
+        script.triggerControl(group, "reloop_toggle");
+    } else {
+        script.triggerControl(group, "beatloop_4_activate");
+    }
 };
 
 PioneerDDJFLX4.loopToggle = function(value, group, control) {
@@ -756,20 +775,35 @@ PioneerDDJFLX4.jogSearch = function(_channel, _control, value, _status, group) {
 // 0 = CDJ) onto the boolean jogTouch() checks before enabling scratching.
 PioneerDDJFLX4.setVinylMode = function(value) {
     PioneerDDJFLX4.vinylMode = value !== 0;
+    // Switching to CDJ mid-touch must not leave a deck scratching until the
+    // next jog release.
+    if (!PioneerDDJFLX4.vinylMode) {
+        for (let deckNum = 1; deckNum <= 2; ++deckNum) {
+            if (engine.isScratching(deckNum)) {
+                engine.scratchDisable(deckNum);
+            }
+        }
+    }
 };
 
 PioneerDDJFLX4.jogTouch = function(channel, _control, value) {
     const deckNum = channel + 1;
+
+    // A release always ends the scratch. Loop adjust can be toggled on while
+    // the platter is held, and skipping the release then left the deck in
+    // scratch mode, held still by a platter nobody is touching.
+    if (value === 0) {
+        engine.scratchDisable(deckNum);
+        return;
+    }
 
     // skip while adjusting the loop points
     if (PioneerDDJFLX4.loopAdjustIn[channel] || PioneerDDJFLX4.loopAdjustOut[channel]) {
         return;
     }
 
-    if (value !== 0 && this.vinylMode) {
+    if (this.vinylMode) {
         engine.scratchEnable(deckNum, 720, 33+1/3, this.alpha, this.beta);
-    } else {
-        engine.scratchDisable(deckNum);
     }
 };
 

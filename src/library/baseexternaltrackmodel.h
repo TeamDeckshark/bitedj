@@ -22,6 +22,9 @@ class BaseExternalTrackModel : public BaseSqlTableModel {
 
     Capabilities getCapabilities() const override;
     TrackId getTrackId(const QModelIndex& index) const override;
+    bool trackIdRequiresImport() const override {
+        return true;
+    }
     TrackPointer getTrack(const QModelIndex& index) const override;
     bool isColumnInternal(int column) override;
     Qt::ItemFlags flags(const QModelIndex& index) const override;

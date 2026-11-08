@@ -438,6 +438,16 @@ void Library::bindSearchboxWidget(WSearchLineEdit* pSearchboxWidget) {
             &LibraryControl::setLibraryFocus);
 }
 
+void Library::updateActiveLeafLoading() {
+    const bool loading = m_activeLeafIndex.isValid() &&
+            m_activeLeafIndex.data(SidebarModel::LoadingRole).toBool();
+    if (loading == m_activeLeafLoading) {
+        return;
+    }
+    m_activeLeafLoading = loading;
+    emit sidebarLeafItemLoading(loading);
+}
+
 void Library::bindSidebarWidget(WLibrarySidebar* pSidebarWidget) {
     m_pLibraryControl->bindSidebarWidget(pSidebarWidget);
 
@@ -459,6 +469,28 @@ void Library::bindSidebarWidget(WLibrarySidebar* pSidebarWidget) {
             &WLibrarySidebar::leafItemActivated,
             this,
             &Library::sidebarLeafItemActivated);
+    // The breadcrumb's spinner follows the item it names: the feature marks
+    // it loading (and done) through the sidebar model, whose changes are all
+    // that is watched here.
+    connect(pSidebarWidget,
+            &WLibrarySidebar::leafIndexActivated,
+            this,
+            [this](const QModelIndex& index) {
+                m_activeLeafIndex = QPersistentModelIndex(index);
+                updateActiveLeafLoading();
+            });
+    connect(m_pSidebarModel,
+            &QAbstractItemModel::dataChanged,
+            this,
+            &Library::updateActiveLeafLoading);
+    connect(m_pSidebarModel,
+            &QAbstractItemModel::rowsRemoved,
+            this,
+            &Library::updateActiveLeafLoading);
+    connect(m_pSidebarModel,
+            &QAbstractItemModel::modelReset,
+            this,
+            &Library::updateActiveLeafLoading);
     // Lazy model: Let triangle symbol increment the model
     connect(pSidebarWidget,
             &WLibrarySidebar::expanded,

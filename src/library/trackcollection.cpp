@@ -561,6 +561,13 @@ TrackPointer TrackCollection::getTrackById(
     return m_trackDao.getTrackById(trackId);
 }
 
+TrackId TrackCollection::getTrackIdByLocation(
+        const QString& location) const {
+    DEBUG_ASSERT_QOBJECT_THREAD_AFFINITY(this);
+
+    return m_trackDao.getTrackIdByLocation(location);
+}
+
 TrackPointer TrackCollection::getTrackByRef(
         const TrackRef& trackRef) const {
     DEBUG_ASSERT_QOBJECT_THREAD_AFFINITY(this);

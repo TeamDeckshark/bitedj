@@ -473,23 +473,23 @@
             </control>
 
             <control>
-                <description>RELOOP/EXIT (DECK1) - press - (loop off) Reloop, (loop on) Loop exit</description>
+                <description>RELOOP/EXIT (DECK1) - press - (loop on) Loop exit, (loop off) Reloop, (no loop yet) 4 beat loop</description>
                 <group>[Channel1]</group>
-                <key>reloop_toggle</key>
+                <key>PioneerDDJFLX4.reloopExit</key>
                 <status>0x90</status>
                 <midino>0x4D</midino>
                 <options>
-                    <Normal/>
+                    <Script-Binding/>
                 </options>
             </control>
             <control>
-                <description>RELOOP/EXIT (DECK2) - press - (loop off) Reloop, (loop on) Loop exit</description>
+                <description>RELOOP/EXIT (DECK2) - press - (loop on) Loop exit, (loop off) Reloop, (no loop yet) 4 beat loop</description>
                 <group>[Channel2]</group>
-                <key>reloop_toggle</key> <!-- check if correct -->
+                <key>PioneerDDJFLX4.reloopExit</key>
                 <status>0x91</status>
                 <midino>0x4D</midino>
                 <options>
-                    <Normal/>
+                    <Script-Binding/>
                 </options>
             </control>
 
@@ -642,6 +642,13 @@
             <!-- DECK Section END -->
 
             <!-- MIXER Section START -->
+            <!-- The FLX4 never reports where its faders sit until one moves,
+                 so the software crossfader starts centred whatever the
+                 hardware says. Without soft takeover the first stray message
+                 from a crossfader parked at one end slams it there and mutes
+                 the other side's deck mid-set. With it, the hardware has to
+                 meet the software position before it takes over, as the
+                 channel faders already do. -->
             <control>
                 <description>CROSSFADER - slider</description>
                 <group>[Master]</group>
@@ -650,6 +657,7 @@
                 <midino>0x1F</midino>
                 <options>
                     <fourteen-bit-msb/>
+                    <soft-takeover/>
                 </options>
             </control>
             <control>
@@ -660,6 +668,7 @@
                 <midino>0x3F</midino>
                 <options>
                     <fourteen-bit-lsb/>
+                    <soft-takeover/>
                 </options>
             </control>
 

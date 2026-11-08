@@ -1,9 +1,12 @@
 #pragma once
 
+#include <gtest/gtest_prod.h>
+
 #include <QList>
 #include <QObject>
 #include <QSet>
 #include <QString>
+#include <QtSql/QSqlQuery>
 #include <memory>
 
 #include "library/dao/dao.h"
@@ -131,6 +134,9 @@ class TrackDAO : public QObject, public virtual DAO, public virtual GlobalTrackC
     friend class LibraryScanner;
     friend class TrackCollection;
     friend class TrackAnalysisScheduler;
+    FRIEND_TEST(TrackDAOTest, markTrackLocationsAsVerifiedRecoversPresentFilesOnly);
+
+    QString findLastTimeAddedToHistory(TrackId trackId) const;
 
     QList<TrackId> resolveTrackIds(
             const QStringList& pathList,
@@ -161,6 +167,15 @@ class TrackDAO : public QObject, public virtual DAO, public virtual GlobalTrackC
 
     bool updateTrack(const Track& track) const;
 
+    /// Bite DJ: loads the beat grid and key the track's own drive holds into
+    /// pTrack (the per-fs cache keeps them there, not in this library). Reports
+    /// which of the two the drive had.
+    struct FsBeatsAndKeys {
+        bool beats = false;
+        bool keys = false;
+    };
+    FsBeatsAndKeys adoptFsCacheBeatsAndKeys(Track* pTrack) const;
+
     void hideAllTracks(const QDir& rootDir) const;
 
     bool hideTracks(
@@ -180,7 +195,6 @@ class TrackDAO : public QObject, public virtual DAO, public virtual GlobalTrackC
 
     // Scanning related calls.
     void markTrackLocationsAsVerified(const QStringList& locations) const;
-    void markTracksInDirectoriesAsVerified(const QStringList& directories) const;
     void cleanupTrackLocationsDirectory() const;
     void invalidateTrackLocationsInLibrary() const;
     void markUnverifiedTracksAsDeleted();
@@ -216,6 +230,7 @@ class TrackDAO : public QObject, public virtual DAO, public virtual GlobalTrackC
     QSet<TrackId> m_tracksAddedSet;
 
     DISALLOW_COPY_AND_ASSIGN(TrackDAO);
+    mutable QSqlQuery m_lastAddedToHistoryQuery;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(TrackDAO::ResolveTrackIdFlags)

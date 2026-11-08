@@ -54,6 +54,9 @@ class CmdlineArgs final {
     bool getSettingsPathSet() const { return m_settingsPathSet; }
     mixxx::LogLevel getLogLevel() const { return m_logLevel; }
     mixxx::LogLevel getLogFlushLevel() const { return m_logFlushLevel; }
+    mixxx::LogLevel getLogStdErrLevel() const {
+        return m_logStdErrLevel;
+    }
     qint64 getLogMaxFileSize() const {
         return m_logMaxFileSize;
     }
@@ -101,6 +104,7 @@ class CmdlineArgs final {
     bool m_parseForUserFeedbackRequired;
     mixxx::LogLevel m_logLevel; // Level of stderr logging message verbosity
     mixxx::LogLevel m_logFlushLevel; // Level of mixx.log file flushing
+    mixxx::LogLevel m_logStdErrLevel; // Most verbose level echoed to stderr
     qint64 m_logMaxFileSize;
     QString m_locale;
     QString m_settingsPath;

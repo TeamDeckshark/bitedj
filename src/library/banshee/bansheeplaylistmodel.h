@@ -15,6 +15,9 @@ class BansheePlaylistModel final : public BaseSqlTableModel {
 
     TrackPointer getTrack(const QModelIndex& index) const final;
     TrackId getTrackId(const QModelIndex& index) const final;
+    bool trackIdRequiresImport() const final {
+        return true;
+    }
     QUrl getTrackUrl(const QModelIndex& index) const final;
 
     QString getTrackLocation(const QModelIndex& index) const final;

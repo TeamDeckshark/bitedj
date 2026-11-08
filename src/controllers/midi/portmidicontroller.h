@@ -93,5 +93,11 @@ class PortMidiController : public MidiController {
     int m_cReceiveMsg_index;
     bool m_bInSysex;
 
+    // Bite DJ: emits deviceLost() the first time an error says the device is
+    // gone. pmHostError is what ALSA reports for a sequencer port that has
+    // disappeared; nothing else PortMidi returns means that.
+    void checkDeviceLost(PmError err);
+    bool m_bDeviceLost;
+
     friend class PortMidiControllerTest;
 };

@@ -9,8 +9,11 @@
 #include <memory>
 #include <thread>
 
+#include "test/librarytest.h"
 #include "test/mixxxtest.h"
+#include "track/beats.h"
 #include "track/keyfactory.h"
+#include "track/track.h"
 
 namespace {
 
@@ -97,6 +100,67 @@ TEST_F(FsAnalysisCacheTest, EjectClosesConnectionOpenedOnAnotherThread) {
     const auto keys = pCache->getTrackKeys(trackPath);
     ASSERT_TRUE(keys.has_value());
     EXPECT_EQ(mixxx::track::io::key::A_MINOR, keys->getGlobalKey());
+}
+
+class FsAnalysisCacheImportTest : public LibraryTest {
+  protected:
+    void SetUp() override {
+        if (usbIsMounted()) {
+            FsAnalysisCache::clearFilesystemCache(kFakeUsb);
+        }
+    }
+
+    void TearDown() override {
+        if (usbIsMounted()) {
+            FsAnalysisCache::clearFilesystemCache(kFakeUsb);
+        }
+    }
+
+    static bool usbIsMounted() {
+        const QStorageInfo usb(kFakeUsb);
+        return usb.isValid() && usb.isReady() && usb.rootPath() == kFakeUsb;
+    }
+};
+
+// A stick analysed on another unit carries its grid and key in its own cache.
+// Adding one of its tracks to this unit's library must pick them up, not
+// overwrite them with the nothing a fresh import has: that used to delete
+// both, and cost a synced commit on the stick for each.
+TEST_F(FsAnalysisCacheImportTest, ImportAdoptsAnalysisAlreadyOnTheDrive) {
+    if (!usbIsMounted()) {
+        GTEST_SKIP() << "needs a filesystem mounted at " << qPrintable(kFakeUsb);
+    }
+    const QString trackPath = kFakeUsb + QStringLiteral("/analysed-elsewhere.wav");
+    QFile::remove(trackPath);
+    ASSERT_TRUE(QFile::copy(getTestDir().filePath(QStringLiteral("sine-30.wav")), trackPath));
+
+    const mixxx::audio::SampleRate sampleRate(44100);
+    const mixxx::Bpm bpm(128.0);
+    {
+        // The other unit.
+        FsAnalysisCache otherUnit(config());
+        ASSERT_TRUE(otherUnit.saveTrackBeats(trackPath,
+                mixxx::Beats::fromConstTempo(
+                        sampleRate, mixxx::audio::kStartFramePos, bpm)));
+        ASSERT_TRUE(otherUnit.saveTrackKeys(trackPath,
+                KeyFactory::makeBasicKeys(
+                        mixxx::track::io::key::A_MINOR, mixxx::track::io::key::ANALYZER)));
+    }
+
+    const TrackPointer pTrack = getOrAddTrackByLocation(trackPath);
+    ASSERT_TRUE(pTrack);
+    ASSERT_TRUE(pTrack->getId().isValid());
+    EXPECT_EQ(mixxx::track::io::key::A_MINOR, pTrack->getKeys().getGlobalKey());
+    ASSERT_TRUE(pTrack->getBeats());
+    EXPECT_DOUBLE_EQ(bpm.value(), pTrack->getBpm());
+
+    // And the drive still has them for the next unit.
+    FsAnalysisCache reader(config());
+    const auto keys = reader.getTrackKeys(trackPath);
+    ASSERT_TRUE(keys.has_value());
+    EXPECT_EQ(mixxx::track::io::key::A_MINOR, keys->getGlobalKey());
+    EXPECT_TRUE(reader.getTrackBeats(trackPath, sampleRate));
+    QFile::remove(trackPath);
 }
 
 } // namespace

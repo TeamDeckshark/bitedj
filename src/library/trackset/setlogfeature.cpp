@@ -37,6 +37,12 @@ const QChar kSessionNodeSeparator = QLatin1Char('\n');
 /// Backstop for a drive being plugged in; an eject is reported to us directly.
 constexpr int kUsbPollIntervalMillis = 5000;
 
+/// How long a session has to stay on screen before its tracks this unit has
+/// never seen are added to the library. Scrolling through the sessions with
+/// the jog wheel opens each one on the way; this keeps those passes from
+/// reading tags off the stick for sets nobody stopped to look at.
+constexpr int kImportSettleMillis = 600;
+
 const QString kCurrentSessionIcon =
         QStringLiteral(":/images/library/ic_library_history_current.svg");
 const QString kDriveIcon = QStringLiteral(":/images/library/ic_library_computer.svg");
@@ -100,6 +106,8 @@ SetlogFeature::SetlogFeature(
                   QStringLiteral("SetlogCountsDurations"),
                   /*keep hidden tracks*/ true),
           m_driveViewPlaylistId(kInvalidPlaylistId),
+          m_shownTracksRead(false),
+          m_nextShownTrackToImport(0),
           m_pLibrary(pLibrary),
           m_pConfig(pConfig) {
     // Whatever an earlier version logged into this unit's own library goes
@@ -175,6 +183,11 @@ SetlogFeature::SetlogFeature(
             &FsHistoryWorker::sessionTracksRead,
             this,
             &SetlogFeature::slotSessionTracksRead);
+    m_importTimer.setSingleShot(true);
+    connect(&m_importTimer,
+            &QTimer::timeout,
+            this,
+            &SetlogFeature::slotImportNextShownTrack);
     m_usbPollTimer.setInterval(kUsbPollIntervalMillis);
     m_usbPollTimer.setSingleShot(false);
     connect(&m_usbPollTimer,
@@ -355,6 +368,8 @@ void SetlogFeature::constructChildModel() {
 
     // Append all the newly created TreeItems in a dynamic way to the childmodel
     m_pSidebarModel->insertTreeItemRows(std::move(itemList), 0);
+    // The rebuilt items know nothing of what is still loading.
+    markNodeLoading(m_loadingNodeData, true);
 }
 
 void SetlogFeature::decorateChild(TreeItem* pChild, int playlistId) {
@@ -439,6 +454,11 @@ void SetlogFeature::slotTrackLogged(const QString& mountRoot,
     if (!trackId.isValid()) {
         return;
     }
+    if (m_shownTracksRead) {
+        // Behind every track still being imported, as on the drive.
+        m_shownLocations.append(QString());
+        m_shownTrackIds.append(trackId);
+    }
     WTrackTableView* pView = m_pLibraryWidget
             ? dynamic_cast<WTrackTableView*>(m_pLibraryWidget->getActiveView())
             : nullptr;
@@ -480,6 +500,7 @@ void SetlogFeature::updateDriveSessionItem(
     // the tree, which would collapse whatever the DJ is browsing.
     auto pSessionItem = std::make_unique<TreeItem>(label, itemData);
     pSessionItem->setIcon(QIcon(kCurrentSessionIcon));
+    pSessionItem->setLoading(itemData == m_loadingNodeData.toString());
     std::vector<std::unique_ptr<TreeItem>> rows;
     rows.push_back(std::move(pSessionItem));
     m_pSidebarModel->insertTreeItemRows(std::move(rows), 0, volumeIndex);
@@ -500,11 +521,21 @@ void SetlogFeature::showDriveSession(const QString& mountRoot,
     // The view opens on what is on screen now, which is nothing: the session's
     // tracks are on the drive, and reading them there is the worker thread's
     // job. slotSessionTracksRead() fills the rows in when they arrive.
+    cancelShownTrackImports();
     fillDriveViewPlaylist({});
     m_shownMountRoot = mountRoot;
     m_shownSessionName = sessionName;
     if (!sessionName.isEmpty()) {
         m_historyWorker.readSessionTracks(mountRoot, sessionName);
+        // The spinner goes on the item that was clicked: the drive's node
+        // when that is what opened its newest set. A set opened without a
+        // click (the drive's read landing late) keeps the one it has.
+        TreeItem* pItem = index.isValid()
+                ? static_cast<TreeItem*>(index.internalPointer())
+                : nullptr;
+        setLoadingNode(pItem ? pItem->getData() : m_loadingNodeData);
+    } else {
+        setLoadingNode(QVariant());
     }
 
     emit saveModelState();
@@ -520,19 +551,102 @@ void SetlogFeature::slotSessionTracksRead(const QString& mountRoot,
         // The DJ moved on while the drive was being read.
         return;
     }
-    QList<TrackId> trackIds;
-    trackIds.reserve(locations.size());
+    // What this unit's library already knows is shown at once, by id alone:
+    // no Track is loaded and nothing is read off the stick for it. The rest
+    // is added by slotImportNextShownTrack() a track at a time, each one into
+    // its place in the set, so the view is never held up by the drive.
+    const TrackCollection* pCollection =
+            m_pLibrary->trackCollectionManager()->internalCollection();
+    m_shownLocations = locations;
+    m_shownTrackIds.clear();
+    m_shownTrackIds.reserve(locations.size());
+    QList<TrackId> knownTrackIds;
+    knownTrackIds.reserve(locations.size());
     for (const QString& location : locations) {
-        // The stored paths are relative to the drive, so they resolve here even
-        // when the stick was played on another unit. A track that is no longer
-        // on it simply drops out of the view.
-        const TrackPointer pTrack = m_pLibrary->trackCollectionManager()->getOrAddTrack(
-                TrackRef::fromFilePath(location));
-        if (pTrack && pTrack->getId().isValid()) {
-            trackIds.append(pTrack->getId());
+        const TrackId trackId = pCollection->getTrackIdByLocation(location);
+        m_shownTrackIds.append(trackId);
+        if (trackId.isValid()) {
+            knownTrackIds.append(trackId);
         }
     }
-    fillDriveViewPlaylist(trackIds);
+    m_shownTracksRead = true;
+    m_nextShownTrackToImport = 0;
+    fillDriveViewPlaylist(knownTrackIds);
+    scheduleNextShownTrackImport(kImportSettleMillis);
+}
+
+void SetlogFeature::cancelShownTrackImports() {
+    m_importTimer.stop();
+    m_shownLocations.clear();
+    m_shownTrackIds.clear();
+    m_shownTracksRead = false;
+    m_nextShownTrackToImport = 0;
+}
+
+void SetlogFeature::scheduleNextShownTrackImport(int delayMillis) {
+    while (m_nextShownTrackToImport < m_shownTrackIds.size() &&
+            m_shownTrackIds.at(m_nextShownTrackToImport).isValid()) {
+        ++m_nextShownTrackToImport;
+    }
+    if (m_nextShownTrackToImport >= m_shownTrackIds.size()) {
+        setLoadingNode(QVariant());
+        return;
+    }
+    m_importTimer.start(delayMillis);
+}
+
+void SetlogFeature::slotImportNextShownTrack() {
+    const int index = m_nextShownTrackToImport;
+    if (index >= m_shownTrackIds.size()) {
+        setLoadingNode(QVariant());
+        return;
+    }
+    // Skipped from now on whatever happens: a track that cannot be added (no
+    // longer on the stick, or not a format this unit plays) simply stays out
+    // of the view.
+    ++m_nextShownTrackToImport;
+    // The stored paths are relative to the drive, so they resolve here even
+    // when the stick was played on another unit.
+    const TrackPointer pTrack = m_pLibrary->trackCollectionManager()->getOrAddTrack(
+            TrackRef::fromFilePath(m_shownLocations.at(index)));
+    if (pTrack && pTrack->getId().isValid()) {
+        const TrackId trackId = pTrack->getId();
+        m_shownTrackIds[index] = trackId;
+        // Playlist positions count from 1, and only the tracks already in the
+        // view are ahead of it.
+        int position = 1;
+        for (int i = 0; i < index; ++i) {
+            if (m_shownTrackIds.at(i).isValid()) {
+                ++position;
+            }
+        }
+        m_playlistDao.insertTrackIntoPlaylist(trackId, m_driveViewPlaylistId, position);
+    }
+    // Back to the event loop between tracks, so a tap or the jog wheel is
+    // answered after at most one of them.
+    scheduleNextShownTrackImport(0);
+}
+
+void SetlogFeature::setLoadingNode(const QVariant& nodeData) {
+    if (nodeData == m_loadingNodeData) {
+        return;
+    }
+    markNodeLoading(m_loadingNodeData, false);
+    m_loadingNodeData = nodeData;
+    markNodeLoading(m_loadingNodeData, true);
+}
+
+void SetlogFeature::markNodeLoading(const QVariant& nodeData, bool loading) {
+    if (nodeData.isNull()) {
+        return;
+    }
+    const QModelIndex index = indexOfItemData(nodeData);
+    TreeItem* pItem = index.isValid() ? m_pSidebarModel->getItem(index) : nullptr;
+    if (!pItem) {
+        return;
+    }
+    pItem->setLoading(loading);
+    m_pSidebarModel->triggerRepaint(index);
 }
 
 void SetlogFeature::slotSessionsRead(
@@ -561,6 +675,8 @@ void SetlogFeature::slotSessionsRead(
         // The drive's node was activated before this unit knew what it held;
         // its most recent set is what that click asked for.
         showDriveSession(mountRoot, sessions.first().name, QModelIndex());
+    } else {
+        setLoadingNode(QVariant());
     }
 }
 
@@ -625,6 +741,8 @@ void SetlogFeature::forgetShownDriveSession() {
     m_shownMountRoot.clear();
     m_shownSessionName.clear();
     m_driveAwaitingActivation.clear();
+    cancelShownTrackImports();
+    setLoadingNode(QVariant());
     // Empty the view as well. Library::slotMountEjected only dismisses a view
     // that is reading the dead mount directly (a browse listing), and a session
     // is shown through a playlist, so the rows would otherwise sit there naming
@@ -785,6 +903,8 @@ void SetlogFeature::activate() {
     m_shownMountRoot.clear();
     m_shownSessionName.clear();
     m_driveAwaitingActivation.clear();
+    cancelShownTrackImports();
+    setLoadingNode(QVariant());
     BaseTrackSetFeature::activate();
 }
 
@@ -814,6 +934,7 @@ void SetlogFeature::activateChild(const QModelIndex& index) {
                 index);
         if (!driveHasBeenRead) {
             m_driveAwaitingActivation = mountRoot;
+            setLoadingNode(volumeNodeData(mountRoot));
         }
         return;
     }

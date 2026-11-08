@@ -48,6 +48,10 @@ TrackId ProxyTrackModel::getTrackId(const QModelIndex& index) const {
     return m_pTrackModel ? m_pTrackModel->getTrackId(indexSource) : TrackId();
 }
 
+bool ProxyTrackModel::trackIdRequiresImport() const {
+    return m_pTrackModel && m_pTrackModel->trackIdRequiresImport();
+}
+
 QUrl ProxyTrackModel::getTrackUrl(const QModelIndex& index) const {
     if (!m_pTrackModel) {
         return {};

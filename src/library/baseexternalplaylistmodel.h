@@ -42,6 +42,9 @@ class BaseExternalPlaylistModel : public BaseSqlTableModel {
 
     TrackPointer getTrack(const QModelIndex& index) const override;
     TrackId getTrackId(const QModelIndex& index) const override;
+    bool trackIdRequiresImport() const override {
+        return true;
+    }
     QString backingLocation() const override {
         return m_backingLocation;
     }

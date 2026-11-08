@@ -15,9 +15,9 @@ constexpr unsigned long kFallbackWakeIntervalMs = 50;
 } // namespace
 
 EngineWorkerScheduler::EngineWorkerScheduler(QObject* pParent)
-        : m_bWakeScheduler(false),
+        : QThread(pParent),
+          m_bWakeScheduler(false),
           m_bQuit(false) {
-    Q_UNUSED(pParent);
 }
 
 EngineWorkerScheduler::~EngineWorkerScheduler() {

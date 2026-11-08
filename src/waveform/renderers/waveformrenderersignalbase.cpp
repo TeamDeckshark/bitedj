@@ -183,8 +183,11 @@ void WaveformRendererSignalBase::getGains(float* pAllGain,
     WaveformWidgetFactory* factory = WaveformWidgetFactory::instance();
     if (pAllGain) {
         const bool trimApplied = factory->isTrimAppliedToWaveform();
+        // Bite DJ: with trim off the band-based renderers (filtered, stacked)
+        // lose their 2x compensation too, or a full-scale band peak would
+        // reach twice the headroom below and run past the beat lines.
         *pAllGain = static_cast<CSAMPLE_GAIN>(m_waveformRenderer->getGain(
-                            applyCompensation, trimApplied)) *
+                            applyCompensation && trimApplied, trimApplied)) *
                 static_cast<CSAMPLE_GAIN>(factory->getVisualGain(WaveformWidgetFactory::All));
         // Bite DJ: with Settings -> General -> Wave Follows -> Trim off the
         // waveform is drawn at a flat 1x, and a mastered track peaks at full

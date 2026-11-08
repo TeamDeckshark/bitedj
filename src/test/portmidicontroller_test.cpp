@@ -2,6 +2,7 @@
 #include <gmock/gmock.h>
 
 #include <QScopedPointer>
+#include <QSignalSpy>
 
 #include "controllers/midi/portmidicontroller.h"
 #include "controllers/midi/portmididevice.h"
@@ -178,6 +179,45 @@ TEST_F(PortMidiControllerTest, WriteShort) {
     m_pController->sendShortMsg(0xFF, 0xFF, 0xFF);
     m_pController->sendShortMsg(0x80, 0x3C, 0x40);
 };
+
+// Bite DJ: a pmHostError is the device gone from under the handle (the FLX4
+// shorted off the bus); it is reported once per open however many writes and
+// polls hit it afterwards, so ControllerManager reconnects it once.
+TEST_F(PortMidiControllerTest, HostError_EmitsDeviceLostOnce) {
+    QSignalSpy lost(m_pController.data(), &Controller::deviceLost);
+    EXPECT_CALL(*m_mockOutput, isOpen())
+            .WillRepeatedly(Return(true));
+    EXPECT_CALL(*m_mockOutput, writeShort(_))
+            .WillRepeatedly(Return(pmHostError));
+    EXPECT_CALL(*m_mockInput, isOpen())
+            .WillRepeatedly(Return(true));
+    EXPECT_CALL(*m_mockInput, read(NotNull(), _))
+            .WillRepeatedly(Return(pmHostError));
+
+    m_pController->sendShortMsg(0x90, 0x3C, 0x40);
+    m_pController->sendShortMsg(0x80, 0x3C, 0x40);
+    pollDevice();
+    pollDevice();
+
+    EXPECT_EQ(1, lost.count());
+}
+
+TEST_F(PortMidiControllerTest, OtherErrors_DoNotEmitDeviceLost) {
+    QSignalSpy lost(m_pController.data(), &Controller::deviceLost);
+    EXPECT_CALL(*m_mockOutput, isOpen())
+            .WillRepeatedly(Return(true));
+    EXPECT_CALL(*m_mockOutput, writeShort(_))
+            .WillRepeatedly(Return(pmBadData));
+    EXPECT_CALL(*m_mockInput, isOpen())
+            .WillRepeatedly(Return(true));
+    EXPECT_CALL(*m_mockInput, read(NotNull(), _))
+            .WillRepeatedly(Return(pmBufferOverflow));
+
+    m_pController->sendShortMsg(0xFF, 0xFF, 0xFF);
+    pollDevice();
+
+    EXPECT_EQ(0, lost.count());
+}
 
 TEST_F(PortMidiControllerTest, WriteSysex) {
     QList<int> sysex;

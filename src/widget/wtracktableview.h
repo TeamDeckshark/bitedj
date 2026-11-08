@@ -47,6 +47,7 @@ class WTrackTableView : public WLibraryTableView {
     void assignPreviousTrackColor() override;
     TrackModel::SortColumnId getColumnIdFromCurrentIndex() override;
     QList<TrackId> getSelectedTrackIds() const;
+    QStringList getSelectedTrackLocations() const;
     bool isTrackInCurrentView(const TrackId& trackId);
     void setSelectedTracks(const QList<TrackId>& tracks);
     TrackId getCurrentTrackId() const;
@@ -66,6 +67,8 @@ class WTrackTableView : public WLibraryTableView {
     void moveRows(QList<int> selectedRows, int destRow);
     void moveSelectedTracks(QKeyEvent* event);
     void selectTracksById(const QList<TrackId>& tracks, int prevColumn);
+    bool selectTracksByLocation(const QStringList& locations, int prevColumn);
+    void selectRowsAfterSort(const QMap<int, int>& rows, int prevColumn);
     void selectTracksByPosition(const QList<int>& positions, int prevColum);
 
     double getBackgroundColorOpacity() const {

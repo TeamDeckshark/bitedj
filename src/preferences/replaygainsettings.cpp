@@ -42,9 +42,17 @@ void ReplayGainSettings::setInitialDefaultBoost(int value) {
                 ConfigValue(value));
 }
 
+// ReplayGain is off on BiteDJ, whatever mixxx.cfg says: a unit keeps its own
+// mixxx.cfg across firmware updates, so the shipped file alone would never
+// reach the ones already in the field. Measuring a track means reading the
+// whole file off the USB stick as soon as it is loaded, at full speed, and on
+// the Pi 3 that stick shares the one USB host with the controller's audio and
+// MIDI. With a deck playing and the jog in use, those reads were measured
+// starving the audio output into xruns (October 2026). Nothing on the device
+// exposes the setting. Off means no analysis and no gain applied: every track
+// plays at the level it was mastered at, adjusted by trim alone.
 bool ReplayGainSettings::getReplayGainEnabled() const {
-    return m_pConfig->getValue(
-        ConfigKey(kConfigKey, kReplayGainEnabled), true);
+    return false;
 }
 
 void ReplayGainSettings::setReplayGainEnabled(bool value) {
@@ -55,9 +63,9 @@ void ReplayGainSettings::setReplayGainEnabled(bool value) {
     }
 }
 
+// Off for the same reason as getReplayGainEnabled() above.
 bool ReplayGainSettings::getReplayGainAnalyzerEnabled() const {
-    return m_pConfig->getValue(
-        ConfigKey(kConfigKey, kReplayGainAnalyzerEnabled), true);
+    return false;
 }
 
 void ReplayGainSettings::setReplayGainAnalyzerEnabled(bool value) {

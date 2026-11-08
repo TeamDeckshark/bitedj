@@ -126,6 +126,15 @@ class TreeItem final {
         return m_bold;
     }
 
+    /// Bite DJ: what the item stands for is still being read (off a USB drive,
+    /// typically). The sidebar draws a spinner in place of its icon meanwhile.
+    void setLoading(bool loading) {
+        m_loading = loading;
+    }
+    bool isLoading() const {
+        return m_loading;
+    }
+
   private:
     explicit TreeItem(
             LibraryFeature* pFeature,
@@ -147,4 +156,5 @@ class TreeItem final {
     QVariant m_data;
     QIcon m_icon;
     bool m_bold;
+    bool m_loading;
 };

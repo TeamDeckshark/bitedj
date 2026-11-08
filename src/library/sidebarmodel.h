@@ -3,6 +3,7 @@
 #include <QAbstractItemModel>
 #include <QList>
 #include <QModelIndex>
+#include <QPersistentModelIndex>
 #include <QVariant>
 
 class LibraryFeature;
@@ -18,6 +19,8 @@ class SidebarModel : public QAbstractItemModel {
     enum Roles {
         IconNameRole = Qt::UserRole + 1,
         DataRole,
+        /// Bite DJ: true while the item is marked TreeItem::isLoading().
+        LoadingRole,
     };
     Q_ENUM(Roles);
 
@@ -87,6 +90,8 @@ class SidebarModel : public QAbstractItemModel {
 
   private slots:
     void slotPressedUntilClickedTimeout();
+    /// Advances the spinner of every loading item that is on screen.
+    void slotLoadingAnimationTick();
 
   private:
     QModelIndex translateSourceIndex(const QModelIndex& parent);
@@ -111,4 +116,13 @@ class SidebarModel : public QAbstractItemModel {
 
     void startPressedUntilClickedTimer(const QModelIndex& pressedIndex);
     void stopPressedUntilClickedTimer();
+
+    /// Bite DJ: a tree item marked as loading (TreeItem::setLoading) shows a
+    /// spinner instead of its icon. The items are picked up as the view asks
+    /// for their icon, so only the ones on screen are animated; an item that
+    /// is no longer loading drops out on the next frame.
+    void animateLoadingIndex(const QModelIndex& index) const;
+    QTimer* const m_pLoadingAnimationTimer;
+    mutable QList<QPersistentModelIndex> m_loadingIndexes;
+    int m_loadingFrame;
 };

@@ -169,7 +169,19 @@ DlgAbout::DlgAbout()
             << "Iron-Wolf"
             << "endcredits33"
             << "cucucat"
-            << "Laura Mora";
+            << "Laura Mora"
+            << "Aleph Mota"
+            << "Carl Hedgren"
+            << "vespadj"
+            << "Spgamer0407"
+            << "marcelomar21"
+            << "Felix Schnabel"
+            << "Kyohei Okuno"
+            << "MelGrubb"
+            << "nomiapps"
+            << "sergioalexo"
+            << "Ram&oacute;n Arnau"
+            << "Kameron Markham";
 
     QStringList specialThanks;
     specialThanks

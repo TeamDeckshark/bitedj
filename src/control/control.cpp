@@ -1,5 +1,6 @@
 #include "control/control.h"
 
+#include "control/controlnotifier.h"
 #include "control/controlobject.h"
 #include "moc_control.cpp"
 #include "util/stat.h"
@@ -284,6 +285,52 @@ void ControlDoublePrivate::set(double value, QObject* pSender) {
     } else {
         setInner(value, pSender);
     }
+}
+
+void ControlDoublePrivate::enableDeferredNotify() {
+    if (m_deferredNotifyEnabled.load(std::memory_order_acquire)) {
+        return;
+    }
+    // The notifier holds a weak reference, so it needs the shared pointer
+    // the registry hands out rather than `this`.
+    const QSharedPointer<ControlDoublePrivate> pThis =
+            getControl(m_key, ControlFlag::NoAssertIfMissing);
+    VERIFY_OR_DEBUG_ASSERT(pThis.data() == this) {
+        return;
+    }
+    ControlNotifier::instance().add(pThis);
+    m_deferredNotifyEnabled.store(true, std::memory_order_release);
+}
+
+void ControlDoublePrivate::setDeferredNotify(double value, QObject* pSender) {
+    if (!m_deferredNotifyEnabled.load(std::memory_order_acquire) ||
+            m_confirmRequired || m_bPersistInConfiguration || m_bTrack) {
+        set(value, pSender);
+        return;
+    }
+    // Same filtering as set(); the QSharedPointer copy is an atomic refcount.
+    QSharedPointer<ControlNumericBehavior> pBehavior = m_pBehavior;
+    if (!pBehavior.isNull() && !pBehavior->setFilter(&value)) {
+        return;
+    }
+    if (m_bIgnoreNops && get() == value) {
+        return;
+    }
+    m_value.setValue(value);
+    m_pDeferredSender.store(pSender, std::memory_order_relaxed);
+    // Wake the notifier only on the first set since its last pass. Later sets
+    // before it runs fold into that one emit, which reads the newest value.
+    if (!m_deferredNotifyPending.exchange(true, std::memory_order_acq_rel)) {
+        ControlNotifier::instance().wake();
+    }
+}
+
+void ControlDoublePrivate::emitDeferredNotify() {
+    if (!m_deferredNotifyPending.exchange(false, std::memory_order_acq_rel)) {
+        return;
+    }
+    QObject* pSender = m_pDeferredSender.load(std::memory_order_relaxed);
+    emit valueChanged(get(), pSender);
 }
 
 void ControlDoublePrivate::setAndConfirm(double value, QObject* pSender) {

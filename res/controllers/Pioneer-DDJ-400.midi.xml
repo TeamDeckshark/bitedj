@@ -463,23 +463,23 @@
             </control>
 
             <control>
-                <description>RELOOP/EXIT (DECK1) - press - (loop off) Reloop, (loop on) Loop exit</description>
+                <description>RELOOP/EXIT (DECK1) - press - (loop on) Loop exit, (loop off) Reloop, (no loop yet) 4 beat loop</description>
                 <group>[Channel1]</group>
-                <key>reloop_toggle</key>
+                <key>PioneerDDJ400.reloopExit</key>
                 <status>0x90</status>
                 <midino>0x4D</midino>
                 <options>
-                    <Normal/>
+                    <Script-Binding/>
                 </options>
             </control>
             <control>
-                <description>RELOOP/EXIT (DECK2) - press - (loop off) Reloop, (loop on) Loop exit</description>
+                <description>RELOOP/EXIT (DECK2) - press - (loop on) Loop exit, (loop off) Reloop, (no loop yet) 4 beat loop</description>
                 <group>[Channel2]</group>
-                <key>reloop_toggle</key> <!-- check if correct -->
+                <key>PioneerDDJ400.reloopExit</key>
                 <status>0x91</status>
                 <midino>0x4D</midino>
                 <options>
-                    <Normal/>
+                    <Script-Binding/>
                 </options>
             </control>
 
@@ -920,26 +920,10 @@
                 </options>
             </control>
 
-            <control>
-                <description>HEADPHONES MIXING - rotate - Monitor Balance</description>
-                <group>[Master]</group>
-                <key>headMix</key>
-                <status>0xB6</status>
-                <midino>0x2C</midino>
-                <options>
-                    <fourteen-bit-lsb/>
-                </options>
-            </control>
-            <control>
-                <description>HEADPHONES MIXING - rotate - Monitor Balance</description>
-                <group>[Master]</group>
-                <key>headMix</key>
-                <status>0xB6</status>
-                <midino>0x0C</midino>
-                <options>
-                    <fourteen-bit-msb/>
-                </options>
-            </control>
+            <!-- HEADPHONES MIXING knob is handled by DDJ-400 hardware, not Mixxx.
+                 The DDJ-400 blends channels 1-2 (Master) and 3-4 (Headphones) in hardware.
+                 Mixxx should always send pure PFL to channels 3-4, so we don't map this knob.
+            -->
 
             <control>
                 <description>HEADPHONES LEVEL - rotate - Headphone gain</description>

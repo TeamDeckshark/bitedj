@@ -80,13 +80,11 @@ QString HeaderViewState::saveState() const {
     int size = m_view_state.ByteSize();
 #endif
     QByteArray array(size, '\0');
-    if(m_view_state.SerializeToArray(array.data(), size)) {
-        return QString(array.toBase64());
-    } else {
-        qWarning() << "Could not serialize m_view_state to QByteArray of size "
-                   << array.size();
-        return "";
+    VERIFY_OR_DEBUG_ASSERT(m_view_state.SerializeToArray(array.data(), size)) {
+        qWarning() << "Failed to serialize header view state";
+        return {};
     }
+    return QString(array.toBase64());
 }
 
 void HeaderViewState::restoreState(WTrackTableViewHeader* pHeaders) {
@@ -223,7 +221,8 @@ void WTrackTableViewHeader::setModel(QAbstractItemModel* pModel) {
     // Here we can override values to prevent restoring corrupt values from database
     setSectionsMovable(true);
 
-    // Setting true in the next line causes Bug #925619 at least with Qt 4.6.1
+    // Setting true in the next line causes Bug https://github.com/mixxxdj/mixxx/issues/6265
+    // at least with Qt 4.6.1
     setCascadingSectionResizes(false);
 
     setMinimumSectionSize(WTTVH_MINIMUM_SECTION_SIZE);
@@ -295,7 +294,7 @@ void WTrackTableViewHeader::setModel(QAbstractItemModel* pModel) {
         pAction->setDefaultWidget(pCheckBox.get());
         // Pressing Return triggers the action but that would not toggle the
         // checkbox, we need to do this ourselves while the menu is being closed.
-        connect(pAction,
+        connect(pAction.get(),
                 &QAction::triggered,
                 this,
                 [pCheckBox{pCheckBox.get()}] {
@@ -407,8 +406,8 @@ void WTrackTableViewHeader::slotReapplyColumnControl() {
 }
 
 void WTrackTableViewHeader::clearActions() {
-    // The QActions are parented to the menu, so clearing deletes them. Since
-    // they are deleted we don't have to disconnect their signals from the
+    // The Q[Widget]Actions are parented to the menu, QMenu::clear() deletes them.
+    // Since they are deleted we don't have to disconnect their signals from the
     // mapper.
     m_columnCheckBoxes.clear();
     m_menu.clear();

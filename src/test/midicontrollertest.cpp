@@ -1,9 +1,12 @@
 #include <gmock/gmock.h>
 
+#include <QDir>
+#include <QFileInfo>
 #include <QScopedPointer>
 
 #include "control/controlpotmeter.h"
 #include "control/controlpushbutton.h"
+#include "controllers/legacycontrollermappingfilehandler.h"
 #include "controllers/midi/legacymidicontrollermapping.h"
 #include "controllers/midi/midicontroller.h"
 #include "controllers/midi/midimessage.h"
@@ -612,6 +615,63 @@ TEST_F(MidiControllerTest, ReceiveMessage_PotMeterCO_14BitPitchBend) {
     // LSB by 1 is greater than the middle value.
     receivedShortMessage(MidiOpCode::PitchBendChange, channel, 0x01, 0x40);
     EXPECT_LT(kMiddleValue, potmeter.get());
+}
+
+// Field report, Nov 2026: the FLX4 sends nothing about where its faders sit
+// until one moves, so [Master],crossfader starts centred whatever the hardware
+// says. The crossfader had been parked at the right end, and the first stray
+// message from it (MSB 0x7F, LSB 0x54) slammed the software crossfader right
+// and muted deck 1 mid-set. With soft takeover the hardware has to meet the
+// software value before it takes over.
+TEST_F(MidiControllerTest, Flx4CrossfaderNeedsToCatchUpFromCentre) {
+    mixxx::Time::setTestMode(true);
+    const QDir mappingDir(getTestDir().filePath(QStringLiteral("../../res/controllers/")));
+    auto pMapping = std::dynamic_pointer_cast<LegacyMidiControllerMapping>(
+            LegacyControllerMappingFileHandler::loadMapping(
+                    QFileInfo(mappingDir.filePath(
+                            QStringLiteral("Pioneer-DDJ-FLX4.midi.xml"))),
+                    mappingDir));
+    ASSERT_TRUE(pMapping);
+
+    const ConfigKey key(QStringLiteral("[Master]"), QStringLiteral("crossfader"));
+    ControlPotmeter crossfader(key, -1.0, 1.0);
+    m_pController->setMapping(pMapping);
+    ASSERT_DOUBLE_EQ(0.0, crossfader.get());
+
+    constexpr unsigned char kStatus = 0xB6;
+    constexpr unsigned char kMsb = 0x1F;
+    constexpr unsigned char kLsb = 0x3F;
+    int millis = 10000;
+    auto send = [&](unsigned char msb, unsigned char lsb) {
+        millis += 20;
+        mixxx::Time::setTestElapsedTime(mixxx::Duration::fromMillis(millis));
+        receivedShortMessage(kStatus, kMsb, msb);
+        receivedShortMessage(kStatus, kLsb, lsb);
+    };
+
+    // The message from the set, then the fader drifting back towards the
+    // centre without reaching it: all on the far side, all ignored.
+    send(0x7F, 0x54);
+    EXPECT_DOUBLE_EQ(0.0, crossfader.get());
+    for (unsigned char msb : {0x7F, 0x70, 0x60, 0x50, 0x45}) {
+        send(msb, 0x00);
+        EXPECT_DOUBLE_EQ(0.0, crossfader.get()) << "msb " << int(msb);
+    }
+
+    // Crossing the software position hands control to the hardware...
+    send(0x3E, 0x00);
+    EXPECT_LT(crossfader.get(), 0.0);
+    EXPECT_GT(crossfader.get(), -0.1);
+
+    // ...which it then follows, including a fast cut to either end.
+    send(0x20, 0x00);
+    EXPECT_NEAR(-0.5, crossfader.get(), 0.01);
+    send(0x7F, 0x7F);
+    EXPECT_DOUBLE_EQ(1.0, crossfader.get());
+    send(0x00, 0x00);
+    EXPECT_DOUBLE_EQ(-1.0, crossfader.get());
+
+    mixxx::Time::setTestMode(false);
 }
 
 TEST_F(MidiControllerTest, JSInputHandler_BindHandler) {

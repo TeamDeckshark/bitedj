@@ -34,11 +34,6 @@ bool FolderTreeModel::hasChildren(const QModelIndex& parent) const {
     VERIFY_OR_DEBUG_ASSERT(pItem) {
         return false;
     }
-    // For Quick Link node we simply return the row count.
-    // That way we always have the real (uncached) state.
-    if (pItem->getData().toString() == QUICK_LINK_NODE) {
-        return rowCount(parent) > 0;
-    }
     // For the 'Removable Devices' node we always return true so WLibrarySidebar
     // thinks the node is expandable and any attempt to expand it will invoke
     // LibraryFeature::onLazyChildExpandation() and update the tree.

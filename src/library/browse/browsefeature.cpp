@@ -5,7 +5,6 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QSet>
-#include <QStandardPaths>
 #include <QStringList>
 #include <memory>
 
@@ -22,10 +21,6 @@
 namespace {
 
 const QString kViewName = QStringLiteral("BROWSEHOME");
-
-const QString kQuickLinksSeparator = QStringLiteral("-+-");
-
-const ConfigKey kQuickLinksCfgKey = ConfigKey("[Browse]", "QuickLinks");
 
 #if defined(__LINUX__)
 const QStringList removableDriveRootPaths() {
@@ -78,18 +73,6 @@ BrowseFeature::BrowseFeature(
             this,
             &BrowseFeature::invalidateRightClickIndex);
 
-    m_pAddQuickLinkAction = new QAction(tr("Add to Quick Links"),this);
-    connect(m_pAddQuickLinkAction,
-            &QAction::triggered,
-            this,
-            &BrowseFeature::slotAddQuickLink);
-
-    m_pRemoveQuickLinkAction = new QAction(tr("Remove from Quick Links"),this);
-    connect(m_pRemoveQuickLinkAction,
-            &QAction::triggered,
-            this,
-            &BrowseFeature::slotRemoveQuickLink);
-
     m_pAddtoLibraryAction = new QAction(tr("Add to Library"),this);
     connect(m_pAddtoLibraryAction,
             &QAction::triggered,
@@ -112,8 +95,6 @@ BrowseFeature::BrowseFeature(
 
     // The invisible root item of the child model
     std::unique_ptr<TreeItem> pRootItem = TreeItem::newRoot(this);
-
-    m_pQuickLinkItem = pRootItem->appendChild(tr("Quick Links"), QUICK_LINK_NODE);
 
     // Create the 'devices' shortcut
 #if defined(__WINDOWS__)
@@ -148,8 +129,9 @@ BrowseFeature::BrowseFeature(
     pRootItem->appendChild(tr("Removable Devices"), DEVICE_NODE);
 
     // Bite DJ: no root directory node. Nothing a DJ loads lives outside the
-    // removable drives (and the Quick Links below), so a "/" node offers only
-    // the appliance's own filesystem to get lost in.
+    // removable drives, so a "/" node offers only the appliance's own
+    // filesystem to get lost in. No Quick Links either, for the same reason:
+    // they only ever pointed into that filesystem.
 #endif
 
     // Just a word about how the TreeItem objects are used for the BrowseFeature:
@@ -164,14 +146,6 @@ BrowseFeature::BrowseFeature(
     // Once the TreeItem objects are inserted to models, the models take care of their
     // deletion.
 
-    loadQuickLinks();
-
-    for (const QString& quickLinkPath : std::as_const(m_quickLinkList)) {
-        QString name = extractNameFromPath(quickLinkPath);
-        qDebug() << "Appending Quick Link: " << name << "---" << quickLinkPath;
-        m_pQuickLinkItem->appendChild(name, quickLinkPath);
-    }
-
     // initialize the model
     m_pSidebarModel->setRootItem(std::move(pRootItem));
 }
@@ -181,25 +155,6 @@ BrowseFeature::~BrowseFeature() {
 
 QVariant BrowseFeature::title() {
     return QVariant(tr("Computer"));
-}
-
-void BrowseFeature::slotAddQuickLink() {
-    const QString path = getLastRightClickedPath();
-    if (path.isEmpty()) {
-        return;
-    }
-
-    const QString name = extractNameFromPath(path);
-
-    const QModelIndex parent = m_pSidebarModel->index(m_pQuickLinkItem->parentRow(), 0);
-    std::vector<std::unique_ptr<TreeItem>> rows;
-    // TODO() Use here std::span to get around the heap allocation of
-    // std::vector for a single element.
-    rows.push_back(std::make_unique<TreeItem>(name, path));
-    m_pSidebarModel->insertTreeItemRows(std::move(rows), m_pQuickLinkItem->childRows(), parent);
-
-    m_quickLinkList.append(path);
-    saveQuickLinks();
 }
 
 void BrowseFeature::slotAddToLibrary() {
@@ -238,26 +193,6 @@ void BrowseFeature::slotLibraryScanStarted() {
 
 void BrowseFeature::slotLibraryScanFinished() {
     m_pAddtoLibraryAction->setEnabled(true);
-}
-
-void BrowseFeature::slotRemoveQuickLink() {
-    const QString path = getLastRightClickedPath();
-    if (path.isEmpty()) {
-        return;
-    }
-
-    int quickLinkIndex = m_quickLinkList.indexOf(path);
-    if (quickLinkIndex == -1) {
-        return;
-    }
-
-    // Quick Links' parent is QModelIndex(), so we can call this without parent
-    // and still get the QAbstractItemModel::hasIndex() match.
-    QModelIndex parent = m_pSidebarModel->index(m_pQuickLinkItem->parentRow(), 0);
-    m_pSidebarModel->removeRow(quickLinkIndex, parent);
-
-    m_quickLinkList.removeAt(quickLinkIndex);
-    saveQuickLinks();
 }
 
 void BrowseFeature::slotRefreshDirectoryTree() {
@@ -312,7 +247,7 @@ void BrowseFeature::activateChild(const QModelIndex& index) {
     if (path.isEmpty()) {
         return;
     }
-    if (path == QUICK_LINK_NODE || path == DEVICE_NODE) {
+    if (path == DEVICE_NODE) {
         emit saveModelState();
         // Clear the tracks view
         m_browseModel.setPath({});
@@ -343,7 +278,7 @@ void BrowseFeature::activateChild(const QModelIndex& index) {
     }
     emit showTrackModel(&m_proxyModel);
     // Search is restored in Library::slotShowTrackModel, disable it where it's useless
-    if (path == QUICK_LINK_NODE || path == DEVICE_NODE) {
+    if (path == DEVICE_NODE) {
         emit disableSearch();
     }
     emit enableCoverArtDisplay(false);
@@ -357,7 +292,7 @@ void BrowseFeature::onRightClickChild(const QPoint& globalPos, const QModelIndex
 
     QString path = pItem->getData().toString();
 
-    if (path == QUICK_LINK_NODE || path == DEVICE_NODE) {
+    if (path == DEVICE_NODE) {
         return;
     }
 
@@ -366,14 +301,6 @@ void BrowseFeature::onRightClickChild(const QPoint& globalPos, const QModelIndex
     m_lastRightClickedIndex = index;
 
     QMenu menu(m_pSidebarWidget);
-
-    if (pItem->parent()->getData().toString() == QUICK_LINK_NODE ||
-            m_quickLinkList.contains(path)) {
-        // This is a QuickLink or path is in the Quick Link list
-        menu.addAction(m_pRemoveQuickLinkAction);
-    } else {
-        menu.addAction(m_pAddQuickLinkAction);
-    }
 
     // TODO Check if we already watch this path or a parent and don't show or
     // disable this action.
@@ -481,8 +408,7 @@ void BrowseFeature::onLazyChildExpandation(const QModelIndex& index) {
 
     QString path = pItem->getData().toString();
 
-    // If the item is a built-in node, e.g., 'QuickLink' return
-    if (path.isEmpty() || path == QUICK_LINK_NODE) {
+    if (path.isEmpty()) {
         return;
     }
 
@@ -552,94 +478,6 @@ QString BrowseFeature::getRootViewHtml() const {
     html.append(QString("<h2>%1</h2>").arg(browseTitle));
     html.append(QString("<p>%1</p>").arg(browseSummary));
     return html;
-}
-
-void BrowseFeature::saveQuickLinks() {
-    m_pConfig->setValue<QString>(kQuickLinksCfgKey,
-            m_quickLinkList.join(kQuickLinksSeparator));
-}
-
-void BrowseFeature::loadQuickLinks() {
-    if (!m_pConfig->exists(kQuickLinksCfgKey)) {
-        // New profile, create default Quick Links
-        m_quickLinkList = getDefaultQuickLinks();
-    } else {
-        const QString quickLinks = m_pConfig->getValueString(
-                kQuickLinksCfgKey);
-        if (!quickLinks.isEmpty()) {
-            m_quickLinkList = quickLinks.split(kQuickLinksSeparator);
-        }
-    }
-}
-
-QString BrowseFeature::extractNameFromPath(const QString& spath) {
-    return QDir(spath).dirName();
-}
-
-QStringList BrowseFeature::getDefaultQuickLinks() const {
-    // Default configuration
-    QDir osMusicDir(QStandardPaths::writableLocation(
-            QStandardPaths::MusicLocation));
-    QDir osDocumentsDir(QStandardPaths::writableLocation(
-            QStandardPaths::DocumentsLocation));
-    QDir osHomeDir(QStandardPaths::writableLocation(
-            QStandardPaths::HomeLocation));
-    QDir osDesktopDir(QStandardPaths::writableLocation(
-            QStandardPaths::DesktopLocation));
-    QDir osDownloadsDir(osHomeDir);
-    // TODO(XXX) i18n -- no good way to get the download path. We could tr() it
-    // but the translator may not realize we want the usual name of the
-    // downloads folder.
-    bool downloadsExists = osDownloadsDir.cd("Downloads");
-
-    QStringList result;
-    bool osMusicDirIncluded = false;
-    bool osDownloadsDirIncluded = false;
-    bool osDesktopDirIncluded = false;
-    bool osDocumentsDirIncluded = false;
-    const auto rootDirs = m_pLibrary->trackCollectionManager()
-                                  ->internalCollection()
-                                  ->loadRootDirs();
-    for (mixxx::FileInfo fileInfo : rootDirs) {
-        // Skip directories we don't have permission to.
-        if (!Sandbox::canAccess(&fileInfo)) {
-            continue;
-        }
-        const auto dir = fileInfo.toQDir();
-        if (dir == osMusicDir) {
-            osMusicDirIncluded = true;
-        }
-        if (dir == osDownloadsDir) {
-            osDownloadsDirIncluded = true;
-        }
-        if (dir == osDesktopDir) {
-            osDesktopDirIncluded = true;
-        }
-        if (dir == osDocumentsDir) {
-            osDocumentsDirIncluded = true;
-        }
-        result << dir.canonicalPath() + "/";
-    }
-
-    if (!osMusicDirIncluded && Sandbox::canAccessDir(osMusicDir)) {
-        result << osMusicDir.canonicalPath() + "/";
-    }
-
-    if (downloadsExists && !osDownloadsDirIncluded &&
-            Sandbox::canAccessDir(osDownloadsDir)) {
-        result << osDownloadsDir.canonicalPath() + "/";
-    }
-
-    if (!osDesktopDirIncluded && Sandbox::canAccessDir(osDesktopDir)) {
-        result << osDesktopDir.canonicalPath() + "/";
-    }
-
-    if (!osDocumentsDirIncluded && Sandbox::canAccessDir(osDocumentsDir)) {
-        result << osDocumentsDir.canonicalPath() + "/";
-    }
-
-    qDebug() << "Default quick links:" << result;
-    return result;
 }
 
 void BrowseFeature::releaseBrowseThread() {

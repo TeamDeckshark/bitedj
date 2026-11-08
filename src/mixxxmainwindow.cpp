@@ -450,7 +450,7 @@ void MixxxMainWindow::initialize() {
     // Test for at least one output device. The Bite DJ replacement for the
     // legacy noOutputDlg modal is a single notification that returns Accepted
     // with continueClicked=true, so this loop fires once at most.
-    while (m_pCoreServices->getSoundManager()->getConfig().getOutputs().count() == 0) {
+    while (m_pCoreServices->getSoundManager()->getConfig().getOutputs().isEmpty()) {
         bool continueClicked = false;
         if (noOutputDlg(&continueClicked) != QDialog::Accepted) {
             exit(0);

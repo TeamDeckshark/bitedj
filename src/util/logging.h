@@ -80,6 +80,21 @@ class Logging {
         s_logLevel = logLevel;
     }
 
+    /// Bite DJ: caps what is echoed to stderr while mixxx.log is open, so a
+    /// supervisor capturing stderr (the firmware's /var/log/wm.log) gets only
+    /// what mixxx.log can't carry on its own instead of a second copy of every
+    /// line. Messages above the cap still go to the file. Has no effect if no
+    /// log file could be opened: stderr is then the only sink and gets
+    /// everything the log level allows. Call before initialize().
+    static void setStdErrLogLevel(LogLevel logLevel) {
+        s_stdErrLogLevelRequested = logLevel;
+    }
+
+    static bool stdErrEnabled(
+            LogLevel logLevel) {
+        return s_stdErrLogLevel >= logLevel;
+    }
+
     static void shutdown();
 
     static void flushLogFile();
@@ -101,6 +116,8 @@ class Logging {
     // then could safely be read from multiple threads.
     static LogLevel s_logLevel;
     static LogLevel s_logFlushLevel;
+    static LogLevel s_stdErrLogLevelRequested;
+    static LogLevel s_stdErrLogLevel;
 
     Logging() = delete;
 };

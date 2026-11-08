@@ -17,7 +17,8 @@ PortMidiController::PortMidiController(const PmDeviceInfo* inputDeviceInfo,
                                             : outputDeviceInfo->name)
                           : kUnknownControllerName),
           m_cReceiveMsg_index(0),
-          m_bInSysex(false) {
+          m_bInSysex(false),
+          m_bDeviceLost(false) {
     for (int k = 0; k < MIXXX_PORTMIDI_BUFFER_LEN; ++k) {
         m_midiBuffer[k] = {0, 0};
     }
@@ -55,6 +56,7 @@ int PortMidiController::open() {
 
     m_bInSysex = false;
     m_cReceiveMsg_index = 0;
+    m_bDeviceLost = false;
 
     if (m_pInputDevice && isInputDevice()) {
         qCInfo(m_logBase) << "PortMidiController: Opening"
@@ -144,7 +146,12 @@ bool PortMidiController::poll() {
     //qDebug() << "PortMidiController::poll()" << numEvents;
 
     if (numEvents < 0) {
-        qCWarning(m_logInput) << "PortMidi error:" << Pm_GetErrorText((PmError)numEvents);
+        // Polled every 5 ms: once the device is known to be gone, stay quiet
+        // until ControllerManager closes it rather than log 200 lines a second.
+        if (!m_bDeviceLost) {
+            qCWarning(m_logInput) << "PortMidi error:" << Pm_GetErrorText((PmError)numEvents);
+        }
+        checkDeviceLost(static_cast<PmError>(numEvents));
         return false;
     }
 
@@ -237,7 +244,18 @@ void PortMidiController::sendShortMsg(unsigned char status, unsigned char byte1,
                                           MidiUtils::channelFromStatus(status),
                                           MidiUtils::opCodeFromStatus(status));
         qCWarning(m_logOutput) << "PortMidi error:" << Pm_GetErrorText(err);
+        checkDeviceLost(err);
     }
+}
+
+void PortMidiController::checkDeviceLost(PmError err) {
+    if (err != pmHostError || m_bDeviceLost) {
+        return;
+    }
+    m_bDeviceLost = true;
+    qCWarning(m_logBase) << "PortMIDI device" << getName()
+                         << "is gone (host error); waiting for it to come back";
+    emit deviceLost();
 }
 
 void PortMidiController::sendBytes(const QByteArray& data) {
@@ -263,5 +281,6 @@ void PortMidiController::sendBytes(const QByteArray& data) {
         qCWarning(m_logOutput) << "Error sending SysEx message:"
                                << MidiUtils::formatSysexMessage(getName(), data);
         qCWarning(m_logOutput) << "PortMidi error:" << Pm_GetErrorText(err);
+        checkDeviceLost(err);
     }
 }

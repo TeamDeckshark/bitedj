@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QSharedPointer>
 #include <QString>
+#include <atomic>
 
 #include "control/controlbehavior.h"
 #include "control/controlvalue.h"
@@ -90,6 +91,19 @@ class ControlDoublePrivate : public QObject {
 
     // Sets the control value.
     void set(double value, QObject* pSender);
+    /// Bite DJ: registers this control with the ControlNotifier, after which
+    /// setDeferredNotify() hands its valueChanged() to that thread. Call from
+    /// a non-real-time thread, where the control is created.
+    void enableDeferredNotify();
+    /// Bite DJ: sets the value like set(), but leaves emitting valueChanged()
+    /// to the ControlNotifier thread, so the caller takes no Qt mutex. Meant
+    /// for the engine thread; see controlnotifier.h for which controls qualify.
+    /// Falls back to set() for a control that was not enabled, or that needs
+    /// confirmation, persistence or stat tracking.
+    void setDeferredNotify(double value, QObject* pSender);
+    /// Called on the ControlNotifier thread: emits valueChanged() with the
+    /// current value if a deferred set is pending.
+    void emitDeferredNotify();
     // directly sets the control value. Must be used from and only from the
     // ValueChangeRequest slot.
     void setAndConfirm(double value, QObject* pSender);
@@ -215,6 +229,11 @@ class ControlDoublePrivate : public QObject {
     ControlValueAtomic<double> m_defaultValue;
 
     QSharedPointer<ControlNumericBehavior> m_pBehavior;
+
+    // Deferred notification state (see setDeferredNotify()).
+    std::atomic<bool> m_deferredNotifyEnabled{false};
+    std::atomic<bool> m_deferredNotifyPending{false};
+    std::atomic<QObject*> m_pDeferredSender{nullptr};
 };
 
 /// The constant ControlDoublePrivate version is used as dummy for default

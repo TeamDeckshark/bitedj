@@ -15,6 +15,7 @@
 #include "moc_soundmanager.cpp"
 #include "soundio/sounddevice.h"
 #include "soundio/sounddevicenetwork.h"
+#include "soundio/enginecallbackprofiler.h"
 #include "soundio/sounddevicenotfound.h"
 #include "soundio/sounddeviceportaudio.h"
 #include "soundio/soundmanagerutil.h"
@@ -136,6 +137,10 @@ SoundManager::SoundManager(UserSettingsPointer pConfig,
             this,
             &SoundManager::logUnderflows);
     m_underflowLogTimer.start();
+    // Times the clock reference's callbacks and logs the slow ones with the
+    // underruns; in debug mode it also samples a callback that stalls.
+    mixxx::EngineCallbackProfiler::start(
+            CmdlineArgs::Instance().getLogLevel() >= mixxx::LogLevel::Debug);
 
     m_deviceWatchdogTimer.setInterval(kDeviceWatchdogIntervalMillis);
     m_deviceWatchdogTimer.setTimerType(Qt::CoarseTimer);
@@ -150,6 +155,14 @@ SoundManager::SoundManager(UserSettingsPointer pConfig,
         m_config.loadDefaults(this, SoundManagerConfig::ALL);
     }
     checkConfig();
+
+    // Initialize the engine sample rate from the validated, persisted sound
+    // configuration before VinylControlXwax instances are constructed. Audio
+    // devices update this control with their actual sample rate when opened,
+    // but vinyl control inputs are configured before that happens.
+    ControlObject::set(ConfigKey(kAppGroup, QStringLiteral("samplerate")),
+            m_config.getSampleRate());
+
     // Don't write config to disk, yet -- it may be reset to defaults in case
     // previously configured devices were not found.
     // Write new config after MixxxMainWindow::noOutputDlg where the user has
@@ -161,6 +174,7 @@ SoundManager::~SoundManager() {
     m_underflowLogTimer.stop();
     // Report whatever was counted but not logged yet.
     logUnderflows();
+    mixxx::EngineCallbackProfiler::stop();
 
     // Clean up devices.
     const bool sleepAfterClosing = false;
@@ -902,6 +916,7 @@ void SoundManager::logUnderflows() {
             &m_networkUnderflowCodes,
             &m_networkUnderflowTotalCount,
             "Network stream underruns (not audible)");
+    mixxx::EngineCallbackProfiler::drainAndLog();
 }
 
 void SoundManager::processUnderflowHappened(SINT framesPerBuffer) {

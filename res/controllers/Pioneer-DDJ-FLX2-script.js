@@ -112,7 +112,7 @@ PioneerDDJFLX2.beta = PioneerDDJFLX2.alpha/32;
 PioneerDDJFLX2.fastSeekScale = 150;
 PioneerDDJFLX2.bendScale = 0.8;
 
-PioneerDDJFLX2.tempoRanges = [0.06, 0.10, 0.16, 0.25];
+PioneerDDJFLX2.tempoRanges = [0.08, 0.10, 0.16, 0.25];
 
 PioneerDDJFLX2.shiftButtonDown = [false, false];
 
@@ -425,7 +425,7 @@ PioneerDDJFLX2.beatFxChannel = function(_channel, control, value, _status, group
 //
 
 PioneerDDJFLX2.toggleLoopAdjustIn = function(channel, _control, value, _status, group) {
-    if (value === 0 || engine.getValue(group, "loop_enabled" === 0)) {
+    if (value === 0 || engine.getValue(group, "loop_enabled") === 0) {
         return;
     }
     PioneerDDJFLX2.loopAdjustIn[channel] = !PioneerDDJFLX2.loopAdjustIn[channel];
@@ -433,7 +433,7 @@ PioneerDDJFLX2.toggleLoopAdjustIn = function(channel, _control, value, _status, 
 };
 
 PioneerDDJFLX2.toggleLoopAdjustOut = function(channel, _control, value, _status, group) {
-    if (value === 0 || engine.getValue(group, "loop_enabled" === 0)) {
+    if (value === 0 || engine.getValue(group, "loop_enabled") === 0) {
         return;
     }
     PioneerDDJFLX2.loopAdjustOut[channel] = !PioneerDDJFLX2.loopAdjustOut[channel];

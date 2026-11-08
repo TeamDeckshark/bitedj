@@ -102,20 +102,30 @@ class TrackAnalysisScheduler : public QObject {
     // that runs the TrackAnalysisScheduler.
     class Worker {
       public:
-        explicit Worker(AnalyzerThread::Pointer thread = AnalyzerThread::NullPointer())
-            : m_thread(std::move(thread)),
-              m_analyzerProgress(kAnalyzerProgressUnknown) {
+        explicit Worker(AnalyzerThread::Pointer pThread = AnalyzerThread::NullPointer())
+                : m_pThread(std::move(pThread)),
+                  m_analyzerProgress(kAnalyzerProgressUnknown) {
         }
         Worker(const Worker&) = delete;
         Worker(Worker&&) = default;
 
-        operator bool() const {
-            return static_cast<bool>(m_thread);
+        ~Worker() {
+            if (m_pThread) {
+                m_pThread->stop();
+                bool success = m_pThread->wait(5000); // 5 s
+                DEBUG_ASSERT(success);
+                m_pThread->wait();
+                delete m_pThread.release();
+            }
+        }
+
+        bool hasThread() const {
+            return static_cast<bool>(m_pThread);
         }
 
         AnalyzerThread* thread() const {
-            DEBUG_ASSERT(m_thread);
-            return m_thread.get();
+            DEBUG_ASSERT(m_pThread);
+            return m_pThread.get();
         }
 
         AnalyzerProgress analyzerProgress() const {
@@ -123,8 +133,8 @@ class TrackAnalysisScheduler : public QObject {
         }
 
         bool submitNextTrack(const AnalyzerTrack& track) {
-            DEBUG_ASSERT(m_thread);
-            return m_thread->submitNextTrack(std::move(track));
+            DEBUG_ASSERT(m_pThread);
+            return m_pThread->submitNextTrack(std::move(track));
         }
 
         // Records what this worker is analyzing so the scheduler can target it
@@ -148,8 +158,8 @@ class TrackAnalysisScheduler : public QObject {
         // Asks the worker thread to abort its current track (see
         // AnalyzerThread::cancelTrack). No-op if the worker is idle.
         void cancelSubmittedTrack() {
-            if (m_thread && m_submittedTrackId.isValid()) {
-                m_thread->cancelTrack(m_submittedTrackId);
+            if (m_pThread && m_submittedTrackId.isValid()) {
+                m_pThread->cancelTrack(m_submittedTrackId);
             }
         }
 
@@ -159,37 +169,37 @@ class TrackAnalysisScheduler : public QObject {
         }
 
         void suspendThread() {
-            if (m_thread) {
-                m_thread->suspend();
+            if (m_pThread) {
+                m_pThread->suspend();
             }
         }
 
         void resumeThread() {
-            if (m_thread) {
-                m_thread->resume();
+            if (m_pThread) {
+                m_pThread->resume();
             }
         }
 
         void stopThread() {
-            if (m_thread) {
-                m_thread->stop();
+            if (m_pThread) {
+                m_pThread->stop();
             }
         }
 
         void onAnalyzerProgress(AnalyzerProgress analyzerProgress) {
-            DEBUG_ASSERT(m_thread);
+            DEBUG_ASSERT(m_pThread);
             m_analyzerProgress = analyzerProgress;
         }
 
         void onThreadExit() {
-            DEBUG_ASSERT(m_thread);
-            m_thread.reset();
+            DEBUG_ASSERT(m_pThread);
+            m_pThread.reset();
             m_analyzerProgress = kAnalyzerProgressUnknown;
             forgetSubmittedTrack();
         }
 
       private:
-        AnalyzerThread::Pointer m_thread;
+        AnalyzerThread::Pointer m_pThread;
         AnalyzerProgress m_analyzerProgress;
         TrackId m_submittedTrackId;
         QString m_submittedTrackLocation;

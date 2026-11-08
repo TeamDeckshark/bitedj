@@ -377,6 +377,12 @@ void WaveformWidgetRenderer::setPassThroughEnabled(bool enabled) {
 }
 
 void WaveformWidgetRenderer::resizeRenderer(int width, int height, float devicePixelRatio) {
+    // WWaveformViewer::showEvent calls this on every return to the Play page
+    // with the same fixed deck size. Rebuilding every cue/loop mark image and
+    // marking every renderer dirty there only delays the first visible frame.
+    if (m_width == width && m_height == height && m_devicePixelRatio == devicePixelRatio) {
+        return;
+    }
     m_width = width;
     m_height = height;
     m_devicePixelRatio = devicePixelRatio;

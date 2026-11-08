@@ -492,7 +492,7 @@ QString insertCrate(
 
 QString parseDatabase(mixxx::DbConnectionPoolPtr dbConnectionPool, TreeItem* databaseItem) {
     QString databaseName = databaseItem->getLabel();
-    QString databaseFilePath = databaseItem->getData().toList()[0].toString();
+    QString databaseFilePath = databaseItem->getData().toList().at(0).toString();
     QDir databaseDir = QFileInfo(databaseFilePath).dir();
 
     QDir databaseRootDir = QDir(databaseDir);

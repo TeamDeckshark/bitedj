@@ -1,3 +1,4 @@
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QtDebug>
@@ -214,7 +215,7 @@ TEST_F(SoundSourceProxyTest, openEmptyFile) {
 
         // Retrieving the file's name after opening it is required to actually
         // create a named file on Linux.
-        const auto tmpFileName = tmpFile.fileName();
+        const auto tmpFileName = QFileInfo(tmpFile).canonicalFilePath();
         ASSERT_TRUE(!tmpFileName.isEmpty());
 
         tmpFile.close();
@@ -627,11 +628,15 @@ TEST_F(SoundSourceProxyTest, seekBoundaries) {
                 const SINT sampleCount =
                         pSeekReadSource->getSignalInfo().frames2samples(
                                 seekSampleFrames.frameLength());
-                expectDecodedSamplesEqual(
-                        sampleCount,
+                expectDecodedSamplesEqual(sampleCount,
                         &contReadData[0],
                         &seekReadData[0],
-                        "Decoding mismatch after seeking");
+                        QString("Decoding mismatch after seeking [%1 -> %2]")
+                                .arg(QString::number(
+                                             readFrameIndexRange.start()),
+                                        QString::number(
+                                                readFrameIndexRange.end()))
+                                .toLatin1());
             }
         }
     }

@@ -124,6 +124,15 @@ class TrackModel {
     // Gets the track ID of the track at the given QModelIndex
     virtual TrackId getTrackId(const QModelIndex& index) const = 0;
 
+    /// True when getTrackId() imports the track into the internal library
+    /// first (external libraries, Browse): a metadata read off the source
+    /// drive plus database writes, per row. The ids it returns don't match
+    /// getTrackRows() either, which works on the model's own ids. Views must
+    /// not call it just to keep a selection; use getTrackLocation() instead.
+    virtual bool trackIdRequiresImport() const {
+        return false;
+    }
+
     /// Verify that the file backing the track at `index` still exists before a
     /// load is attempted. Filesystem-backed models (the Computer/USB browser)
     /// override this to flag the row in the missing-track colour and refuse the

@@ -1,5 +1,6 @@
 #include "controllers/controllermanager.h"
 
+#include <QFile>
 #include <QSet>
 #include <QThread>
 
@@ -70,6 +71,46 @@ QFileInfo findMappingFile(const QString& pathOrFilename, const QStringList& path
 // kept for backwards compatibility.
 const QString kSettingsGroup = QLatin1String("[ControllerPreset]");
 
+// Bite DJ: how often to look for a lost controller's device. Same pace as the
+// audio side's recovery (AudioDeviceSettings), which is waiting on the same
+// USB device: the FLX4 carries both.
+constexpr int kRecoveryIntervalMs = 3000;
+
+// Bite DJ: whether the ALSA sequencer has a port for this controller again.
+// PortMidi names an ALSA device after its sequencer port ("DDJ-FLX4 MIDI 1"),
+// and /proc/asound/seq/clients lists every port as `Port   0 : "<name>"`. It is
+// read rather than re-enumerating PortMidi on every tick, because a PortMidi
+// re-enumeration tears down and reopens every controller, the ones still
+// working included. Where the list can't be read, say yes and let
+// setUpDevices find out.
+bool controllerPortPresent(const QString& name) {
+#ifdef __LINUX__
+    QFile clients(QStringLiteral("/proc/asound/seq/clients"));
+    if (!clients.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return true;
+    }
+    const QString text = QString::fromUtf8(clients.readAll());
+    for (const QString& line : text.split(QChar('\n'))) {
+        if (!line.trimmed().startsWith(QStringLiteral("Port"))) {
+            continue;
+        }
+        const int open = line.indexOf(QChar('"'));
+        const int close = line.lastIndexOf(QChar('"'));
+        if (open < 0 || close <= open + 1) {
+            continue;
+        }
+        const QString port = line.mid(open + 1, close - open - 1);
+        if (name.contains(port)) {
+            return true;
+        }
+    }
+    return false;
+#else
+    Q_UNUSED(name);
+    return true;
+#endif
+}
+
 } // anonymous namespace
 
 QString firstAvailableFilename(QSet<QString>& filenames,
@@ -100,7 +141,8 @@ ControllerManager::ControllerManager(UserSettingsPointer pConfig)
           // moves to its own thread below).
           m_pSoftTakeoverIndicator(std::make_unique<SoftTakeoverIndicator>()),
           m_pollTimer(this),
-          m_skipPoll(false) {
+          m_skipPoll(false),
+          m_recoveryTimer(this) {
     qRegisterMetaType<std::shared_ptr<LegacyControllerMapping>>(
             "std::shared_ptr<LegacyControllerMapping>");
 
@@ -113,6 +155,12 @@ ControllerManager::ControllerManager(UserSettingsPointer pConfig)
 
     m_pollTimer.setInterval(kPollInterval.toIntegerMillis());
     connect(&m_pollTimer, &QTimer::timeout, this, &ControllerManager::slotPollDevices);
+
+    m_recoveryTimer.setInterval(kRecoveryIntervalMs);
+    m_recoveryTimer.setTimerType(Qt::CoarseTimer);
+    connect(&m_recoveryTimer, &QTimer::timeout, this, [this]() {
+        attemptControllerRecovery();
+    });
 
     m_pThread = new QThread;
     m_pThread->setObjectName("Controller");
@@ -223,9 +271,88 @@ void ControllerManager::updateControllerList() {
 
     locker.relock();
     if (newDeviceList != m_controllers) {
+        const QList<Controller*> oldDeviceList = m_controllers;
         m_controllers = newDeviceList;
         locker.unlock();
+        for (Controller* pController : std::as_const(newDeviceList)) {
+            if (oldDeviceList.contains(pController)) {
+                continue; // already connected
+            }
+            // Queued: deviceLost() is raised from inside a send, which may be a
+            // script calling midi.sendShortMsg(), and handling it closes the
+            // controller and so its script engine. That has to wait until the
+            // engine has returned to the event loop.
+            connect(
+                    pController,
+                    &Controller::deviceLost,
+                    this,
+                    [this, pController = QPointer<Controller>(pController),
+                            name = pController->getName()]() {
+                        onControllerLost(pController, name);
+                    },
+                    Qt::QueuedConnection);
+        }
         emit devicesChanged();
+    }
+}
+
+void ControllerManager::onControllerLost(
+        const QPointer<Controller>& pController, const QString& name) {
+    // A dead handle is still polled every 5 ms and still written to by the
+    // mapping's timers, so close it now rather than when the device returns.
+    // It stays enabled in the config, which is what setUpDevices reopens from.
+    if (pController && pController->isOpen()) {
+        pController->close();
+    }
+    if (!m_lostControllers.contains(name)) {
+        m_lostControllers.insert(name);
+        qWarning() << "Controller" << name << "lost; reconnecting when it returns";
+        emit controllerLost(name);
+    }
+    pollIfAnyControllersOpen();
+    if (!m_recoveryTimer.isActive()) {
+        m_recoveryTimer.start();
+    }
+}
+
+void ControllerManager::forgetRecoveredControllers() {
+    const QList<Controller*> controllers = getControllers();
+    for (Controller* pController : controllers) {
+        const QString name = pController->getName();
+        if (!m_lostControllers.contains(name)) {
+            continue;
+        }
+        if (pController->isOpen()) {
+            m_lostControllers.remove(name);
+            qInfo() << "Controller" << name << "reconnected";
+            emit controllerRecovered(name);
+        } else if (!m_pConfig->getValue(
+                           ConfigKey("[Controller]", sanitizeDeviceName(name)), 0)) {
+            // Disabled by the DJ in the meantime; nothing to bring back.
+            m_lostControllers.remove(name);
+        }
+    }
+}
+
+void ControllerManager::attemptControllerRecovery() {
+    // A manual Rescan may already have done it.
+    forgetRecoveredControllers();
+    if (m_lostControllers.isEmpty()) {
+        m_recoveryTimer.stop();
+        return;
+    }
+    for (const QString& name : std::as_const(m_lostControllers)) {
+        if (!controllerPortPresent(name)) {
+            return; // still off the bus
+        }
+    }
+    // The same re-enumerate-and-reopen as Settings -> Devices -> Rescan. If a
+    // device came back but would not open, it stays lost and the next tick
+    // tries again.
+    slotSetUpDevices();
+    forgetRecoveredControllers();
+    if (m_lostControllers.isEmpty()) {
+        m_recoveryTimer.stop();
     }
 }
 

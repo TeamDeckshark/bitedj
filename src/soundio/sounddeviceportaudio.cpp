@@ -7,6 +7,7 @@
 #include <QtDebug>
 
 #include "control/controlobject.h"
+#include "soundio/enginecallbackprofiler.h"
 #include "sounddevicenetwork.h"
 #include "soundio/sounddevice.h"
 #include "soundio/soundmanager.h"
@@ -42,19 +43,6 @@ constexpr int kDriftReserve = 1;
 constexpr int kFifoSize = 2 * kDriftReserve + 1;
 
 constexpr int kCpuUsageUpdateRate = 30; // in 1/s, fits to display frame rate
-
-// Bite DJ: how many periods of output latency to request from ALSA on top of
-// the period being played. PortAudio's ALSA backend sizes the ring buffer as
-// one period plus the suggested latency, so requesting a single period (what
-// Mixxx does everywhere else) gives the minimum ring of two periods. With
-// the appliance's 256-frame period that left one period, 5.8 ms, between the
-// engine missing a callback deadline and an audible underrun.
-//
-// Two periods of latency give a three-period ring: 11.6 ms of headroom for
-// +5.8 ms of output latency, while the callback and therefore every control
-// change still runs every 5.8 ms. Verified against PortAudio 19.7 on ALSA hw:
-// latency 1/2/3 periods -> buffer_size 512/768/1024 at period_size 256.
-constexpr double kAlsaLatencyPeriods = 2.0;
 
 // We warn only at invalid timing 3, since the first two
 // callbacks can be always wrong due to a setup/open jitter
@@ -265,17 +253,12 @@ SoundDeviceStatus SoundDevicePortAudio::open(bool isClkRefDevice, int syncBuffer
     // Fill out the rest of the info.
     m_outputParams.device = m_deviceId.portAudioIndex;
     m_outputParams.sampleFormat = paFloat32;
-    // The ring size depends on this, see kAlsaLatencyPeriods. JACK sizes its
-    // own buffers and the other APIs are not used on the appliance.
-    const double latencyPeriods = m_deviceTypeId == paALSA ? kAlsaLatencyPeriods : 1.0;
-    m_outputParams.suggestedLatency = latencyPeriods * bufferMSec / 1000.0;
+    m_outputParams.suggestedLatency = bufferMSec / 1000.0;
     m_outputParams.hostApiSpecificStreamInfo = nullptr;
 
     m_inputParams.device  = m_deviceId.portAudioIndex;
     m_inputParams.sampleFormat  = paFloat32;
-    // Matching the output keeps both directions of a duplex stream on the same
-    // period count.
-    m_inputParams.suggestedLatency = latencyPeriods * bufferMSec / 1000.0;
+    m_inputParams.suggestedLatency = bufferMSec / 1000.0;
     m_inputParams.hostApiSpecificStreamInfo = nullptr;
 
     qDebug() << "Opening stream with id" << m_deviceId.portAudioIndex;
@@ -994,8 +977,17 @@ int SoundDevicePortAudio::callbackProcessClkRef(
         const SINT framesPerBuffer, CSAMPLE *out, const CSAMPLE *in,
         const PaStreamCallbackTimeInfo *timeInfo,
         PaStreamCallbackFlags statusFlags) {
+    // Read before anything else touches timeInfo (see below). How much audio
+    // the DAC still had queued when this callback started.
+    const double queuedSecs = timeInfo
+            ? timeInfo->outputBufferDacTime - timeInfo->currentTime
+            : -1.0;
     // This must be the very first call, else timeInfo becomes invalid
     updateCallbackEntryToDacTime(framesPerBuffer, timeInfo);
+    mixxx::EngineCallbackProfiler::callbackBegin(
+            framesPerBuffer / m_sampleRate.toDouble(),
+            queuedSecs,
+            (statusFlags & paOutputUnderflow) != 0);
 
     Trace trace("SoundDevicePortAudio::callbackProcessClkRef %1",
             m_deviceId.debugName());
@@ -1130,6 +1122,7 @@ int SoundDevicePortAudio::callbackProcessClkRef(
                 m_deviceId.debugName());
         m_pSoundManager->onDeviceOutputCallback(framesPerBuffer);
     }
+    mixxx::EngineCallbackProfiler::markEngineDone();
 
     if (out) {
         ScopedTimer t(u"SoundDevicePortAudio::callbackProcess output %1",
@@ -1145,11 +1138,13 @@ int SoundDevicePortAudio::callbackProcessClkRef(
 
         composeOutputBuffer(out, framesPerBuffer, 0, m_outputParams.channelCount);
     }
+    mixxx::EngineCallbackProfiler::markOutputDone();
 
     m_pSoundManager->writeProcess(framesPerBuffer);
 
     updateAudioLatencyUsage(framesPerBuffer);
 
+    mixxx::EngineCallbackProfiler::callbackEnd();
     return m_callbackResult.load(std::memory_order_acquire);
 }
 

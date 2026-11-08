@@ -74,6 +74,9 @@ class BrowseTableModel final : public QStandardItemModel, public virtual TrackMo
 
     QString getTrackLocation(const QModelIndex& index) const override;
     TrackId getTrackId(const QModelIndex& index) const override;
+    bool trackIdRequiresImport() const override {
+        return true;
+    }
     QString backingLocation() const override {
         return m_currentDirectory;
     }

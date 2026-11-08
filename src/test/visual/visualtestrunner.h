@@ -29,7 +29,7 @@ namespace mixxx::visualtest {
 ///
 ///     {
 ///       "size": [800, 480],
-///       "config": {"[Group],key": "value", "[Browse],QuickLinks": "{scenario}/media/"},
+///       "config": {"[Group],key": "value", "[Group],path": "{scenario}/media/"},
 ///       "rekordbox": [{"file": "../sine-30.wav", "key": "8A"}],
 ///       "drives": {"SERATO": {"_Serato_/database V2": "drives/serato/database V2",
 ///                             "Music/a.flac": "media/same.flac"}},
@@ -40,7 +40,7 @@ namespace mixxx::visualtest {
 ///         {"waitFor": "[Channel1],track_loaded", "value": 1},
 ///         {"waitForAnalysis": true},
 ///         {"set": "[Tab],overview", "value": 1},
-///         {"sidebar": ["Computer", "Quick Links", "media"]},
+///         {"sidebar": ["Computer", "Removable Devices", "MEDIA"]},
 ///         {"selectRow": "Reference"},
 ///         {"click": "RelatedSearchChip", "text": "ARTIST"},
 ///         {"textColor": "Same Key 8A", "column": "Title", "color": "#6ee128"},

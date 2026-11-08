@@ -88,6 +88,9 @@ class SetlogFeature : public BasePlaylistFeature {
     void slotStartNewDriveSession();
     /// Deletes every session stored on the drive that was right-clicked.
     void slotDeleteDriveHistory();
+    /// Adds the next track of the session on screen that this unit's library
+    /// does not know yet, and puts it in its place in the view.
+    void slotImportNextShownTrack();
 
   private:
     /// Drops every setlog playlist in this unit's library. They are no longer
@@ -114,6 +117,17 @@ class SetlogFeature : public BasePlaylistFeature {
     /// Replaces the contents of the scratch playlist the drive sessions are
     /// shown through.
     void fillDriveViewPlaylist(const QList<TrackId>& trackIds);
+    /// Drops whatever was still to be imported for the session on screen.
+    void cancelShownTrackImports();
+    /// Arms the import of the next track of the session on screen that is not
+    /// in the view yet, or ends the loading state when there is none.
+    void scheduleNextShownTrackImport(int delayMillis);
+    /// Moves the sidebar's loading spinner to the item whose payload is
+    /// `nodeData`; a null QVariant stops it.
+    void setLoadingNode(const QVariant& nodeData);
+    /// Sets the loading flag of the item whose payload is `nodeData`, if it
+    /// is in the tree, and repaints it.
+    void markNodeLoading(const QVariant& nodeData, bool loading);
     /// Drops the session on screen, emptying its view, because the drive it was
     /// read from is gone.
     void forgetShownDriveSession();
@@ -157,6 +171,18 @@ class SetlogFeature : public BasePlaylistFeature {
     /// session on screen can be appended to the view as well.
     QString m_shownMountRoot;
     QString m_shownSessionName;
+    /// The session on screen as read off the drive, in set order, and the
+    /// library track each entry is shown as. An invalid id is a track this
+    /// unit's library does not know yet: adding one means reading its tags
+    /// off the stick, so it is done one track per turn of the event loop
+    /// (slotImportNextShownTrack) instead of before the view can open.
+    QStringList m_shownLocations;
+    QList<TrackId> m_shownTrackIds;
+    bool m_shownTracksRead;
+    int m_nextShownTrackToImport;
+    QTimer m_importTimer;
+    /// Payload of the sidebar item that is showing the spinner, or null.
+    QVariant m_loadingNodeData;
     /// Backstop for drives appearing: SystemSettings emits nothing this object
     /// can connect to at construction time (it is built after the library), and
     /// an eject arrives through Library::mountEjected but a plug-in does not.

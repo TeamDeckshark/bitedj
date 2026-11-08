@@ -63,6 +63,7 @@ CmdlineArgs::CmdlineArgs()
           m_parseForUserFeedbackRequired(false),
           m_logLevel(mixxx::kLogLevelDefault),
           m_logFlushLevel(mixxx::kLogFlushLevelDefault),
+          m_logStdErrLevel(mixxx::LogLevel::Trace),
           m_logMaxFileSize(mixxx::kLogMaxFileSizeDefault),
 // We are not ready to switch to XDG folders under Linux, so keeping $HOME/.mixxx as preferences folder. see #8090
 #ifdef MIXXX_SETTINGS_PATH
@@ -318,6 +319,18 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
     parser.addOption(logFlushLevel);
     parser.addOption(logFlushLevelDeprecated);
 
+    // Bite DJ: left untranslated; only the firmware passes it.
+    const QCommandLineOption logStdErrLevel(QStringLiteral("log-stderr-level"),
+            forUserFeedback ? QStringLiteral(
+                                      "Caps the messages echoed to stderr while mixxx.log is "
+                                      "open: only <level> and more severe ones are printed, "
+                                      "the rest go to mixxx.log alone. Critical messages "
+                                      "always reach stderr. <level> is one of the values "
+                                      "defined at --log-level above.")
+                            : QString(),
+            QStringLiteral("level"));
+    parser.addOption(logStdErrLevel);
+
     const QCommandLineOption logMaxFileSize(QStringLiteral("log-max-file-size"),
             forUserFeedback ? QCoreApplication::translate("CmdlineArgs",
                                       "Sets the maximum file size of the "
@@ -463,6 +476,15 @@ bool CmdlineArgs::parse(const QStringList& arguments, CmdlineArgs::ParseMode mod
             fputs("\nlogFlushLevel wasn't 'trace', 'debug', 'info', 'warning', or 'critical'!\n"
                   "Mixxx will only flush output after a critical message.\n",
                     stdout);
+        }
+    }
+
+    if (parser.isSet(logStdErrLevel)) {
+        if (!parseLogLevel(parser.value(logStdErrLevel), &m_logStdErrLevel)) {
+            fputs("\nlog-stderr-level wasn't 'trace', 'debug', 'info', 'warning', or "
+                  "'critical'!\nMixxx will echo every logged message to stderr.\n",
+                    stdout);
+            m_logStdErrLevel = mixxx::LogLevel::Trace;
         }
     }
 

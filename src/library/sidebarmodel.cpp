@@ -1,5 +1,7 @@
 #include "library/sidebarmodel.h"
 
+#include <QPainter>
+#include <QPixmap>
 #include <QTimer>
 #include <QUrl>
 #include <QtDebug>
@@ -9,6 +11,7 @@
 #include "moc_sidebarmodel.cpp"
 #include "util/assert.h"
 #include "util/cmdlineargs.h"
+#include "util/loadingspinner.h"
 
 namespace {
 
@@ -18,18 +21,78 @@ namespace {
 /// been chosen as a compromise between usability and responsiveness.
 constexpr int kPressedUntilClickedTimeoutMillis = 300;
 
+using mixxx::loadingspinner::kFrameCount;
+
+/// Bite DJ: the spinner of a loading sidebar item, frame `frame`. Drawn in the
+/// sidebar's text colour for an ordinary row and in its selected-text colour
+/// for the selected one (see the WLibrarySidebar block in the skin's
+/// style.qss), which is the row that is usually the one loading.
+QIcon loadingIcon(int frame) {
+    static QList<QIcon> s_frames;
+    if (s_frames.isEmpty()) {
+        constexpr int kSize = 64;
+        const auto drawFrame = [](int step, const QColor& color) {
+            QPixmap pixmap(kSize, kSize);
+            pixmap.fill(Qt::transparent);
+            QPainter painter(&pixmap);
+            mixxx::loadingspinner::paint(&painter, QRectF(0, 0, kSize, kSize), step, color);
+            return pixmap;
+        };
+        for (int step = 0; step < kFrameCount; ++step) {
+            QIcon icon;
+            icon.addPixmap(drawFrame(step, QColor(0xe5, 0xe6, 0xea)), QIcon::Normal);
+            icon.addPixmap(drawFrame(step, Qt::black), QIcon::Selected);
+            s_frames.append(icon);
+        }
+    }
+    return s_frames.at(frame % kFrameCount);
+}
+
 } // anonymous namespace
 
 SidebarModel::SidebarModel(
         QObject* parent)
         : QAbstractItemModel(parent),
           m_iDefaultSelectedIndex(0),
-          m_pressedUntilClickedTimer(new QTimer(this)) {
+          m_pressedUntilClickedTimer(new QTimer(this)),
+          m_pLoadingAnimationTimer(new QTimer(this)),
+          m_loadingFrame(0) {
     m_pressedUntilClickedTimer->setSingleShot(true);
     connect(m_pressedUntilClickedTimer,
             &QTimer::timeout,
             this,
             &SidebarModel::slotPressedUntilClickedTimeout);
+    m_pLoadingAnimationTimer->setInterval(mixxx::loadingspinner::kFrameMillis);
+    connect(m_pLoadingAnimationTimer,
+            &QTimer::timeout,
+            this,
+            &SidebarModel::slotLoadingAnimationTick);
+}
+
+void SidebarModel::animateLoadingIndex(const QModelIndex& index) const {
+    if (!m_loadingIndexes.contains(QPersistentModelIndex(index))) {
+        m_loadingIndexes.append(QPersistentModelIndex(index));
+    }
+    if (!m_pLoadingAnimationTimer->isActive()) {
+        m_pLoadingAnimationTimer->start();
+    }
+}
+
+void SidebarModel::slotLoadingAnimationTick() {
+    m_loadingFrame = (m_loadingFrame + 1) % kFrameCount;
+    const QList<QPersistentModelIndex> indexes = std::move(m_loadingIndexes);
+    m_loadingIndexes.clear();
+    // Every index is repainted once more, loading or not: that is what puts
+    // the item's own icon back once it is done, and data() re-registers the
+    // ones still loading as the view repaints them.
+    for (const QPersistentModelIndex& index : indexes) {
+        if (index.isValid()) {
+            emit dataChanged(index, index, {Qt::DecorationRole});
+        }
+    }
+    if (m_loadingIndexes.isEmpty() && indexes.isEmpty()) {
+        m_pLoadingAnimationTimer->stop();
+    }
 }
 
 void SidebarModel::addLibraryFeature(LibraryFeature* pFeature) {
@@ -355,7 +418,13 @@ QVariant SidebarModel::data(const QModelIndex& index, int role) const {
             return font;
         }
         case Qt::DecorationRole:
+            if (pTreeItem->isLoading()) {
+                animateLoadingIndex(index);
+                return loadingIcon(m_loadingFrame);
+            }
             return pTreeItem->getIcon();
+        case SidebarModel::LoadingRole:
+            return pTreeItem->isLoading();
         case SidebarModel::DataRole:
             return pTreeItem->getData();
         case SidebarModel::IconNameRole:

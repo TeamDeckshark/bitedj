@@ -224,6 +224,7 @@ void WLibrarySidebar::activateSelectedLeaf() {
     if (!idx.isValid() || idx.model()->hasChildren(idx)) {
         return;
     }
+    emit leafIndexActivated(idx);
     emit leafItemActivated(idx.data(Qt::DisplayRole).toString());
     ControlObject::set(ConfigKey(QStringLiteral("[Sidebar]"),
                                QStringLiteral("sidebar_visible")),
@@ -394,6 +395,7 @@ void WLibrarySidebar::mousePressEvent(QMouseEvent* event) {
     }
     bool leaf = !idx.model()->hasChildren(idx);
     if (leaf) {
+        emit leafIndexActivated(idx);
         emit leafItemActivated(idx.data(Qt::DisplayRole).toString());
         ControlObject::set(ConfigKey(QStringLiteral("[Sidebar]"),
                                    QStringLiteral("sidebar_visible")),

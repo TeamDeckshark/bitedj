@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QMutex>
+#include <QPointer>
+#include <QSet>
 #include <QSharedPointer>
 #include <QTimer>
 #include <memory>
@@ -51,6 +53,11 @@ class ControllerManager : public QObject {
     void requestShutdown();
     void requestInitialize();
     void mappingApplied(bool applied);
+    /// Bite DJ: an open controller's device went away (see
+    /// Controller::deviceLost) and automatic reconnection has started.
+    void controllerLost(const QString& name);
+    /// Bite DJ: a lost controller is back and open again.
+    void controllerRecovered(const QString& name);
 
   public slots:
     void slotApplyMapping(Controller* pController,
@@ -77,6 +84,13 @@ class ControllerManager : public QObject {
     void openController(Controller* pController);
     void closeController(Controller* pController);
 
+    // Bite DJ: reconnecting a controller whose USB device dropped off the bus.
+    // Without this the device came back with audio but no MIDI input until the
+    // DJ found Settings -> Devices -> Rescan.
+    void onControllerLost(const QPointer<Controller>& pController, const QString& name);
+    void attemptControllerRecovery();
+    void forgetRecoveredControllers();
+
     UserSettingsPointer m_pConfig;
     ControllerLearningEventFilter* m_pControllerLearningEventFilter;
     std::unique_ptr<SoftTakeoverIndicator> m_pSoftTakeoverIndicator;
@@ -88,4 +102,8 @@ class ControllerManager : public QObject {
     QSharedPointer<MappingInfoEnumerator> m_pMainThreadUserMappingEnumerator;
     QSharedPointer<MappingInfoEnumerator> m_pMainThreadSystemMappingEnumerator;
     bool m_skipPoll;
+    // Names of the controllers lost and not yet reopened, and the timer that
+    // checks for their return.
+    QSet<QString> m_lostControllers;
+    QTimer m_recoveryTimer;
 };
